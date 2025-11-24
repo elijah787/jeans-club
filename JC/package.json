@@ -1,0 +1,12 @@
+{
+  "name": "jeans-club-loyalty",
+  "version": "1.0.0",
+  "description": "Jean's Club Loyalty Program",
+  "main": "index.html",
+  "scripts": {
+    "dev": "echo 'This is a static site'"
+  },
+  "keywords": ["loyalty", "jeans", "club"],
+  "author": "Jean's Club",
+  "license": "MIT"
+}
