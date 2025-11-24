@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jean's Club - Loyalty Program</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Additional meta tags to prevent password saving -->
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="format-detection" content="email=no">
+    <meta name="google" content="notranslate">
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Load EmailJS -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1> JEAN'S CLUB</h1>
+            <p>Earn Points • Get Rewards • Exclusive Benefits</p>
+        </header>
+
+        <!-- Signup Section -->
+        <div class="section" id="signupSection">
+            <h2>Join Jean's Club - It's Free!</h2>
+            <p class="subtitle">Sign up in seconds</p>
+            
+            <div class="social-buttons">
+                <!-- Google Signup Button -->
+                <div class="google-signin-button" style="width: 100%; margin-bottom: 15px;"></div>
+                
+                <!-- Quick Email Signup -->
+                <div class="email-signup" id="emailSignupSection">
+                    <h4>Or sign up with email:</h4>
+                    <input type="text" 
+                           id="userName" 
+                           placeholder="Your Full Name" 
+                           autocomplete="new-name"
+                           autocorrect="off"
+                           autocapitalize="words"
+                           spellcheck="false"
+                           style="width: 100%; padding: 12px; margin: 5px 0; border: 2px solid #ddd; border-radius: 6px;">
+                    <input type="email" 
+                           id="userEmail" 
+                           placeholder="Your Email" 
+                           autocomplete="new-email"
+                           autocorrect="off"
+                           autocapitalize="off"
+                           spellcheck="false"
+                           style="width: 100%; padding: 12px; margin: 5px 0; border: 2px solid #ddd; border-radius: 6px;">
+                    <input type="password" 
+                           id="userPassword" 
+                           placeholder="Create Password (min 4 characters)" 
+                           autocomplete="new-password"
+                           autocorrect="off"
+                           autocapitalize="off"
+                           spellcheck="false"
+                           style="width: 100%; padding: 12px; margin: 5px 0; border: 2px solid #ddd; border-radius: 6px;">
+                    <button class="btn primary" onclick="signUpWithEmail()" style="width: 100%; margin-top: 10px;">
+                        Create Account
+                    </button>
+                </div>
+            </div>
+            
+            <div class="referral-section">
+                <label>Friend's Referral Code (Optional):</label>
+                <input type="text" 
+                       id="referralCode" 
+                       placeholder="Enter JEANS123" 
+                       autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="characters"
+                       spellcheck="false">
+                <p class="small">Use a friend's code: You get 10 points for free</p>
+            </div>
+
+            <div class="benefits">
+                <h3>🎁 Membership Benefits:</h3>
+                <ul>
+                    <li>✅ <strong>1 point = 750 UGX spent</strong></li>
+                    <li>✅ <strong>Redeem: 1 point = 0.5% discount</strong></li>
+                    <li>✅ <strong>Automatic tier upgrades</strong></li>
+                    <li>✅ <strong>Refer friends: You get 100pts, they get 10pts!</strong></li>
+                </ul>
+
+                <div class="tiers-info">
+                    <h4>🏆 Tier System:</h4>
+                    <div class="tier-item">
+                        <strong class="tier-pearl">PEARL</strong> - 0-7,499 points (10% max discount)
+                    </div>
+                    <div class="tier-item">
+                        <strong class="tier-bronze">BRONZE</strong> - 7,500-24,999 points (15% max)
+                    </div>
+                    <div class="tier-item">
+                        <strong class="tier-silver">SILVER</strong> - 25,000-99,999 points (20% max)
+                    </div>
+                    <div class="tier-item">
+                        <strong class="tier-gold">GOLD</strong> - 100,000-499,999 points (25% max)
+                    </div>
+                    <div class="tier-item">
+                        <strong class="tier-platinum">PLATINUM</strong> - 500,000+ points (30% max)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Section -->
+        <div class="section hidden" id="loginSection">
+            <h2>Welcome Back!</h2>
+            <p class="subtitle">Login to your Jean's Club account</p>
+            
+            <div class="login-form">
+                <input type="text" 
+                       id="loginJCId" 
+                       placeholder="Your JC ID (e.g., JC123456)" 
+                       autocomplete="username"
+                       autocorrect="off"
+                       autocapitalize="characters"
+                       spellcheck="false"
+                       style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 6px;">
+                <input type="email" 
+                       id="loginEmail" 
+                       placeholder="Your Email" 
+                       autocomplete="email"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       spellcheck="false"
+                       style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 6px;">
+                <input type="password" 
+                       id="loginPassword" 
+                       placeholder="Your Password" 
+                       autocomplete="current-password"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       spellcheck="false"
+                       style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 6px;">
+                <button class="btn primary" onclick="loginWithCredentials()" style="width: 100%; margin: 10px 0;">
+                    Login to Account
+                </button>
+                <p style="text-align: center; margin-top: 15px;">
+                    Don't have an account? 
+                    <a href="#" onclick="showSignupScreen()" style="color: #3498db; text-decoration: underline;">Sign up here</a>
+                </p>
+                
+                <!-- Google Login -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <p style="text-align: center; color: #666; font-size: 14px;">Or </p>
+                    <div class="google-login-button" style="width: 100%; margin: 10px 0;"></div>
+                </div>
+                
+                <!-- Staff Access -->
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <p style="text-align: center; color: #666; font-size: 14px;">Staff Access:</p>
+                    <button class="btn admin-btn" onclick="showAdminLogin()" style="width: 100%; margin: 10px 0;">
+                        Staff/Admin Login
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Member Dashboard -->
+        <div class="section hidden" id="dashboardSection">
+            <div class="dashboard-header">
+                <h2>Welcome, <span id="memberName">-</span>!</h2>
+                <button class="btn logout" onclick="logout()">Logout</button>
+            </div>
+            
+            <div class="member-card">
+                <div class="member-badge">
+                    <span id="memberTier" class="tier-pearl">PEARL</span>
+                    <div class="points-display"><span id="memberPoints">0</span> points</div>
+                </div>
+                <div class="member-details">
+                    <p><strong>JC ID:</strong> <span id="memberJcId">-</span></p>
+                    <p><strong>Email:</strong> <span id="memberEmail">-</span></p>
+                    <p><strong>Login Method:</strong> <span id="memberLoginMethod">-</span></p>
+                    <p><strong>Total Spent:</strong> <span id="totalSpent">0</span> UGX</p>
+                    <p><strong>Your Referral Code:</strong> <code id="memberReferralCode">-</code></p>
+                    <p id="referralStats" style="font-size: 14px; color: #666;"></p>
+                </div>
+            </div>
+
+            <!-- Progress to next tier -->
+            <div class="tier-progress">
+                <h4>Progress to Next Tier:</h4>
+                <div id="tierProgressBar" class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div id="tierProgressText" class="progress-text"></div>
+            </div>
+
+            <!-- Discount Calculator -->
+            <div class="discount-calculator">
+                <h3>💰 Calculate Discount</h3>
+                <input type="number" 
+                       id="discountPoints" 
+                       placeholder="Points to use for discount" 
+                       autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="off"
+                       spellcheck="false"
+                       style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 6px;">
+                <button class="btn primary" onclick="calculateDiscount()" style="width: 100%; margin: 5px 0;">
+                    Calculate Discount
+                </button>
+                <div id="discountResult" class="discount-result"></div>
+                <button class="btn secondary" onclick="redeemPoints()" style="width: 100%; margin: 5px 0;">
+                    Generate Discount Voucher
+                </button>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="actions">
+                <button class="btn referral" onclick="shareReferral()">
+                    👥 Share Referral Code
+                </button>
+            </div>
+
+            <!-- Points History -->
+            <div class="history">
+                <h3>Recent Activity</h3>
+                <div id="activityLog"></div>
+            </div>
+        </div>
+
+        <!-- Admin Section -->
+        <div class="section hidden" id="adminSection">
+            <h2>👑 Staff Panel - Member Management</h2>
+            <div class="admin-actions">
+                <button class="btn primary" onclick="viewAllMembers()">View All Members</button>
+                <button class="btn danger" onclick="showDeleteMemberSection()">Delete Member Account</button>
+                <button class="btn" onclick="showLoginScreen()">Back to Login</button>
+            </div>
+            
+            <!-- Admin Purchase Form -->
+            <div class="admin-purchase-form">
+                <h3>Add Purchase to Member</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end;">
+                    <div>
+                        <label>JC ID:</label>
+                        <input type="text" 
+                               id="purchaseJCId" 
+                               placeholder="JC123456" 
+                               autocomplete="off"
+                               autocorrect="off"
+                               autocapitalize="characters"
+                               spellcheck="false"
+                               style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px;">
+                    </div>
+                    <div>
+                        <label>Amount (UGX):</label>
+                        <input type="number" 
+                               id="purchaseAmount" 
+                               placeholder="50000" 
+                               autocomplete="off"
+                               autocorrect="off"
+                               autocapitalize="off"
+                               spellcheck="false"
+                               style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px;">
+                    </div>
+                    <div>
+                        <label>Description:</label>
+                        <input type="text" 
+                               id="purchaseDescription" 
+                               placeholder="Blue Jeans" 
+                               autocomplete="off"
+                               autocorrect="off"
+                               autocapitalize="words"
+                               spellcheck="false"
+                               style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px;">
+                    </div>
+                    <div>
+                        <button class="btn primary" onclick="adminAddPurchase()" style="padding: 10px 20px;">Add Purchase</button>
+                    </div>
+                </div>
+                <div id="purchaseResult" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- Delete Member Section -->
+            <div class="admin-delete-section hidden" id="deleteMemberSection">
+                <h3 style="color: #e74c3c;">⚠️ Delete Member Account</h3>
+                <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end;">
+                    <div>
+                        <label>JC ID to Delete:</label>
+                        <input type="text" 
+                               id="deleteJCId" 
+                               placeholder="JC123456" 
+                               autocomplete="off"
+                               autocorrect="off"
+                               autocapitalize="characters"
+                               spellcheck="false"
+                               style="width: 100%; padding: 10px; border: 2px solid #e74c3c; border-radius: 6px;">
+                    </div>
+                    <div>
+                        <button class="btn danger" onclick="confirmDeleteMember()" style="padding: 10px 20px;">Delete Account</button>
+                    </div>
+                </div>
+                <div id="deleteResult" style="margin-top: 10px;"></div>
+            </div>
+
+            <div id="adminContent"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Initialize EmailJS when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof emailjs !== 'undefined') {
+                emailjs.init("88iWYXs2nKomA_ul0");
+                console.log('✅ EmailJS initialized for real emails!');
+            }
+        });
+    </script>
+</body>
+</html>
