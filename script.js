@@ -1,168 +1,76 @@
-// Email Service - UPDATED FOR REAL EMAILS
-class EmailService {
+// Google Apps Script Email Service - COMPLETELY FREE
+class GoogleAppsEmailService {
     constructor() {
-        this.isActive = false;
-        this.init();
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbw2aJs7U4f_FO10mgQ80grXf_63MQlrFe6S9GOTWHunCa3zNmUY0Adp_98fpC5nu21I/exec';
+        this.isActive = true;
     }
 
-    async init() {
+    async sendEmailToGoogleScript(email, type, memberData, extraData = null) {
         try {
-            if (typeof emailjs === 'undefined') {
-                console.log('❌ EmailJS not loaded');
-                return;
-            }
+            const payload = {
+                email: email,
+                type: type,
+                memberData: memberData,
+                subject: this.getSubject(type, memberData, extraData),
+                message: this.getMessage(type, extraData)
+            };
+
+            console.log('Sending email via Google Apps Script:', payload);
+
+            const response = await fetch(this.scriptURL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            console.log('Email sent via Google Apps Script');
+            return { success: true, fallback: false };
             
-            // Test initialization
-            await emailjs.init("88iWYXs2nKomA_ul0");
-            this.isActive = true;
-            console.log('✅ EmailJS ready for real emails');
         } catch (error) {
-            console.error('❌ EmailJS init failed:', error);
-            this.isActive = false;
+            console.error('Google Apps Script email failed:', error);
+            return this.fallbackEmail(email, memberData, type, extraData);
+        }
+    }
+
+    getSubject(type, memberData, extraData) {
+        switch(type) {
+            case 'welcome': return 'Welcome to Jean\'s Club!';
+            case 'purchase': return 'Purchase Recorded - ' + extraData.description;
+            case 'discount': return extraData.discountPercentage + '% Discount Voucher';
+            case 'referral': return 'Referral Success! +100 Points';
+            default: return 'Message from Jean\'s Club';
+        }
+    }
+
+    getMessage(type, extraData) {
+        switch(type) {
+            case 'purchase': return extraData.description + ' - ' + extraData.amount.toLocaleString() + ' UGX';
+            case 'referral': return extraData.newMemberName + ' (' + extraData.newMemberJCId + ')';
+            default: return '';
         }
     }
 
     async sendWelcomeEmail(email, memberData) {
-        console.log('📧 Attempting to send REAL welcome email to:', email);
-        
-        if (!this.isActive) {
-            console.log('❌ EmailJS not active, using fallback');
-            return this.fallbackEmail(email, memberData, 'welcome');
-        }
-
-        try {
-            // UPDATED: Match template variables exactly
-            const templateParams = {
-                to_email: email,
-                from_name: "Jean's Club",
-                subject: `🎉 Welcome to Jean's Club!`,
-                member_name: memberData.name,
-                jc_id: memberData.jcId,
-                member_tier: memberData.tier,
-                member_points: memberData.points,
-                referral_code: memberData.referralCode,
-                welcome_points: "10",
-                message: `Welcome to Jean's Club! Your account has been created successfully.`
-            };
-
-            console.log('📧 Sending with params:', templateParams);
-
-            const response = await emailjs.send(
-                'service_dcbc45g',
-                'template_5wvl5cb',
-                templateParams
-            );
-
-            console.log('✅ REAL welcome email sent successfully to:', email);
-            return { 
-                success: true, 
-                message: "Welcome email sent successfully!",
-                fallback: false
-            };
-        } catch (error) {
-            console.error('❌ Real email failed:', error);
-            return this.fallbackEmail(email, memberData, 'welcome');
-        }
+        console.log('Attempting to send welcome email to:', email);
+        return this.sendEmailToGoogleScript(email, 'welcome', memberData);
     }
 
     async sendPurchaseEmail(email, memberData, purchaseData) {
-        console.log('📧 Attempting to send REAL purchase email to:', email);
-        
-        if (!this.isActive) {
-            return this.fallbackEmail(email, memberData, 'purchase', purchaseData);
-        }
-
-        try {
-            // UPDATED: Match template variables
-            const templateParams = {
-                to_email: email,
-                from_name: "Jean's Club",
-                subject: `🛍️ Purchase Recorded - ${purchaseData.description}`,
-                member_name: memberData.name,
-                jc_id: memberData.jcId,
-                member_tier: memberData.tier,
-                member_points: memberData.points,
-                message: `Your purchase of ${purchaseData.description} for ${purchaseData.amount.toLocaleString()} UGX has been recorded. You earned ${purchaseData.pointsEarned} points!`
-            };
-
-            await emailjs.send(
-                'service_dcbc45g',
-                'template_5wvl5cb',
-                templateParams
-            );
-
-            console.log('✅ REAL purchase email sent successfully to:', email);
-            return { success: true, message: "Purchase email sent!", fallback: false };
-        } catch (error) {
-            console.error('❌ Real purchase email failed:', error);
-            return this.fallbackEmail(email, memberData, 'purchase', purchaseData);
-        }
+        console.log('Attempting to send purchase email to:', email);
+        return this.sendEmailToGoogleScript(email, 'purchase', memberData, purchaseData);
     }
 
     async sendDiscountEmail(email, memberData, discountData) {
-        console.log('📧 Attempting to send REAL discount email to:', email);
-        
-        if (!this.isActive) {
-            return this.fallbackEmail(email, memberData, 'discount', discountData);
-        }
-
-        try {
-            // UPDATED: Match template variables
-            const templateParams = {
-                to_email: email,
-                from_name: "Jean's Club",
-                subject: `💰 ${discountData.discountPercentage}% Discount Voucher`,
-                member_name: memberData.name,
-                jc_id: memberData.jcId,
-                member_points: memberData.points,
-                message: `Your ${discountData.discountPercentage}% discount voucher has been created! You used ${discountData.pointsUsed} points. Present this email at checkout.`
-            };
-
-            await emailjs.send(
-                'service_dcbc45g',
-                'template_5wvl5cb',
-                templateParams
-            );
-
-            console.log('✅ REAL discount email sent successfully to:', email);
-            return { success: true, message: "Discount email sent!", fallback: false };
-        } catch (error) {
-            console.error('❌ Real discount email failed:', error);
-            return this.fallbackEmail(email, memberData, 'discount', discountData);
-        }
+        console.log('Attempting to send discount email to:', email);
+        return this.sendEmailToGoogleScript(email, 'discount', memberData, discountData);
     }
 
     async sendReferralEmail(email, memberData, referralData) {
-        console.log('📧 Attempting to send REAL referral email to:', email);
-        
-        if (!this.isActive) {
-            return this.fallbackEmail(email, memberData, 'referral', referralData);
-        }
-
-        try {
-            // UPDATED: Match template variables
-            const templateParams = {
-                to_email: email,
-                from_name: "Jean's Club",
-                subject: `👥 Referral Success! +100 Points`,
-                member_name: memberData.name,
-                jc_id: memberData.jcId,
-                member_points: memberData.points,
-                message: `Congratulations! ${referralData.newMemberName} (${referralData.newMemberJCId}) joined using your referral code! You earned 100 bonus points.`
-            };
-
-            await emailjs.send(
-                'service_dcbc45g',
-                'template_5wvl5cb',
-                templateParams
-            );
-
-            console.log('✅ REAL referral email sent successfully to:', email);
-            return { success: true, message: "Referral email sent!", fallback: false };
-        } catch (error) {
-            console.error('❌ Real referral email failed:', error);
-            return this.fallbackEmail(email, memberData, 'referral', referralData);
-        }
+        console.log('Attempting to send referral email to:', email);
+        return this.sendEmailToGoogleScript(email, 'referral', memberData, referralData);
     }
 
     fallbackEmail(email, memberData, type, extraData = null) {
@@ -170,75 +78,27 @@ class EmailService {
 
         switch(type) {
             case 'welcome':
-                subject = `🎉 Welcome to Jean's Club!`;
-                content = `
-Hello ${memberData.name},
-
-Welcome to Jean's Club! Your account has been created successfully.
-
-MEMBERSHIP DETAILS:
-• JC ID: ${memberData.jcId}
-• Tier: ${memberData.tier}
-• Points: ${memberData.points}
-• Referral Code: ${memberData.referralCode}
-
-Start earning points with your purchases!
-
-Thank you for joining Jean's Club!
-                `;
+                subject = 'Welcome to Jean\'s Club!';
+                content = 'Hello ' + memberData.name + ',\n\nWelcome to Jean\'s Club! Your account has been created successfully.\n\nMEMBERSHIP DETAILS:\n• JC ID: ' + memberData.jcId + '\n• Tier: ' + memberData.tier + '\n• Points: ' + memberData.points + '\n• Referral Code: ' + memberData.referralCode + '\n\nStart earning points with your purchases!\n\nThank you for joining Jean\'s Club!';
                 break;
 
             case 'purchase':
-                subject = `🛍️ Purchase Recorded - ${extraData.description}`;
-                content = `
-Hello ${memberData.name},
-
-Your purchase has been recorded!
-
-PURCHASE DETAILS:
-• Amount: ${extraData.amount.toLocaleString()} UGX
-• Description: ${extraData.description}
-• Points Earned: +${extraData.pointsEarned}
-• New Balance: ${memberData.points} points
-
-Thank you for shopping with Jean's Club!
-                `;
+                subject = 'Purchase Recorded - ' + extraData.description;
+                content = 'Hello ' + memberData.name + ',\n\nYour purchase has been recorded!\n\nPURCHASE DETAILS:\n• Amount: ' + extraData.amount.toLocaleString() + ' UGX\n• Description: ' + extraData.description + '\n• Points Earned: +' + extraData.pointsEarned + '\n• New Balance: ' + memberData.points + ' points\n\nThank you for shopping with Jean\'s Club!';
                 break;
 
             case 'discount':
-                subject = `💰 ${extraData.discountPercentage}% Discount Voucher`;
-                content = `
-Hello ${memberData.name},
-
-Your discount voucher has been created!
-
-DISCOUNT DETAILS:
-• Discount: ${extraData.discountPercentage}%
-• Points Used: ${extraData.pointsUsed}
-• Max Possible: ${extraData.maxPossibleDiscount}
-
-Present this email at checkout to redeem your discount!
-                `;
+                subject = extraData.discountPercentage + '% Discount Voucher';
+                content = 'Hello ' + memberData.name + ',\n\nYour discount voucher has been created!\n\nDISCOUNT DETAILS:\n• Discount: ' + extraData.discountPercentage + '%\n• Points Used: ' + extraData.pointsUsed + '\n• Max Possible: ' + extraData.maxPossibleDiscount + '\n\nPresent this email at checkout to redeem your discount!';
                 break;
 
             case 'referral':
-                subject = `👥 Referral Success! +100 Points`;
-                content = `
-Hello ${memberData.name},
-
-Congratulations! Someone joined using your referral code!
-
-REFERRAL DETAILS:
-• New Member: ${extraData.newMemberName} (${extraData.newMemberJCId})
-• Points Earned: 100 points
-• New Balance: ${memberData.points} points
-
-Keep sharing your code: ${memberData.referralCode}
-                `;
+                subject = 'Referral Success! +100 Points';
+                content = 'Hello ' + memberData.name + ',\n\nCongratulations! Someone joined using your referral code!\n\nREFERRAL DETAILS:\n• New Member: ' + extraData.newMemberName + ' (' + extraData.newMemberJCId + ')\n• Points Earned: 100 points\n• New Balance: ' + memberData.points + ' points\n\nKeep sharing your code: ' + memberData.referralCode;
                 break;
         }
 
-        console.log('📧 FALLBACK EMAIL CONTENT:');
+        console.log('FALLBACK EMAIL CONTENT:');
         console.log('To:', email);
         console.log('Subject:', subject);
         console.log('Content:', content);
@@ -273,88 +133,100 @@ Keep sharing your code: ${memberData.referralCode}
 }
 
 // Initialize email service
-const emailService = new EmailService();
+const emailService = new GoogleAppsEmailService();
 
-// Completely disable autofill and password saving
-document.addEventListener('DOMContentLoaded', function() {
-    // Method 1: Add hidden fake fields to confuse password managers
-    const fakeForm = document.createElement('div');
-    fakeForm.style.display = 'none';
-    fakeForm.innerHTML = `
-        <input type="text" name="fake-username" autocomplete="new-username">
-        <input type="password" name="fake-password" autocomplete="new-password">
-        <input type="email" name="fake-email" autocomplete="new-email">
-    `;
-    document.body.appendChild(fakeForm);
-    
-    // Method 2: Dynamically change input types and names
-    const inputs = document.querySelectorAll('input[type="password"], input[type="email"], input[type="text"]');
-    inputs.forEach(input => {
-        // Store original type
-        const originalType = input.type;
-        
-        // Change to text temporarily to confuse password managers
-        setTimeout(() => {
-            if (input.type === 'password') {
-                input.type = 'text';
-                setTimeout(() => {
-                    input.type = 'password';
-                }, 100);
-            }
-        }, 50);
-        
-        // Prevent context menu on inputs
-        input.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-            return false;
-        });
-        
-        // Prevent drag and drop
-        input.addEventListener('dragstart', function(e) {
-            e.preventDefault();
-            return false;
-        });
-        
-        // Prevent copy/paste for password fields
-        if (input.type === 'password') {
-            input.addEventListener('copy', function(e) {
-                e.preventDefault();
-                return false;
-            });
-            
-            input.addEventListener('paste', function(e) {
-                e.preventDefault();
-                return false;
-            });
-            
-            input.addEventListener('cut', function(e) {
-                e.preventDefault();
-                return false;
+// Centralized Storage Manager
+class CentralStorage {
+    constructor() {
+        this.storageKey = 'jeansClubCentralData';
+        this.init();
+    }
+
+    async init() {
+        // Initialize with empty data if not exists
+        if (!this.getData()) {
+            this.setData({
+                members: [],
+                lastUpdate: new Date().toISOString(),
+                version: '1.0'
             });
         }
-    });
-    
-    // Method 3: Clear inputs on page load
-    setTimeout(() => {
-        const clearableInputs = document.querySelectorAll('input[type="email"], input[type="password"], input[type="text"]');
-        clearableInputs.forEach(input => {
-            if (!input.value && input.getAttribute('data-cleared') !== 'true') {
-                input.value = '';
-                input.setAttribute('data-cleared', 'true');
-            }
-        });
-    }, 100);
-});
+    }
 
-// Google OAuth Configuration - REAL ID from Google Cloud
+    getData() {
+        try {
+            return JSON.parse(localStorage.getItem(this.storageKey));
+        } catch (error) {
+            console.error('Error reading storage:', error);
+            return null;
+        }
+    }
+
+    setData(data) {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            console.error('Error writing to storage:', error);
+            return false;
+        }
+    }
+
+    getAllMembers() {
+        const data = this.getData();
+        return data ? data.members : [];
+    }
+
+    saveMember(member) {
+        const data = this.getData();
+        if (!data) return false;
+
+        // Check if member already exists
+        const existingIndex = data.members.findIndex(m => m.jcId === member.jcId);
+        
+        if (existingIndex >= 0) {
+            // Update existing member
+            data.members[existingIndex] = member;
+        } else {
+            // Add new member
+            data.members.push(member);
+        }
+
+        data.lastUpdate = new Date().toISOString();
+        return this.setData(data);
+    }
+
+    deleteMember(jcId) {
+        const data = this.getData();
+        if (!data) return false;
+
+        data.members = data.members.filter(m => m.jcId !== jcId);
+        data.lastUpdate = new Date().toISOString();
+        return this.setData(data);
+    }
+
+    getMemberByJCId(jcId) {
+        const data = this.getData();
+        if (!data) return null;
+        return data.members.find(m => m.jcId === jcId);
+    }
+
+    getMemberByEmail(email) {
+        const data = this.getData();
+        if (!data) return null;
+        return data.members.find(m => m.email === email);
+    }
+}
+
+// Google OAuth Configuration
 const googleConfig = {
     clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
 };
 
 // Jean's Club Configuration
 const jeansClubConfig = {
-    pointValue: 750, // 1 point = 750 UGX spent
-    redemptionRate: 0.005, // 0.5% discount per point
+    pointValue: 750,
+    redemptionRate: 0.005,
     
     tiers: {
         PEARL: { 
@@ -402,10 +274,10 @@ const jeansClubConfig = {
 
 class JeansClubManager {
     constructor() {
-        this.members = new Map();
+        this.storage = new CentralStorage();
         this.currentMember = null;
         this.isAdmin = false;
-        this.loadFromStorage();
+        this.loadCurrentMember();
     }
 
     generateJCId() {
@@ -416,19 +288,30 @@ class JeansClubManager {
         return 'JEANS' + Math.random().toString(36).substr(2, 6).toUpperCase();
     }
 
+    loadCurrentMember() {
+        const savedMember = localStorage.getItem('jeansClubCurrentMember');
+        if (savedMember) {
+            this.currentMember = JSON.parse(savedMember);
+        }
+    }
+
+    saveCurrentMember() {
+        if (this.currentMember) {
+            localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
+        }
+    }
+
     // Create account with password
     async createAccount(userData, password, referralCode = null) {
         // Check if email already exists
-        for (let [id, member] of this.members) {
-            if (member.email === userData.email) {
-                return { success: false, message: "Email already registered" };
-            }
+        const existingMember = this.storage.getMemberByEmail(userData.email);
+        if (existingMember) {
+            return { success: false, message: "Email already registered" };
         }
 
         const memberId = 'member_' + Date.now();
         const hashedPassword = this.hashPassword(password);
         
-        // New member gets 10 points
         const startingPoints = 10;
         
         const newMember = {
@@ -446,23 +329,34 @@ class JeansClubManager {
             activityLog: [],
             joinedDate: new Date().toISOString(),
             totalSpent: 0,
-            challenges: []
+            challenges: [],
+            referrals: []
         };
 
-        this.members.set(memberId, newMember);
+        // Save to centralized storage
+        if (!this.storage.saveMember(newMember)) {
+            return { success: false, message: "Failed to save member data" };
+        }
+
         this.currentMember = newMember;
+        this.saveCurrentMember();
         
-        this.logActivity(memberId, `🎉 Account created - Welcome to Jean's Club!`, startingPoints);
+        this.logActivity(memberId, 'Account created - Welcome to Jean\'s Club!', startingPoints);
         
-        // Process referral if exists - REFERRER GETS 100 POINTS
+        // Process referral if exists
         if (referralCode) {
             await this.processReferral(referralCode, newMember.jcId, newMember.name);
         }
 
-        // Send welcome email using our email service
-        const emailResult = await emailService.sendWelcomeEmail(newMember.email, newMember);
+        // Send welcome email
+        const emailResult = await emailService.sendWelcomeEmail(newMember.email, {
+            name: newMember.name,
+            jcId: newMember.jcId,
+            tier: newMember.tier,
+            points: newMember.points,
+            referralCode: newMember.referralCode
+        });
 
-        this.saveToStorage();
         return { 
             success: true, 
             member: newMember,
@@ -474,15 +368,12 @@ class JeansClubManager {
     // Create account with Google
     async createAccountWithGoogle(userData, referralCode = null) {
         // Check if email already exists
-        for (let [id, member] of this.members) {
-            if (member.email === userData.email) {
-                return { success: false, message: "Email already registered" };
-            }
+        const existingMember = this.storage.getMemberByEmail(userData.email);
+        if (existingMember) {
+            return { success: false, message: "Email already registered" };
         }
 
         const memberId = 'member_' + Date.now();
-        
-        // New member gets 10 points
         const startingPoints = 10;
         
         const newMember = {
@@ -490,7 +381,7 @@ class JeansClubManager {
             jcId: this.generateJCId(),
             email: userData.email,
             name: userData.name,
-            password: null, // No password for Google users
+            password: null,
             googleId: userData.googleId,
             loginMethod: 'google',
             points: startingPoints,
@@ -501,23 +392,34 @@ class JeansClubManager {
             activityLog: [],
             joinedDate: new Date().toISOString(),
             totalSpent: 0,
-            challenges: []
+            challenges: [],
+            referrals: []
         };
 
-        this.members.set(memberId, newMember);
+        // Save to centralized storage
+        if (!this.storage.saveMember(newMember)) {
+            return { success: false, message: "Failed to save member data" };
+        }
+
         this.currentMember = newMember;
+        this.saveCurrentMember();
         
-        this.logActivity(memberId, `🎉 Account created with Google - Welcome to Jean's Club!`, startingPoints);
+        this.logActivity(memberId, 'Account created with Google - Welcome to Jean\'s Club!', startingPoints);
         
-        // Process referral if exists - REFERRER GETS 100 POINTS
+        // Process referral if exists
         if (referralCode) {
             await this.processReferral(referralCode, newMember.jcId, newMember.name);
         }
 
         // Send welcome email
-        const emailResult = await emailService.sendWelcomeEmail(newMember.email, newMember);
+        const emailResult = await emailService.sendWelcomeEmail(newMember.email, {
+            name: newMember.name,
+            jcId: newMember.jcId,
+            tier: newMember.tier,
+            points: newMember.points,
+            referralCode: newMember.referralCode
+        });
 
-        this.saveToStorage();
         return { 
             success: true, 
             member: newMember,
@@ -528,18 +430,19 @@ class JeansClubManager {
 
     // Login with BOTH JC ID AND Email
     login(jcId, email, password) {
-        for (let [id, member] of this.members) {
-            if (member.jcId === jcId && member.email === email) {
-                if (member.loginMethod === 'google') {
-                    return { success: false, message: "This account uses Google login. Please use Google Sign-In." };
-                }
-                if (this.verifyPassword(password, member.password)) {
-                    this.currentMember = member;
-                    this.logActivity(member.id, `🔐 Logged in to account`, 0);
-                    return { success: true, member: member };
-                } else {
-                    return { success: false, message: "Invalid password" };
-                }
+        const member = this.storage.getMemberByJCId(jcId);
+        
+        if (member && member.email === email) {
+            if (member.loginMethod === 'google') {
+                return { success: false, message: "This account uses Google login. Please use Google Sign-In." };
+            }
+            if (this.verifyPassword(password, member.password)) {
+                this.currentMember = member;
+                this.saveCurrentMember();
+                this.logActivity(member.id, 'Logged in to account', 0);
+                return { success: true, member: member };
+            } else {
+                return { success: false, message: "Invalid password" };
             }
         }
         return { success: false, message: "Account not found - check JC ID and email" };
@@ -547,25 +450,20 @@ class JeansClubManager {
 
     // Login with Google
     loginWithGoogle(email) {
-        for (let [id, member] of this.members) {
-            if (member.email === email && member.loginMethod === 'google') {
-                this.currentMember = member;
-                this.logActivity(member.id, `🔐 Logged in with Google`, 0);
-                return { success: true, member: member };
-            }
+        const member = this.storage.getMemberByEmail(email);
+        
+        if (member && member.loginMethod === 'google') {
+            this.currentMember = member;
+            this.saveCurrentMember();
+            this.logActivity(member.id, 'Logged in with Google', 0);
+            return { success: true, member: member };
         }
         return { success: false, message: "Google account not found. Please sign up first." };
     }
 
     // Admin function to add purchase
     async addPurchase(memberJCId, amountUGX, description) {
-        let targetMember = null;
-        for (let [id, member] of this.members) {
-            if (member.jcId === memberJCId) {
-                targetMember = member;
-                break;
-            }
-        }
+        const targetMember = this.storage.getMemberByJCId(memberJCId);
 
         if (!targetMember) {
             return { success: false, message: "Member not found" };
@@ -585,7 +483,18 @@ class JeansClubManager {
             pointsEarned: pointsEarned
         });
 
-        this.logActivity(targetMember.id, `🛍️ ${description} - ${amountUGX.toLocaleString()} UGX`, pointsEarned);
+        this.logActivity(targetMember.id, description + ' - ' + amountUGX.toLocaleString() + ' UGX', pointsEarned);
+
+        // Save updated member
+        if (!this.storage.saveMember(targetMember)) {
+            return { success: false, message: "Failed to update member data" };
+        }
+
+        // Update current member if it's the same member
+        if (this.currentMember && this.currentMember.jcId === memberJCId) {
+            this.currentMember = targetMember;
+            this.saveCurrentMember();
+        }
 
         // Send purchase confirmation email
         const purchaseData = {
@@ -595,7 +504,6 @@ class JeansClubManager {
         };
         await emailService.sendPurchaseEmail(targetMember.email, targetMember, purchaseData);
 
-        this.saveToStorage();
         return {
             success: true,
             pointsEarned: pointsEarned,
@@ -605,13 +513,14 @@ class JeansClubManager {
         };
     }
 
-    // Process referral - REFERRER GETS 100 POINTS
+    // Process referral
     async processReferral(referralCode, newMemberJCId, newMemberName) {
-        for (let [id, member] of this.members) {
+        const allMembers = this.storage.getAllMembers();
+        
+        for (const member of allMembers) {
             if (member.referralCode === referralCode) {
-                // REFERRER GETS 100 POINTS
                 member.points += 100;
-                this.logActivity(member.id, `👥 Referral bonus - ${newMemberJCId} joined using your code!`, 100);
+                this.logActivity(member.id, 'Referral bonus - ' + newMemberJCId + ' joined using your code!', 100);
                 member.tier = this.calculateTier(member.points);
                 
                 if (!member.referrals) member.referrals = [];
@@ -622,6 +531,9 @@ class JeansClubManager {
                     pointsEarned: 100
                 });
 
+                // Save updated member
+                this.storage.saveMember(member);
+
                 // Send referral success email
                 const referralData = {
                     newMemberName: newMemberName,
@@ -631,7 +543,6 @@ class JeansClubManager {
                 break;
             }
         }
-        this.saveToStorage();
     }
 
     // Delete member account (Admin only)
@@ -640,33 +551,25 @@ class JeansClubManager {
             return { success: false, message: "Admin access required" };
         }
 
-        let memberToDelete = null;
-        let memberIdToDelete = null;
-
-        for (let [id, member] of this.members) {
-            if (member.jcId === jcId) {
-                memberToDelete = member;
-                memberIdToDelete = id;
-                break;
-            }
-        }
-
+        const memberToDelete = this.storage.getMemberByJCId(jcId);
         if (!memberToDelete) {
             return { success: false, message: "Member not found" };
         }
 
         // Remove member from storage
-        this.members.delete(memberIdToDelete);
+        if (!this.storage.deleteMember(jcId)) {
+            return { success: false, message: "Failed to delete member" };
+        }
 
         // If deleted member is current member, log them out
         if (this.currentMember && this.currentMember.jcId === jcId) {
             this.currentMember = null;
+            localStorage.removeItem('jeansClubCurrentMember');
         }
 
-        this.saveToStorage();
         return { 
             success: true, 
-            message: `Account ${jcId} (${memberToDelete.name}) has been permanently deleted` 
+            message: "Account " + jcId + " (" + memberToDelete.name + ") has been permanently deleted" 
         };
     }
 
@@ -739,12 +642,18 @@ class JeansClubManager {
         member.points -= discountCalc.pointsUsed;
         member.tier = this.calculateTier(member.points);
         
-        this.logActivity(member.id, `💰 ${discountCalc.pointsUsed} points for ${discountCalc.discountPercentage}% discount`, -discountCalc.pointsUsed);
+        this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
+
+        // Save updated member
+        if (!this.storage.saveMember(member)) {
+            return { success: false, message: "Failed to update member data" };
+        }
+
+        this.saveCurrentMember();
 
         // Send discount voucher email
         const emailResult = await emailService.sendDiscountEmail(member.email, member, discountCalc);
 
-        this.saveToStorage();
         return {
             success: true,
             pointsUsed: discountCalc.pointsUsed,
@@ -754,14 +663,20 @@ class JeansClubManager {
     }
 
     logActivity(memberId, message, points) {
-        const member = this.members.get(memberId);
-        if (member) {
+        const allMembers = this.storage.getAllMembers();
+        const memberIndex = allMembers.findIndex(m => m.id === memberId);
+        
+        if (memberIndex >= 0) {
+            const member = allMembers[memberIndex];
             member.activityLog.unshift({
                 timestamp: new Date().toISOString(),
                 message: message,
                 points: points
             });
             if (member.activityLog.length > 10) member.activityLog = member.activityLog.slice(0, 10);
+            
+            // Save updated member
+            this.storage.saveMember(member);
         }
     }
 
@@ -779,7 +694,6 @@ class JeansClubManager {
     }
 
     hashPassword(password) {
-        // Simple hashing for demo - in production use proper encryption
         return btoa(unescape(encodeURIComponent(password)));
     }
 
@@ -787,27 +701,8 @@ class JeansClubManager {
         return btoa(unescape(encodeURIComponent(password))) === hashedPassword;
     }
 
-    saveToStorage() {
-        const data = {
-            members: Array.from(this.members.entries()),
-            currentMember: this.currentMember,
-            isAdmin: this.isAdmin
-        };
-        localStorage.setItem('jeansClubData', JSON.stringify(data));
-    }
-
-    loadFromStorage() {
-        const saved = localStorage.getItem('jeansClubData');
-        if (saved) {
-            const data = JSON.parse(saved);
-            this.members = new Map(data.members);
-            this.currentMember = data.currentMember;
-            this.isAdmin = data.isAdmin || false;
-        }
-    }
-
     getReferralStats(memberId) {
-        const member = this.members.get(memberId);
+        const member = this.storage.getAllMembers().find(m => m.id === memberId);
         if (!member || !member.referrals) return { totalReferrals: 0, totalPoints: 0 };
         return {
             totalReferrals: member.referrals.length,
@@ -816,14 +711,18 @@ class JeansClubManager {
     }
 
     getAllMembers() {
-        return Array.from(this.members.values());
+        return this.storage.getAllMembers();
     }
 
     resetAllData() {
-        this.members = new Map();
+        this.storage.setData({
+            members: [],
+            lastUpdate: new Date().toISOString(),
+            version: '1.0'
+        });
         this.currentMember = null;
         this.isAdmin = false;
-        localStorage.removeItem('jeansClubData');
+        localStorage.removeItem('jeansClubCurrentMember');
     }
 }
 
@@ -839,7 +738,6 @@ function initializeGoogleSignIn() {
             auto_select: false
         });
         
-        // Render Google Sign-In button for signup
         google.accounts.id.renderButton(
             document.querySelector('.google-signin-button'),
             { 
@@ -851,7 +749,6 @@ function initializeGoogleSignIn() {
             }
         );
 
-        // Render Google Sign-In button for login
         google.accounts.id.renderButton(
             document.querySelector('.google-login-button'),
             { 
@@ -863,29 +760,16 @@ function initializeGoogleSignIn() {
             }
         );
         
-        console.log('✅ Google Sign-In initialized successfully!');
+        console.log('Google Sign-In initialized successfully!');
     } catch (error) {
-        console.log('❌ Google Sign-In not configured properly:', error);
-        // Fallback buttons
-        document.querySelector('.google-signin-button').innerHTML = `
-            <button class="btn google" onclick="demoGoogleSignup()" style="width: 100%;">
-                <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" style="width: 20px; height: 20px; margin-right: 10px;">
-                Sign up with Google (Demo)
-            </button>
-        `;
-        document.querySelector('.google-login-button').innerHTML = `
-            <button class="btn google" onclick="demoGoogleLogin()" style="width: 100%;">
-                <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" style="width: 20px; height: 20px; margin-right: 10px;">
-                Login with Google (Demo)
-            </button>
-        `;
+        console.log('Google Sign-In not configured properly:', error);
+        document.querySelector('.google-signin-button').innerHTML = '<button class="btn google" onclick="demoGoogleSignup()" style="width: 100%;"><img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" style="width: 20px; height: 20px; margin-right: 10px;">Sign up with Google (Demo)</button>';
+        document.querySelector('.google-login-button').innerHTML = '<button class="btn google" onclick="demoGoogleLogin()" style="width: 100%;"><img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" style="width: 20px; height: 20px; margin-right: 10px;">Login with Google (Demo)</button>';
     }
 }
 
-// Handle Google Sign-In response
 async function handleGoogleSignIn(response) {
     try {
-        // Decode the credential response
         const responsePayload = JSON.parse(atob(response.credential.split('.')[1]));
         
         const userData = {
@@ -895,30 +779,28 @@ async function handleGoogleSignIn(response) {
             googleId: responsePayload.sub
         };
 
-        console.log('✅ Google Sign-In successful for:', userData.email);
+        console.log('Google Sign-In successful for:', userData.email);
 
-        // Check if we're on signup or login page
         const isSignupPage = !document.getElementById('signupSection').classList.contains('hidden');
         
         if (isSignupPage) {
-            // Signup flow
             const referralCode = document.getElementById('referralCode').value.trim() || null;
             const result = await clubManager.createAccountWithGoogle(userData, referralCode);
             
             if (result.success) {
                 showDashboard(result.member);
-                let message = `🎉 Welcome to Jean's Club!\n\nYour JC ID: ${result.member.jcId}\nKeep this safe - you'll need it for future logins!\n\n`;
+                let message = 'Welcome to Jean\'s Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it for future logins!\n\n';
                 
                 if (referralCode) {
-                    message += `You got 10 points, your friend got 100 points!\n\n`;
+                    message += 'You got 10 points, your friend got 100 points!\n\n';
                 } else {
-                    message += `You got 10 welcome points!\n\n`;
+                    message += 'You got 10 welcome points!\n\n';
                 }
                 
                 if (result.isFallback) {
-                    message += `📧 Email details saved (check browser console for email content)\n\n`;
+                    message += 'Email details saved (check browser console for email content)\n\n';
                 } else if (result.emailSent) {
-                    message += `📧 Welcome email sent to your inbox!\n\n`;
+                    message += 'Welcome email sent to your inbox!\n\n';
                 }
                 
                 alert(message);
@@ -926,11 +808,10 @@ async function handleGoogleSignIn(response) {
                 alert(result.message);
             }
         } else {
-            // Login flow
             const result = clubManager.loginWithGoogle(userData.email);
             if (result.success) {
                 showDashboard(result.member);
-                alert(`Welcome back, ${result.member.name}!`);
+                alert('Welcome back, ' + result.member.name + '!');
             } else {
                 alert(result.message + " Please sign up first.");
                 showSignupScreen();
@@ -942,7 +823,6 @@ async function handleGoogleSignIn(response) {
     }
 }
 
-// Demo Google functions for testing
 async function demoGoogleSignup() {
     const name = prompt("Enter your name for demo Google signup:");
     if (!name) return;
@@ -961,9 +841,9 @@ async function demoGoogleSignup() {
     
     if (result.success) {
         showDashboard(result.member);
-        let message = `Demo Google account created!\nJC ID: ${result.member.jcId}\n\n`;
+        let message = 'Demo Google account created!\nJC ID: ' + result.member.jcId + '\n\n';
         if (result.isFallback) {
-            message += `📧 Email details saved (check console)\n\n`;
+            message += 'Email details saved (check console)\n\n';
         }
         alert(message);
     } else {
@@ -978,7 +858,7 @@ function demoGoogleLogin() {
     const result = clubManager.loginWithGoogle(email);
     if (result.success) {
         showDashboard(result.member);
-        alert(`Welcome back, ${result.member.name}!`);
+        alert('Welcome back, ' + result.member.name + '!');
     } else {
         alert(result.message + " Please sign up first.");
         showSignupScreen();
@@ -1014,19 +894,22 @@ function showDashboard(member) {
     document.getElementById('dashboardSection').classList.remove('hidden');
     document.getElementById('adminSection').classList.add('hidden');
     
-    // Update dashboard
+    updateDashboard(member);
+}
+
+function updateDashboard(member) {
     document.getElementById('memberJcId').textContent = member.jcId;
     document.getElementById('memberName').textContent = member.name;
     document.getElementById('memberEmail').textContent = member.email;
     document.getElementById('memberLoginMethod').textContent = member.loginMethod === 'google' ? 'Google' : 'Email';
     document.getElementById('memberTier').textContent = member.tier;
-    document.getElementById('memberTier').className = `tier-${member.tier.toLowerCase()}`;
+    document.getElementById('memberTier').className = 'tier-' + member.tier.toLowerCase();
     document.getElementById('memberPoints').textContent = member.points.toLocaleString();
     document.getElementById('memberReferralCode').textContent = member.referralCode;
-    document.getElementById('totalSpent').textContent = member.totalSpent.toLocaleString();
+    document.getElementById('totalSpent').textContent = member.totalSpent.toLocaleString() + ' UGX';
     
     const referralStats = clubManager.getReferralStats(member.id);
-    document.getElementById('referralStats').innerHTML = `Referrals: ${referralStats.totalReferrals} friends, Earned: ${referralStats.totalPoints} points`;
+    document.getElementById('referralStats').innerHTML = 'Referrals: ' + referralStats.totalReferrals + ' friends, Earned: ' + referralStats.totalPoints + ' points';
     
     updateTierProgress(member);
     updateActivityLog(member);
@@ -1038,11 +921,11 @@ function updateTierProgress(member) {
     const progressText = document.getElementById('tierProgressText');
     
     if (progress.nextTier) {
-        progressFill.style.width = `${progress.percentage}%`;
-        progressText.innerHTML = `Progress to ${progress.nextTier.name}: ${progress.percentage}% (${progress.pointsNeeded.toLocaleString()} points needed)`;
+        progressFill.style.width = progress.percentage + '%';
+        progressText.innerHTML = 'Progress to ' + progress.nextTier.name + ': ' + progress.percentage + '% (' + progress.pointsNeeded.toLocaleString() + ' points needed)';
     } else {
         progressFill.style.width = '100%';
-        progressText.innerHTML = `🎉 You've reached the highest tier!`;
+        progressText.innerHTML = 'You\'ve reached the highest tier!';
     }
 }
 
@@ -1058,7 +941,7 @@ function updateActivityLog(member) {
     member.activityLog.forEach(activity => {
         const div = document.createElement('div');
         div.className = 'activity-item';
-        div.innerHTML = `<strong>${new Date(activity.timestamp).toLocaleDateString()}</strong><br>${activity.message} ${activity.points > 0 ? `+${activity.points} points` : activity.points < 0 ? `${activity.points} points` : ''}`;
+        div.innerHTML = '<strong>' + new Date(activity.timestamp).toLocaleDateString() + '</strong><br>' + activity.message + ' ' + (activity.points > 0 ? '+' + activity.points + ' points' : activity.points < 0 ? activity.points + ' points' : '');
         activityLog.appendChild(div);
     });
 }
@@ -1078,7 +961,22 @@ function showSignupScreen() {
 
 function logout() {
     clubManager.currentMember = null;
+    clubManager.isAdmin = false;
+    localStorage.removeItem('jeansClubCurrentMember');
     showLoginScreen();
+}
+
+function refreshData() {
+    if (clubManager.currentMember) {
+        // Reload current member from central storage
+        const updatedMember = clubManager.storage.getMemberByJCId(clubManager.currentMember.jcId);
+        if (updatedMember) {
+            clubManager.currentMember = updatedMember;
+            clubManager.saveCurrentMember();
+            updateDashboard(updatedMember);
+            alert('Data refreshed successfully!');
+        }
+    }
 }
 
 // Business Logic
@@ -1103,18 +1001,18 @@ async function signUpWithEmail() {
     
     if (result.success) {
         showDashboard(result.member);
-        let message = `🎉 Welcome to Jean's Club!\n\nYour JC ID: ${result.member.jcId}\nKeep this safe - you'll need it to login!\n\n`;
+        let message = 'Welcome to Jean\'s Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it to login!\n\n';
         
         if (referralCode) {
-            message += `You got 10 points, your friend got 100 points!\n\n`;
+            message += 'You got 10 points, your friend got 100 points!\n\n';
         } else {
-            message += `You got 10 welcome points!\n\n`;
+            message += 'You got 10 welcome points!\n\n';
         }
         
         if (result.isFallback) {
-            message += `📧 Email details saved (check browser console for full email content)\n\n`;
+            message += 'Email details saved (check browser console for full email content)\n\n';
         } else if (result.emailSent) {
-            message += `📧 Welcome email sent to your inbox!\n\n`;
+            message += 'Welcome email sent to your inbox!\n\n';
         }
         
         alert(message);
@@ -1151,7 +1049,7 @@ function calculateDiscount() {
     
     const discountResult = document.getElementById('discountResult');
     if (result.success) {
-        discountResult.innerHTML = `Discount: ${result.discountPercentage}% (using ${result.pointsUsed} points)<br><small>Max discount for your tier: ${result.maxPossibleDiscount}</small>`;
+        discountResult.innerHTML = 'Discount: ' + result.discountPercentage + '% (using ' + result.pointsUsed + ' points)<br><small>Max discount for your tier: ' + result.maxPossibleDiscount + '</small>';
         discountResult.className = 'discount-success';
     } else {
         discountResult.innerHTML = result.message;
@@ -1169,10 +1067,10 @@ async function redeemPoints() {
     
     if (result.success) {
         showDashboard(clubManager.currentMember);
-        let message = `✅ ${result.discountPercentage}% discount voucher generated!\n\n`;
+        let message = result.discountPercentage + '% discount voucher generated!\n\n';
         message += result.emailSent 
-            ? `📧 Voucher email sent to your inbox!`
-            : `📧 Voucher details saved (check console for email content)`;
+            ? 'Voucher email sent to your inbox!'
+            : 'Voucher details saved (check console for email content)';
         
         alert(message);
         document.getElementById('discountResult').innerHTML = '';
@@ -1185,21 +1083,20 @@ async function redeemPoints() {
 function shareReferral() {
     if (!clubManager.currentMember) return;
     const member = clubManager.currentMember;
-    const shareText = `Join Jean's Club Loyalty Program! 🎉\n\nUse my referral code when signing up: ${member.referralCode}\n\nWe both get bonus points:\n• You get 10 welcome points\n• I get 100 referral points\n\nSign up now and start earning rewards!`;
+    const shareText = 'Join Jean\'s Club Loyalty Program!\n\nUse my referral code when signing up: ' + member.referralCode + '\n\nWe both get bonus points:\n• You get 10 welcome points\n• I get 100 referral points\n\nSign up now and start earning rewards!';
     
     if (navigator.clipboard) {
         navigator.clipboard.writeText(shareText).then(() => {
-            alert('✅ Referral code copied to clipboard!\n\nShare it with friends via WhatsApp, SMS, or any messaging app!');
+            alert('Referral code copied to clipboard!\n\nShare it with friends via WhatsApp, SMS, or any messaging app!');
         });
     } else {
-        // Fallback for older browsers
         const textArea = document.createElement('textarea');
         textArea.value = shareText;
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        alert('✅ Referral code copied!\n\nShare it with friends via WhatsApp, SMS, or any messaging app!');
+        alert('Referral code copied!\n\nShare it with friends via WhatsApp, SMS, or any messaging app!');
     }
 }
 
@@ -1209,30 +1106,16 @@ function viewAllMembers() {
     const adminContent = document.getElementById('adminContent');
     
     if (members.length === 0) {
-        adminContent.innerHTML = `<div style="text-align: center; padding: 40px; color: #666;">
-            <h3>No Members Yet</h3>
-            <p>When customers sign up, they will appear here.</p>
-        </div>`;
+        adminContent.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;"><h3>No Members Yet</h3><p>When customers sign up, they will appear here.</p></div>';
         return;
     }
     
-    let html = `<h3>Total Members: ${members.length}</h3><div class="members-list">`;
+    let html = '<h3>Total Members: ' + members.length + '</h3><div class="members-list">';
     members.forEach(member => {
         const referralStats = clubManager.getReferralStats(member.id);
-        html += `
-            <div class="admin-card">
-                <strong>${member.jcId}</strong> - ${member.name}<br>
-                Email: ${member.email}<br>
-                Login Method: ${member.loginMethod === 'google' ? 'Google' : 'Email'}<br>
-                Tier: <span class="tier-${member.tier.toLowerCase()}">${member.tier}</span> | Points: ${member.points.toLocaleString()}<br>
-                Spent: ${member.totalSpent.toLocaleString()} UGX<br>
-                Referrals: ${referralStats.totalReferrals} friends<br>
-                Referral Code: <code>${member.referralCode}</code><br>
-                Joined: ${new Date(member.joinedDate).toLocaleDateString()}
-            </div>
-        `;
+        html += '<div class="admin-card"><strong>' + member.jcId + '</strong> - ' + member.name + '<br>Email: ' + member.email + '<br>Login Method: ' + (member.loginMethod === 'google' ? 'Google' : 'Email') + '<br>Tier: <span class="tier-' + member.tier.toLowerCase() + '">' + member.tier + '</span> | Points: ' + member.points.toLocaleString() + '<br>Spent: ' + member.totalSpent.toLocaleString() + ' UGX<br>Referrals: ' + referralStats.totalReferrals + ' friends<br>Referral Code: <code>' + member.referralCode + '</code><br>Joined: ' + new Date(member.joinedDate).toLocaleDateString() + '</div>';
     });
-    html += `</div>`;
+    html += '</div>';
     adminContent.innerHTML = html;
 }
 
@@ -1256,23 +1139,17 @@ function adminAddPurchase() {
     clubManager.addPurchase(jcId, amount, description).then(result => {
         const purchaseResult = document.getElementById('purchaseResult');
         if (result.success) {
-            purchaseResult.innerHTML = `<span style="color: green;">
-                ✅ Purchase added!<br>
-                • ${result.pointsEarned} points earned<br>
-                • New balance: ${result.newPoints} points<br>
-                ${result.tierChanged ? `• 🎉 Tier upgraded to ${result.newTier}!` : ''}
-            </span>`;
+            purchaseResult.innerHTML = '<span style="color: green;">Purchase added!<br>' + result.pointsEarned + ' points earned<br>New balance: ' + result.newPoints + ' points<br>' + (result.tierChanged ? 'Tier upgraded to ' + result.newTier + '!' : '') + '</span>';
             document.getElementById('purchaseJCId').value = '';
             document.getElementById('purchaseAmount').value = '';
             document.getElementById('purchaseDescription').value = '';
             setTimeout(viewAllMembers, 1000);
         } else {
-            purchaseResult.innerHTML = `<span style="color: red;">❌ ${result.message}</span>`;
+            purchaseResult.innerHTML = '<span style="color: red;">' + result.message + '</span>';
         }
     });
 }
 
-// Account Deletion Functions
 function showDeleteMemberSection() {
     document.getElementById('deleteMemberSection').classList.remove('hidden');
     document.getElementById('deleteJCId').value = '';
@@ -1287,7 +1164,7 @@ function confirmDeleteMember() {
         return;
     }
 
-    if (!confirm(`⚠️ WARNING: This will permanently delete account ${jcId} and all associated data. This action cannot be undone!\n\nAre you sure you want to proceed?`)) {
+    if (!confirm('WARNING: This will permanently delete account ' + jcId + ' and all associated data. This action cannot be undone!\n\nAre you sure you want to proceed?')) {
         return;
     }
 
@@ -1295,14 +1172,14 @@ function confirmDeleteMember() {
     const deleteResult = document.getElementById('deleteResult');
     
     if (result.success) {
-        deleteResult.innerHTML = `<span style="color: green;">✅ ${result.message}</span>`;
+        deleteResult.innerHTML = '<span style="color: green;">' + result.message + '</span>';
         document.getElementById('deleteJCId').value = '';
         setTimeout(() => {
             viewAllMembers();
             document.getElementById('deleteMemberSection').classList.add('hidden');
         }, 2000);
     } else {
-        deleteResult.innerHTML = `<span style="color: red;">❌ ${result.message}</span>`;
+        deleteResult.innerHTML = '<span style="color: red;">' + result.message + '</span>';
     }
 }
 
@@ -1312,7 +1189,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const refCode = urlParams.get('ref');
     if (refCode) document.getElementById('referralCode').value = refCode;
     
-    // Initialize Google Sign-In
     setTimeout(initializeGoogleSignIn, 1000);
     
     if (clubManager.currentMember) {
