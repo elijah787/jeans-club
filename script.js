@@ -31,16 +31,21 @@ class EmailService {
         }
 
         try {
+            // UPDATED: Match template variables exactly
             const templateParams = {
                 to_email: email,
+                from_name: "Jean's Club",
+                subject: `🎉 Welcome to Jean's Club!`,
                 member_name: memberData.name,
                 jc_id: memberData.jcId,
                 member_tier: memberData.tier,
                 member_points: memberData.points,
                 referral_code: memberData.referralCode,
-                total_spent: memberData.totalSpent || 0,
-                subject: `🎉 Welcome to Jean's Club!`
+                welcome_points: "10",
+                message: `Welcome to Jean's Club! Your account has been created successfully.`
             };
+
+            console.log('📧 Sending with params:', templateParams);
 
             const response = await emailjs.send(
                 'service_dcbc45g',
@@ -68,16 +73,16 @@ class EmailService {
         }
 
         try {
+            // UPDATED: Match template variables
             const templateParams = {
                 to_email: email,
+                from_name: "Jean's Club",
+                subject: `🛍️ Purchase Recorded - ${purchaseData.description}`,
                 member_name: memberData.name,
                 jc_id: memberData.jcId,
                 member_tier: memberData.tier,
                 member_points: memberData.points,
-                purchase_amount: purchaseData.amount.toLocaleString(),
-                purchase_description: purchaseData.description,
-                points_earned: purchaseData.pointsEarned,
-                subject: `🛍️ Purchase Recorded - ${purchaseData.description}`
+                message: `Your purchase of ${purchaseData.description} for ${purchaseData.amount.toLocaleString()} UGX has been recorded. You earned ${purchaseData.pointsEarned} points!`
             };
 
             await emailjs.send(
@@ -102,14 +107,15 @@ class EmailService {
         }
 
         try {
+            // UPDATED: Match template variables
             const templateParams = {
                 to_email: email,
+                from_name: "Jean's Club",
+                subject: `💰 ${discountData.discountPercentage}% Discount Voucher`,
                 member_name: memberData.name,
                 jc_id: memberData.jcId,
-                discount_percentage: discountData.discountPercentage,
-                points_used: discountData.pointsUsed,
-                max_discount: discountData.maxPossibleDiscount,
-                subject: `💰 ${discountData.discountPercentage}% Discount Voucher`
+                member_points: memberData.points,
+                message: `Your ${discountData.discountPercentage}% discount voucher has been created! You used ${discountData.pointsUsed} points. Present this email at checkout.`
             };
 
             await emailjs.send(
@@ -134,14 +140,15 @@ class EmailService {
         }
 
         try {
+            // UPDATED: Match template variables
             const templateParams = {
                 to_email: email,
+                from_name: "Jean's Club",
+                subject: `👥 Referral Success! +100 Points`,
                 member_name: memberData.name,
                 jc_id: memberData.jcId,
-                new_member_name: referralData.newMemberName,
-                new_member_jc_id: referralData.newMemberJCId,
-                points_earned: 100,
-                subject: `👥 Referral Success! +100 Points`
+                member_points: memberData.points,
+                message: `Congratulations! ${referralData.newMemberName} (${referralData.newMemberJCId}) joined using your referral code! You earned 100 bonus points.`
             };
 
             await emailjs.send(
