@@ -19,7 +19,7 @@ class GoogleAppsEmailService {
 
             const response = await fetch(this.scriptURL, {
                 method: 'POST',
-                mode: 'no-cors',
+                
                 headers: {
                     'Content-Type': 'application/json',
                 },
