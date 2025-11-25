@@ -136,8 +136,8 @@ class GoogleAppsEmailService {
 // Google Sheets Database Manager
 class GoogleSheetsDB {
     constructor() {
-        // Your Google Apps Script Web App URL for Sheets
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbwWWKYfzpS-LNQ0IvGH3SFHH1YvlVeDV9HcHkSCpDgGp63_R9S5ewqzPSactihrmzip/exec';
+        // UPDATED: New Google Apps Script Web App URL for Sheets
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbw0KC6R4I7zr4sWoyLoGpuuYUSUHsKChXbAjRiAbyj73in80NDPlF7BKj4J1c5g3Ukq/exec';
         this.cacheKey = 'jeansClubSheetsCache';
         this.cacheTimeout = 30000; // 30 seconds cache
     }
@@ -921,8 +921,6 @@ class JeansClubManager {
 
 // Initialize the system
 const clubManager = new JeansClubManager();
-
-// [Rest of your existing functions remain the same - initializeGoogleSignIn, handleGoogleSignIn, etc.]
 
 // Google Sign-In Functions
 function initializeGoogleSignIn() {
