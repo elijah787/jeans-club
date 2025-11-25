@@ -180,7 +180,7 @@ class GoogleSheetsDB {
         return (Date.now() - cache.lastSync) < this.cacheTimeout;
     }
 
-    // Enhanced callSheetsAPI with proper error handling
+    // Fixed callSheetsAPI with proper CORS handling
     async callSheetsAPI(action, data = {}) {
         try {
             const payload = {
@@ -191,7 +191,7 @@ class GoogleSheetsDB {
 
             console.log('📡 Calling Google Sheets API:', payload);
 
-            const url = this.scriptURL + '?cache=' + Date.now();
+            const url = this.scriptURL;
             
             const response = await fetch(url, {
                 method: 'POST',
@@ -291,7 +291,8 @@ class GoogleSheetsDB {
             case 'deleteMember':
                 return { success: fallbackStorage.deleteMember(data.jcId) };
             case 'getMember':
-                return { success: true, member: fallbackStorage.getMemberByJCId(data.jcId) };
+                const member = fallbackStorage.getMemberByJCId(data.jcId);
+                return { success: !!member, member: member };
             default:
                 return { success: false, error: 'Unknown action' };
         }
@@ -327,7 +328,7 @@ class GoogleSheetsDB {
         const result = await this.callSheetsAPI('saveMember', { member: member });
         
         if (result.success) {
-            console.log('✅ Successfully saved member:', result.message);
+            console.log('✅ Successfully saved member to cloud storage');
             // Invalidate cache to force refresh
             const cache = this.getCache();
             if (cache) {
@@ -335,7 +336,7 @@ class GoogleSheetsDB {
                 this.setCache(cache);
             }
         } else {
-            console.log('❌ Failed to save member to Google Sheets');
+            console.log('❌ Failed to save member to Google Sheets, using local storage');
         }
         
         return result.success;
@@ -374,7 +375,7 @@ class GoogleSheetsDB {
         return Array.isArray(members) ? members.find(m => m.email === email) : null;
     }
 
-    // New method: Verify member credentials against Google Sheets
+    // Enhanced method: Verify member credentials with proper fallback
     async verifyMemberCredentials(jcId, email, password) {
         try {
             console.log('🔐 Verifying credentials against Google Sheets:', jcId, email);
@@ -553,7 +554,7 @@ class JeansClubManager {
         this.currentMember = null;
         this.isAdmin = false;
         this.loadCurrentMember();
-        console.log('🚀 JeansClubManager initialized with Google Sheets DB');
+        console.log('🚀 JeansClubManager initialized with Enhanced Google Sheets DB');
     }
 
     generateJCId() {
@@ -614,7 +615,9 @@ class JeansClubManager {
         console.log('💾 Saving new member to Google Sheets:', newMember.jcId);
 
         // Save to Google Sheets
-        if (!await this.db.saveMember(newMember)) {
+        const saveResult = await this.db.saveMember(newMember);
+        
+        if (!saveResult) {
             console.log('❌ Failed to save member to Google Sheets');
             return { success: false, message: "Failed to save member data to cloud storage" };
         }
@@ -683,7 +686,9 @@ class JeansClubManager {
         console.log('💾 Saving Google member to Google Sheets:', newMember.jcId);
 
         // Save to Google Sheets
-        if (!await this.db.saveMember(newMember)) {
+        const saveResult = await this.db.saveMember(newMember);
+        
+        if (!saveResult) {
             return { success: false, message: "Failed to save member data" };
         }
 
@@ -779,7 +784,9 @@ class JeansClubManager {
         await this.logActivity(targetMember.id, description + ' - ' + amountUGX.toLocaleString() + ' UGX', pointsEarned);
 
         // Save updated member
-        if (!await this.db.saveMember(targetMember)) {
+        const saveResult = await this.db.saveMember(targetMember);
+        
+        if (!saveResult) {
             return { success: false, message: "Failed to update member data" };
         }
 
@@ -852,7 +859,9 @@ class JeansClubManager {
         }
 
         // Remove member from storage
-        if (!await this.db.deleteMember(jcId)) {
+        const deleteResult = await this.db.deleteMember(jcId);
+        
+        if (!deleteResult) {
             return { success: false, message: "Failed to delete member" };
         }
 
@@ -940,7 +949,9 @@ class JeansClubManager {
         await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
 
         // Save updated member
-        if (!await this.db.saveMember(member)) {
+        const saveResult = await this.db.saveMember(member);
+        
+        if (!saveResult) {
             return { success: false, message: "Failed to update member data" };
         }
 
