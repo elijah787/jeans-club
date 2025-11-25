@@ -1,7 +1,7 @@
 // Google Apps Script Email Service - COMPLETELY FREE
 class GoogleAppsEmailService {
     constructor() {
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbw2aJs7U4f_FO10mgQ80grXf_63MQlrFe6S9GOTWHunCa3zNmUY0Adp_98fpC5nu21I/exec';
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbxSBWASI7z3yQzsTeHLrpPV35eo9NySjI5KAXVG8NNWYBJpLoYJUEPyssCxSRC7OH801Q/exec';
         this.isActive = true;
     }
 
@@ -19,15 +19,15 @@ class GoogleAppsEmailService {
 
             const response = await fetch(this.scriptURL, {
                 method: 'POST',
-                
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload)
             });
 
-            console.log('Email sent via Google Apps Script');
-            return { success: true, fallback: false };
+            const result = await response.text();
+            console.log('Email sent successfully via Google Apps Script');
+            return JSON.parse(result);
             
         } catch (error) {
             console.error('Google Apps Script email failed:', error);
@@ -38,8 +38,8 @@ class GoogleAppsEmailService {
     getSubject(type, memberData, extraData) {
         switch(type) {
             case 'welcome': return 'Welcome to Jean\'s Club!';
-            case 'purchase': return 'Purchase Recorded - ' + extraData.description;
-            case 'discount': return extraData.discountPercentage + '% Discount Voucher';
+            case 'purchase': return 'Purchase Recorded - ' + (extraData?.description || '');
+            case 'discount': return (extraData?.discountPercentage || 0) + '% Discount Voucher';
             case 'referral': return 'Referral Success! +100 Points';
             default: return 'Message from Jean\'s Club';
         }
@@ -47,8 +47,8 @@ class GoogleAppsEmailService {
 
     getMessage(type, extraData) {
         switch(type) {
-            case 'purchase': return extraData.description + ' - ' + extraData.amount.toLocaleString() + ' UGX';
-            case 'referral': return extraData.newMemberName + ' (' + extraData.newMemberJCId + ')';
+            case 'purchase': return (extraData?.description || '') + ' - ' + (extraData?.amount?.toLocaleString() || '0') + ' UGX';
+            case 'referral': return (extraData?.newMemberName || '') + ' (' + (extraData?.newMemberJCId || '') + ')';
             default: return '';
         }
     }
@@ -957,6 +957,7 @@ function showSignupScreen() {
     document.getElementById('signupSection').classList.remove('hidden');
     document.getElementById('loginSection').classList.add('hidden');
     document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('adminSection').classList.add('hidden');
 }
 
 function logout() {
