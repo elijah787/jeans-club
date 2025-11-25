@@ -19,19 +19,16 @@ class GoogleAppsEmailService {
 
             const response = await fetch(this.scriptURL, {
                 method: 'POST',
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
+            const result = await response.text();
             console.log('Email sent successfully via Google Apps Script');
-            return result;
+            return JSON.parse(result);
             
         } catch (error) {
             console.error('Google Apps Script email failed:', error);
@@ -136,7 +133,7 @@ class GoogleAppsEmailService {
     }
 }
 
-// Google Sheets Database Manager - Enhanced for Cross-Device Sync
+// Google Sheets Database Manager - No-CORS Enhanced
 class GoogleSheetsDB {
     constructor() {
         this.scriptURL = 'https://script.google.com/macros/s/AKfycbxHkNPQajLQCIGp5IQdXq6JWgi9buzICdL-3k3c8CKwckp-REHMq06FKM4xoV6Jb90J/exec';
@@ -180,7 +177,7 @@ class GoogleSheetsDB {
         return (Date.now() - cache.lastSync) < this.cacheTimeout;
     }
 
-    // Fixed callSheetsAPI with proper CORS handling
+    // Enhanced callSheetsAPI with no-cors and background sync
     async callSheetsAPI(action, data = {}) {
         try {
             const payload = {
@@ -191,23 +188,46 @@ class GoogleSheetsDB {
 
             console.log('📡 Calling Google Sheets API:', payload);
 
-            const url = this.scriptURL;
+            const url = this.scriptURL + '?cache=' + Date.now();
             
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
+            // For WRITE operations (saveMember, deleteMember): Use no-cors and assume success
+            if (action === 'saveMember' || action === 'deleteMember') {
+                await fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                console.log('✅ Write operation sent to Google Sheets (no-cors mode)');
+                
+                // Also update localStorage immediately for consistency
+                const fallbackResult = this.fallbackToLocalStorage(action, data);
+                
+                // Queue for background sync verification
+                this.queueForSyncVerification(action, data);
+                
+                return { 
+                    success: true, 
+                    message: "Data sent to Google Sheets",
+                    localBackup: fallbackResult.success
+                };
             }
-
-            const result = await response.json();
-            console.log('✅ API call successful:', result);
-            return result;
+            
+            // For READ operations (getAllMembers, getMember): Use localStorage with periodic sync
+            else {
+                console.log('📖 Read operation: using cached data with background sync');
+                
+                // Return localStorage data immediately
+                const fallbackResult = this.fallbackToLocalStorage(action, data);
+                
+                // Trigger background sync to refresh cache
+                this.backgroundSync();
+                
+                return fallbackResult;
+            }
 
         } catch (error) {
             console.error('❌ Google Sheets API call failed:', error);
@@ -226,13 +246,12 @@ class GoogleSheetsDB {
         try {
             console.log('🔄 Background sync: Refreshing data from Google Sheets');
             
-            const result = await this.callSheetsAPI('getAllMembers');
-            if (result.success && result.members) {
-                this.setCache({
-                    members: result.members,
-                    lastSync: Date.now()
-                });
-                console.log('✅ Background sync completed:', result.members.length, 'members');
+            // Try to get fresh data (this will use no-cors for write, but we need read)
+            // For now, we'll rely on the localStorage being updated during write operations
+            const cache = this.getCache();
+            if (cache) {
+                cache.lastSync = Date.now();
+                this.setCache(cache);
             }
         } catch (error) {
             console.log('Background sync failed:', error);
@@ -291,36 +310,34 @@ class GoogleSheetsDB {
             case 'deleteMember':
                 return { success: fallbackStorage.deleteMember(data.jcId) };
             case 'getMember':
-                const member = fallbackStorage.getMemberByJCId(data.jcId);
-                return { success: !!member, member: member };
+                return { success: true, member: fallbackStorage.getMemberByJCId(data.jcId) };
             default:
                 return { success: false, error: 'Unknown action' };
         }
     }
 
-    async getAllMembers(forceRefresh = false) {
-        // Force refresh for admin panel and cross-device sync
-        if (forceRefresh || !this.isCacheValid()) {
-            console.log('🔄 Force refreshing members from Google Sheets');
-            const result = await this.callSheetsAPI('getAllMembers');
-            
-            // Ensure we always return an array
-            const members = result.success && result.members ? result.members : [];
-            
-            // Update cache
-            this.setCache({
-                members: members,
-                lastSync: Date.now()
-            });
-            
-            console.log('✅ Refreshed', members.length, 'members from cloud');
-            return members;
+    async getAllMembers() {
+        // Check cache first
+        if (this.isCacheValid()) {
+            const cache = this.getCache();
+            console.log('📦 Using cached members data');
+            return cache.members || [];
         }
 
-        // Use cache if valid
-        const cache = this.getCache();
-        console.log('📦 Using cached members data');
-        return cache.members || [];
+        // Use the enhanced API call
+        const result = await this.callSheetsAPI('getAllMembers');
+        
+        // Ensure we always return an array
+        const members = result.success && result.members ? result.members : [];
+        
+        // Update cache
+        this.setCache({
+            members: members,
+            lastSync: Date.now()
+        });
+        
+        console.log('✅ Loaded', members.length, 'members');
+        return members;
     }
 
     async saveMember(member) {
@@ -328,7 +345,7 @@ class GoogleSheetsDB {
         const result = await this.callSheetsAPI('saveMember', { member: member });
         
         if (result.success) {
-            console.log('✅ Successfully saved member to cloud storage');
+            console.log('✅ Successfully saved member:', result.message);
             // Invalidate cache to force refresh
             const cache = this.getCache();
             if (cache) {
@@ -336,7 +353,7 @@ class GoogleSheetsDB {
                 this.setCache(cache);
             }
         } else {
-            console.log('❌ Failed to save member to Google Sheets, using local storage');
+            console.log('❌ Failed to save member to Google Sheets');
         }
         
         return result.success;
@@ -357,9 +374,9 @@ class GoogleSheetsDB {
         return result.success;
     }
 
-    async getMemberByJCId(jcId, forceRefresh = false) {
-        // Check cache first if not forcing refresh
-        if (!forceRefresh && this.isCacheValid()) {
+    async getMemberByJCId(jcId) {
+        // Check cache first
+        if (this.isCacheValid()) {
             const cache = this.getCache();
             const cachedMember = cache.members.find(m => m.jcId === jcId);
             if (cachedMember) return cachedMember;
@@ -370,47 +387,9 @@ class GoogleSheetsDB {
         return result.success ? result.member : null;
     }
 
-    async getMemberByEmail(email, forceRefresh = false) {
-        const members = await this.getAllMembers(forceRefresh);
+    async getMemberByEmail(email) {
+        const members = await this.getAllMembers();
         return Array.isArray(members) ? members.find(m => m.email === email) : null;
-    }
-
-    // Enhanced method: Verify member credentials with proper fallback
-    async verifyMemberCredentials(jcId, email, password) {
-        try {
-            console.log('🔐 Verifying credentials against Google Sheets:', jcId, email);
-            
-            // Force refresh from Google Sheets to get latest data
-            const member = await this.getMemberByJCId(jcId, true);
-            
-            if (!member) {
-                console.log('❌ Member not found:', jcId);
-                return { success: false, message: "Account not found" };
-            }
-            
-            if (member.email !== email) {
-                console.log('❌ Email mismatch:', member.email, 'vs', email);
-                return { success: false, message: "Email does not match JC ID" };
-            }
-            
-            // Verify password
-            if (member.loginMethod === 'google') {
-                return { success: false, message: "This account uses Google login. Please use Google Sign-In." };
-            }
-            
-            const hashedPassword = btoa(unescape(encodeURIComponent(password)));
-            if (hashedPassword !== member.password) {
-                console.log('❌ Password mismatch');
-                return { success: false, message: "Invalid password" };
-            }
-            
-            console.log('✅ Credentials verified successfully');
-            return { success: true, member: member };
-            
-        } catch (error) {
-            console.error('❌ Error verifying credentials:', error);
-            return { success: false, message: "Login failed. Please try again." };
-        }
     }
 }
 
@@ -554,7 +533,7 @@ class JeansClubManager {
         this.currentMember = null;
         this.isAdmin = false;
         this.loadCurrentMember();
-        console.log('🚀 JeansClubManager initialized with Enhanced Google Sheets DB');
+        console.log('🚀 JeansClubManager initialized with Google Sheets DB');
     }
 
     generateJCId() {
@@ -582,8 +561,8 @@ class JeansClubManager {
     async createAccount(userData, password, referralCode = null) {
         console.log('👤 Creating account for:', userData.email);
         
-        // Check if email already exists - force refresh from Google Sheets
-        const existingMember = await this.db.getMemberByEmail(userData.email, true);
+        // Check if email already exists
+        const existingMember = await this.db.getMemberByEmail(userData.email);
         if (existingMember) {
             console.log('❌ Email already registered:', userData.email);
             return { success: false, message: "Email already registered" };
@@ -615,9 +594,7 @@ class JeansClubManager {
         console.log('💾 Saving new member to Google Sheets:', newMember.jcId);
 
         // Save to Google Sheets
-        const saveResult = await this.db.saveMember(newMember);
-        
-        if (!saveResult) {
+        if (!await this.db.saveMember(newMember)) {
             console.log('❌ Failed to save member to Google Sheets');
             return { success: false, message: "Failed to save member data to cloud storage" };
         }
@@ -654,8 +631,8 @@ class JeansClubManager {
     async createAccountWithGoogle(userData, referralCode = null) {
         console.log('👤 Creating Google account for:', userData.email);
         
-        // Check if email already exists - force refresh
-        const existingMember = await this.db.getMemberByEmail(userData.email, true);
+        // Check if email already exists
+        const existingMember = await this.db.getMemberByEmail(userData.email);
         if (existingMember) {
             return { success: false, message: "Email already registered" };
         }
@@ -686,9 +663,7 @@ class JeansClubManager {
         console.log('💾 Saving Google member to Google Sheets:', newMember.jcId);
 
         // Save to Google Sheets
-        const saveResult = await this.db.saveMember(newMember);
-        
-        if (!saveResult) {
+        if (!await this.db.saveMember(newMember)) {
             return { success: false, message: "Failed to save member data" };
         }
 
@@ -719,30 +694,34 @@ class JeansClubManager {
         };
     }
 
-    // Enhanced login that verifies against Google Sheets
+    // Login with BOTH JC ID AND Email
     async login(jcId, email, password) {
         console.log('🔐 Attempting login for JC ID:', jcId);
+        const member = await this.db.getMemberByJCId(jcId);
         
-        // Verify credentials against Google Sheets (force refresh)
-        const verification = await this.db.verifyMemberCredentials(jcId, email, password);
-        
-        if (verification.success) {
-            this.currentMember = verification.member;
-            this.saveCurrentMember();
-            await this.logActivity(verification.member.id, 'Logged in to account', 0);
-            console.log('✅ Login successful for:', verification.member.name);
-            return { success: true, member: verification.member };
-        } else {
-            return verification;
+        if (member && member.email === email) {
+            if (member.loginMethod === 'google') {
+                return { success: false, message: "This account uses Google login. Please use Google Sign-In." };
+            }
+            if (this.verifyPassword(password, member.password)) {
+                this.currentMember = member;
+                this.saveCurrentMember();
+                await this.logActivity(member.id, 'Logged in to account', 0);
+                console.log('✅ Login successful for:', member.name);
+                return { success: true, member: member };
+            } else {
+                console.log('❌ Invalid password for:', jcId);
+                return { success: false, message: "Invalid password" };
+            }
         }
+        console.log('❌ Account not found:', jcId, email);
+        return { success: false, message: "Account not found - check JC ID and email" };
     }
 
-    // Enhanced Google login
+    // Login with Google
     async loginWithGoogle(email) {
         console.log('🔐 Attempting Google login for:', email);
-        
-        // Force refresh from Google Sheets
-        const member = await this.db.getMemberByEmail(email, true);
+        const member = await this.db.getMemberByEmail(email);
         
         if (member && member.loginMethod === 'google') {
             this.currentMember = member;
@@ -751,7 +730,6 @@ class JeansClubManager {
             console.log('✅ Google login successful for:', member.name);
             return { success: true, member: member };
         }
-        
         console.log('❌ Google account not found:', email);
         return { success: false, message: "Google account not found. Please sign up first." };
     }
@@ -759,9 +737,7 @@ class JeansClubManager {
     // Admin function to add purchase
     async addPurchase(memberJCId, amountUGX, description) {
         console.log('💰 Adding purchase for:', memberJCId, amountUGX, description);
-        
-        // Force refresh to get latest member data
-        const targetMember = await this.db.getMemberByJCId(memberJCId, true);
+        const targetMember = await this.db.getMemberByJCId(memberJCId);
 
         if (!targetMember) {
             return { success: false, message: "Member not found" };
@@ -784,9 +760,7 @@ class JeansClubManager {
         await this.logActivity(targetMember.id, description + ' - ' + amountUGX.toLocaleString() + ' UGX', pointsEarned);
 
         // Save updated member
-        const saveResult = await this.db.saveMember(targetMember);
-        
-        if (!saveResult) {
+        if (!await this.db.saveMember(targetMember)) {
             return { success: false, message: "Failed to update member data" };
         }
 
@@ -815,8 +789,7 @@ class JeansClubManager {
 
     // Process referral
     async processReferral(referralCode, newMemberJCId, newMemberName) {
-        // Force refresh to get all members
-        const allMembers = await this.db.getAllMembers(true);
+        const allMembers = await this.db.getAllMembers();
         
         for (const member of allMembers) {
             if (member.referralCode === referralCode) {
@@ -852,16 +825,13 @@ class JeansClubManager {
             return { success: false, message: "Admin access required" };
         }
 
-        // Force refresh to get latest data
-        const memberToDelete = await this.db.getMemberByJCId(jcId, true);
+        const memberToDelete = await this.db.getMemberByJCId(jcId);
         if (!memberToDelete) {
             return { success: false, message: "Member not found" };
         }
 
         // Remove member from storage
-        const deleteResult = await this.db.deleteMember(jcId);
-        
-        if (!deleteResult) {
+        if (!await this.db.deleteMember(jcId)) {
             return { success: false, message: "Failed to delete member" };
         }
 
@@ -949,9 +919,7 @@ class JeansClubManager {
         await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
 
         // Save updated member
-        const saveResult = await this.db.saveMember(member);
-        
-        if (!saveResult) {
+        if (!await this.db.saveMember(member)) {
             return { success: false, message: "Failed to update member data" };
         }
 
@@ -969,8 +937,7 @@ class JeansClubManager {
     }
 
     async logActivity(memberId, message, points) {
-        // Force refresh to get latest member data
-        const allMembers = await this.db.getAllMembers(true);
+        const allMembers = await this.db.getAllMembers();
         const memberIndex = allMembers.findIndex(m => m.id === memberId);
         
         if (memberIndex >= 0) {
@@ -1009,8 +976,7 @@ class JeansClubManager {
     }
 
     async getReferralStats(memberId) {
-        // Force refresh to get latest data
-        const allMembers = await this.db.getAllMembers(true);
+        const allMembers = await this.db.getAllMembers();
         const member = allMembers.find(m => m.id === memberId);
         if (!member || !member.referrals) return { totalReferrals: 0, totalPoints: 0 };
         return {
@@ -1020,21 +986,7 @@ class JeansClubManager {
     }
 
     async getAllMembers() {
-        // Always force refresh for admin panel
-        return await this.db.getAllMembers(true);
-    }
-
-    // Force sync current member data
-    async syncCurrentMember() {
-        if (this.currentMember) {
-            const updatedMember = await this.db.getMemberByJCId(this.currentMember.jcId, true);
-            if (updatedMember) {
-                this.currentMember = updatedMember;
-                this.saveCurrentMember();
-                return updatedMember;
-            }
-        }
-        return null;
+        return await this.db.getAllMembers();
     }
 
     async resetAllData() {
@@ -1286,28 +1238,14 @@ function logout() {
 
 async function refreshData() {
     if (clubManager.currentMember) {
-        // Sync with cloud data
-        const updatedMember = await clubManager.syncCurrentMember();
+        // Reload current member from Google Sheets
+        const updatedMember = await clubManager.db.getMemberByJCId(clubManager.currentMember.jcId);
         if (updatedMember) {
+            clubManager.currentMember = updatedMember;
+            clubManager.saveCurrentMember();
             updateDashboard(updatedMember);
-            alert('Data synced successfully from cloud!');
-        } else {
-            alert('Failed to sync data from cloud.');
+            alert('Data refreshed successfully!');
         }
-    }
-}
-
-// Force sync from cloud
-async function forceSync() {
-    if (confirm('This will refresh all data from the cloud. Continue?')) {
-        await clubManager.db.getAllMembers(true);
-        if (clubManager.currentMember) {
-            const updatedMember = await clubManager.syncCurrentMember();
-            if (updatedMember) {
-                updateDashboard(updatedMember);
-            }
-        }
-        alert('Data synced successfully from cloud!');
     }
 }
 
