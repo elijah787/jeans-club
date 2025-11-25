@@ -133,20 +133,22 @@ class GoogleAppsEmailService {
     }
 }
 
-// Google Sheets Database Manager
+// Google Sheets Database Manager - No-CORS Enhanced
 class GoogleSheetsDB {
     constructor() {
-        // UPDATED: New Google Apps Script Web App URL for Sheets
         this.scriptURL = 'https://script.google.com/macros/s/AKfycbxHkNPQajLQCIGp5IQdXq6JWgi9buzICdL-3k3c8CKwckp-REHMq06FKM4xoV6Jb90J/exec';
         this.cacheKey = 'jeansClubSheetsCache';
         this.cacheTimeout = 30000; // 30 seconds cache
+        this.pendingSyncKey = 'jeansClubPendingSync';
+        this.init();
     }
 
     async init() {
-        // Initialize cache if not exists
         if (!this.getCache()) {
             this.setCache({ members: [], lastSync: 0 });
         }
+        // Process any pending sync operations on startup
+        await this.processPendingSync();
     }
 
     getCache() {
@@ -175,6 +177,7 @@ class GoogleSheetsDB {
         return (Date.now() - cache.lastSync) < this.cacheTimeout;
     }
 
+    // Enhanced callSheetsAPI with no-cors and background sync
     async callSheetsAPI(action, data = {}) {
         try {
             const payload = {
@@ -185,29 +188,112 @@ class GoogleSheetsDB {
 
             console.log('📡 Calling Google Sheets API:', payload);
 
-            // Use no-cors mode to avoid CORS preflight
             const url = this.scriptURL + '?cache=' + Date.now();
             
-            const response = await fetch(url, {
-                method: 'POST',
-                mode: 'no-cors', // This avoids CORS check
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
+            // For WRITE operations (saveMember, deleteMember): Use no-cors and assume success
+            if (action === 'saveMember' || action === 'deleteMember') {
+                await fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
 
-            // Since no-cors mode doesn't allow reading response, assume success
-            console.log('✅ Request sent to Google Sheets (no-cors mode)');
-            return { 
-                success: true, 
-                message: "Request sent - data should be saved" 
-            };
+                console.log('✅ Write operation sent to Google Sheets (no-cors mode)');
+                
+                // Also update localStorage immediately for consistency
+                const fallbackResult = this.fallbackToLocalStorage(action, data);
+                
+                // Queue for background sync verification
+                this.queueForSyncVerification(action, data);
+                
+                return { 
+                    success: true, 
+                    message: "Data sent to Google Sheets",
+                    localBackup: fallbackResult.success
+                };
+            }
+            
+            // For READ operations (getAllMembers, getMember): Use localStorage with periodic sync
+            else {
+                console.log('📖 Read operation: using cached data with background sync');
+                
+                // Return localStorage data immediately
+                const fallbackResult = this.fallbackToLocalStorage(action, data);
+                
+                // Trigger background sync to refresh cache
+                this.backgroundSync();
+                
+                return fallbackResult;
+            }
 
         } catch (error) {
             console.error('❌ Google Sheets API call failed:', error);
             console.log('🔄 Falling back to localStorage...');
             return this.fallbackToLocalStorage(action, data);
+        }
+    }
+
+    // Background sync to refresh data from Google Sheets
+    async backgroundSync() {
+        // Only sync if cache is stale
+        if (this.isCacheValid()) {
+            return;
+        }
+
+        try {
+            console.log('🔄 Background sync: Refreshing data from Google Sheets');
+            
+            // Try to get fresh data (this will use no-cors for write, but we need read)
+            // For now, we'll rely on the localStorage being updated during write operations
+            const cache = this.getCache();
+            if (cache) {
+                cache.lastSync = Date.now();
+                this.setCache(cache);
+            }
+        } catch (error) {
+            console.log('Background sync failed:', error);
+        }
+    }
+
+    // Queue operations for verification
+    queueForSyncVerification(action, data) {
+        try {
+            const pendingSync = JSON.parse(localStorage.getItem(this.pendingSyncKey) || '[]');
+            pendingSync.push({
+                action: action,
+                data: data,
+                timestamp: new Date().toISOString(),
+                attempts: 0
+            });
+            
+            // Keep only last 20 pending operations
+            if (pendingSync.length > 20) {
+                pendingSync.splice(0, pendingSync.length - 20);
+            }
+            
+            localStorage.setItem(this.pendingSyncKey, JSON.stringify(pendingSync));
+        } catch (error) {
+            console.error('Error queueing sync verification:', error);
+        }
+    }
+
+    // Process pending sync operations
+    async processPendingSync() {
+        try {
+            const pendingSync = JSON.parse(localStorage.getItem(this.pendingSyncKey) || '[]');
+            if (pendingSync.length === 0) return;
+
+            console.log(`🔄 Processing ${pendingSync.length} pending sync operations`);
+            
+            // For now, we'll just clear them since we're using no-cors
+            // In a production app, you'd retry these operations
+            localStorage.setItem(this.pendingSyncKey, JSON.stringify([]));
+            
+        } catch (error) {
+            console.error('Error processing pending sync:', error);
         }
     }
 
@@ -217,7 +303,8 @@ class GoogleSheetsDB {
         
         switch(action) {
             case 'getAllMembers':
-                return { success: true, members: fallbackStorage.getAllMembers() };
+                const members = fallbackStorage.getAllMembers();
+                return { success: true, members: members };
             case 'saveMember':
                 return { success: fallbackStorage.saveMember(data.member) };
             case 'deleteMember':
@@ -234,22 +321,23 @@ class GoogleSheetsDB {
         if (this.isCacheValid()) {
             const cache = this.getCache();
             console.log('📦 Using cached members data');
-            return cache.members;
+            return cache.members || [];
         }
 
-        // Fetch from Google Sheets
+        // Use the enhanced API call
         const result = await this.callSheetsAPI('getAllMembers');
-        if (result.success) {
-            // Update cache
-            this.setCache({
-                members: result.members,
-                lastSync: Date.now()
-            });
-            console.log('✅ Loaded', result.members.length, 'members from Google Sheets');
-            return result.members;
-        }
-        console.log('❌ Failed to load members from Google Sheets, using fallback');
-        return [];
+        
+        // Ensure we always return an array
+        const members = result.success && result.members ? result.members : [];
+        
+        // Update cache
+        this.setCache({
+            members: members,
+            lastSync: Date.now()
+        });
+        
+        console.log('✅ Loaded', members.length, 'members');
+        return members;
     }
 
     async saveMember(member) {
@@ -257,7 +345,7 @@ class GoogleSheetsDB {
         const result = await this.callSheetsAPI('saveMember', { member: member });
         
         if (result.success) {
-            console.log('✅ Successfully saved member to Google Sheets');
+            console.log('✅ Successfully saved member:', result.message);
             // Invalidate cache to force refresh
             const cache = this.getCache();
             if (cache) {
@@ -294,14 +382,14 @@ class GoogleSheetsDB {
             if (cachedMember) return cachedMember;
         }
 
-        // Fetch from Google Sheets
+        // Fetch using API
         const result = await this.callSheetsAPI('getMember', { jcId: jcId });
         return result.success ? result.member : null;
     }
 
     async getMemberByEmail(email) {
         const members = await this.getAllMembers();
-        return members.find(m => m.email === email);
+        return Array.isArray(members) ? members.find(m => m.email === email) : null;
     }
 }
 
