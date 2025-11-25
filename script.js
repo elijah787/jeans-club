@@ -1,7 +1,7 @@
 // Google Apps Script Email Service
 class GoogleAppsEmailService {
     constructor() {
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbxSBWASI7z3yQzsTeHLrpPV35eo9NySjI5KAXVG8NNWYBJpLoYJUEPyssCxSRC7OH801Q/exec';
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbxHkNPQajLQCIGp5IQdXq6JWgi9buzICdL-3k3c8CKwckp-REHMq06FKM4xoV6Jb90J/exec';
         this.isActive = true;
     }
 
