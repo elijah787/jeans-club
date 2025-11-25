@@ -1,4 +1,4 @@
-// Google Apps Script Email Service - COMPLETELY FREE
+// Google Apps Script Email Service
 class GoogleAppsEmailService {
     constructor() {
         this.scriptURL = 'https://script.google.com/macros/s/AKfycbxSBWASI7z3yQzsTeHLrpPV35eo9NySjI5KAXVG8NNWYBJpLoYJUEPyssCxSRC7OH801Q/exec';
@@ -19,6 +19,7 @@ class GoogleAppsEmailService {
 
             const response = await fetch(this.scriptURL, {
                 method: 'POST',
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -132,10 +133,170 @@ class GoogleAppsEmailService {
     }
 }
 
-// Initialize email service
-const emailService = new GoogleAppsEmailService();
+// Google Sheets Database Manager
+class GoogleSheetsDB {
+    constructor() {
+        // Your Google Apps Script Web App URL for Sheets
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbwWWKYfzpS-LNQ0IvGH3SFHH1YvlVeDV9HcHkSCpDgGp63_R9S5ewqzPSactihrmzip/exec';
+        this.cacheKey = 'jeansClubSheetsCache';
+        this.cacheTimeout = 30000; // 30 seconds cache
+    }
 
-// Centralized Storage Manager
+    async init() {
+        // Initialize cache if not exists
+        if (!this.getCache()) {
+            this.setCache({ members: [], lastSync: 0 });
+        }
+    }
+
+    getCache() {
+        try {
+            const cache = localStorage.getItem(this.cacheKey);
+            return cache ? JSON.parse(cache) : null;
+        } catch (error) {
+            console.error('Error reading cache:', error);
+            return null;
+        }
+    }
+
+    setCache(data) {
+        try {
+            localStorage.setItem(this.cacheKey, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            console.error('Error writing cache:', error);
+            return false;
+        }
+    }
+
+    isCacheValid() {
+        const cache = this.getCache();
+        if (!cache) return false;
+        return (Date.now() - cache.lastSync) < this.cacheTimeout;
+    }
+
+    async callSheetsAPI(action, data = {}) {
+        try {
+            const payload = {
+                action: action,
+                ...data,
+                timestamp: new Date().toISOString()
+            };
+
+            console.log('Calling Google Sheets API:', payload);
+
+            const response = await fetch(this.scriptURL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('Google Sheets API response:', result);
+            return result;
+
+        } catch (error) {
+            console.error('Google Sheets API call failed:', error);
+            // Fallback to localStorage for demo purposes
+            return this.fallbackToLocalStorage(action, data);
+        }
+    }
+
+    fallbackToLocalStorage(action, data) {
+        console.log('Falling back to localStorage for action:', action);
+        const fallbackStorage = new CentralStorage();
+        
+        switch(action) {
+            case 'getAllMembers':
+                return { success: true, members: fallbackStorage.getAllMembers() };
+            case 'saveMember':
+                return { success: fallbackStorage.saveMember(data.member) };
+            case 'deleteMember':
+                return { success: fallbackStorage.deleteMember(data.jcId) };
+            case 'getMember':
+                return { success: true, member: fallbackStorage.getMemberByJCId(data.jcId) };
+            default:
+                return { success: false, error: 'Unknown action' };
+        }
+    }
+
+    async getAllMembers() {
+        // Check cache first
+        if (this.isCacheValid()) {
+            const cache = this.getCache();
+            console.log('Using cached members data');
+            return cache.members;
+        }
+
+        // Fetch from Google Sheets
+        const result = await this.callSheetsAPI('getAllMembers');
+        if (result.success) {
+            // Update cache
+            this.setCache({
+                members: result.members,
+                lastSync: Date.now()
+            });
+            return result.members;
+        }
+        return [];
+    }
+
+    async saveMember(member) {
+        const result = await this.callSheetsAPI('saveMember', { member: member });
+        
+        if (result.success) {
+            // Invalidate cache to force refresh
+            const cache = this.getCache();
+            if (cache) {
+                cache.lastSync = 0;
+                this.setCache(cache);
+            }
+        }
+        
+        return result.success;
+    }
+
+    async deleteMember(jcId) {
+        const result = await this.callSheetsAPI('deleteMember', { jcId: jcId });
+        
+        if (result.success) {
+            // Invalidate cache
+            const cache = this.getCache();
+            if (cache) {
+                cache.lastSync = 0;
+                this.setCache(cache);
+            }
+        }
+        
+        return result.success;
+    }
+
+    async getMemberByJCId(jcId) {
+        // Check cache first
+        if (this.isCacheValid()) {
+            const cache = this.getCache();
+            const cachedMember = cache.members.find(m => m.jcId === jcId);
+            if (cachedMember) return cachedMember;
+        }
+
+        // Fetch from Google Sheets
+        const result = await this.callSheetsAPI('getMember', { jcId: jcId });
+        return result.success ? result.member : null;
+    }
+
+    async getMemberByEmail(email) {
+        const members = await this.getAllMembers();
+        return members.find(m => m.email === email);
+    }
+}
+
+// Legacy Central Storage (for fallback)
 class CentralStorage {
     constructor() {
         this.storageKey = 'jeansClubCentralData';
@@ -143,7 +304,6 @@ class CentralStorage {
     }
 
     async init() {
-        // Initialize with empty data if not exists
         if (!this.getData()) {
             this.setData({
                 members: [],
@@ -181,14 +341,11 @@ class CentralStorage {
         const data = this.getData();
         if (!data) return false;
 
-        // Check if member already exists
         const existingIndex = data.members.findIndex(m => m.jcId === member.jcId);
         
         if (existingIndex >= 0) {
-            // Update existing member
             data.members[existingIndex] = member;
         } else {
-            // Add new member
             data.members.push(member);
         }
 
@@ -274,7 +431,8 @@ const jeansClubConfig = {
 
 class JeansClubManager {
     constructor() {
-        this.storage = new CentralStorage();
+        this.db = new GoogleSheetsDB();
+        this.emailService = new GoogleAppsEmailService();
         this.currentMember = null;
         this.isAdmin = false;
         this.loadCurrentMember();
@@ -304,14 +462,13 @@ class JeansClubManager {
     // Create account with password
     async createAccount(userData, password, referralCode = null) {
         // Check if email already exists
-        const existingMember = this.storage.getMemberByEmail(userData.email);
+        const existingMember = await this.db.getMemberByEmail(userData.email);
         if (existingMember) {
             return { success: false, message: "Email already registered" };
         }
 
         const memberId = 'member_' + Date.now();
         const hashedPassword = this.hashPassword(password);
-        
         const startingPoints = 10;
         
         const newMember = {
@@ -333,15 +490,15 @@ class JeansClubManager {
             referrals: []
         };
 
-        // Save to centralized storage
-        if (!this.storage.saveMember(newMember)) {
+        // Save to Google Sheets
+        if (!await this.db.saveMember(newMember)) {
             return { success: false, message: "Failed to save member data" };
         }
 
         this.currentMember = newMember;
         this.saveCurrentMember();
         
-        this.logActivity(memberId, 'Account created - Welcome to Jean\'s Club!', startingPoints);
+        await this.logActivity(memberId, 'Account created - Welcome to Jean\'s Club!', startingPoints);
         
         // Process referral if exists
         if (referralCode) {
@@ -349,7 +506,7 @@ class JeansClubManager {
         }
 
         // Send welcome email
-        const emailResult = await emailService.sendWelcomeEmail(newMember.email, {
+        const emailResult = await this.emailService.sendWelcomeEmail(newMember.email, {
             name: newMember.name,
             jcId: newMember.jcId,
             tier: newMember.tier,
@@ -368,7 +525,7 @@ class JeansClubManager {
     // Create account with Google
     async createAccountWithGoogle(userData, referralCode = null) {
         // Check if email already exists
-        const existingMember = this.storage.getMemberByEmail(userData.email);
+        const existingMember = await this.db.getMemberByEmail(userData.email);
         if (existingMember) {
             return { success: false, message: "Email already registered" };
         }
@@ -396,15 +553,15 @@ class JeansClubManager {
             referrals: []
         };
 
-        // Save to centralized storage
-        if (!this.storage.saveMember(newMember)) {
+        // Save to Google Sheets
+        if (!await this.db.saveMember(newMember)) {
             return { success: false, message: "Failed to save member data" };
         }
 
         this.currentMember = newMember;
         this.saveCurrentMember();
         
-        this.logActivity(memberId, 'Account created with Google - Welcome to Jean\'s Club!', startingPoints);
+        await this.logActivity(memberId, 'Account created with Google - Welcome to Jean\'s Club!', startingPoints);
         
         // Process referral if exists
         if (referralCode) {
@@ -412,7 +569,7 @@ class JeansClubManager {
         }
 
         // Send welcome email
-        const emailResult = await emailService.sendWelcomeEmail(newMember.email, {
+        const emailResult = await this.emailService.sendWelcomeEmail(newMember.email, {
             name: newMember.name,
             jcId: newMember.jcId,
             tier: newMember.tier,
@@ -429,8 +586,8 @@ class JeansClubManager {
     }
 
     // Login with BOTH JC ID AND Email
-    login(jcId, email, password) {
-        const member = this.storage.getMemberByJCId(jcId);
+    async login(jcId, email, password) {
+        const member = await this.db.getMemberByJCId(jcId);
         
         if (member && member.email === email) {
             if (member.loginMethod === 'google') {
@@ -439,7 +596,7 @@ class JeansClubManager {
             if (this.verifyPassword(password, member.password)) {
                 this.currentMember = member;
                 this.saveCurrentMember();
-                this.logActivity(member.id, 'Logged in to account', 0);
+                await this.logActivity(member.id, 'Logged in to account', 0);
                 return { success: true, member: member };
             } else {
                 return { success: false, message: "Invalid password" };
@@ -449,13 +606,13 @@ class JeansClubManager {
     }
 
     // Login with Google
-    loginWithGoogle(email) {
-        const member = this.storage.getMemberByEmail(email);
+    async loginWithGoogle(email) {
+        const member = await this.db.getMemberByEmail(email);
         
         if (member && member.loginMethod === 'google') {
             this.currentMember = member;
             this.saveCurrentMember();
-            this.logActivity(member.id, 'Logged in with Google', 0);
+            await this.logActivity(member.id, 'Logged in with Google', 0);
             return { success: true, member: member };
         }
         return { success: false, message: "Google account not found. Please sign up first." };
@@ -463,7 +620,7 @@ class JeansClubManager {
 
     // Admin function to add purchase
     async addPurchase(memberJCId, amountUGX, description) {
-        const targetMember = this.storage.getMemberByJCId(memberJCId);
+        const targetMember = await this.db.getMemberByJCId(memberJCId);
 
         if (!targetMember) {
             return { success: false, message: "Member not found" };
@@ -483,10 +640,10 @@ class JeansClubManager {
             pointsEarned: pointsEarned
         });
 
-        this.logActivity(targetMember.id, description + ' - ' + amountUGX.toLocaleString() + ' UGX', pointsEarned);
+        await this.logActivity(targetMember.id, description + ' - ' + amountUGX.toLocaleString() + ' UGX', pointsEarned);
 
         // Save updated member
-        if (!this.storage.saveMember(targetMember)) {
+        if (!await this.db.saveMember(targetMember)) {
             return { success: false, message: "Failed to update member data" };
         }
 
@@ -502,7 +659,7 @@ class JeansClubManager {
             amount: amountUGX,
             pointsEarned: pointsEarned
         };
-        await emailService.sendPurchaseEmail(targetMember.email, targetMember, purchaseData);
+        await this.emailService.sendPurchaseEmail(targetMember.email, targetMember, purchaseData);
 
         return {
             success: true,
@@ -515,12 +672,12 @@ class JeansClubManager {
 
     // Process referral
     async processReferral(referralCode, newMemberJCId, newMemberName) {
-        const allMembers = this.storage.getAllMembers();
+        const allMembers = await this.db.getAllMembers();
         
         for (const member of allMembers) {
             if (member.referralCode === referralCode) {
                 member.points += 100;
-                this.logActivity(member.id, 'Referral bonus - ' + newMemberJCId + ' joined using your code!', 100);
+                await this.logActivity(member.id, 'Referral bonus - ' + newMemberJCId + ' joined using your code!', 100);
                 member.tier = this.calculateTier(member.points);
                 
                 if (!member.referrals) member.referrals = [];
@@ -532,32 +689,32 @@ class JeansClubManager {
                 });
 
                 // Save updated member
-                this.storage.saveMember(member);
+                await this.db.saveMember(member);
 
                 // Send referral success email
                 const referralData = {
                     newMemberName: newMemberName,
                     newMemberJCId: newMemberJCId
                 };
-                await emailService.sendReferralEmail(member.email, member, referralData);
+                await this.emailService.sendReferralEmail(member.email, member, referralData);
                 break;
             }
         }
     }
 
     // Delete member account (Admin only)
-    deleteMemberAccount(jcId) {
+    async deleteMemberAccount(jcId) {
         if (!this.isAdmin) {
             return { success: false, message: "Admin access required" };
         }
 
-        const memberToDelete = this.storage.getMemberByJCId(jcId);
+        const memberToDelete = await this.db.getMemberByJCId(jcId);
         if (!memberToDelete) {
             return { success: false, message: "Member not found" };
         }
 
         // Remove member from storage
-        if (!this.storage.deleteMember(jcId)) {
+        if (!await this.db.deleteMember(jcId)) {
             return { success: false, message: "Failed to delete member" };
         }
 
@@ -642,17 +799,17 @@ class JeansClubManager {
         member.points -= discountCalc.pointsUsed;
         member.tier = this.calculateTier(member.points);
         
-        this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
+        await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
 
         // Save updated member
-        if (!this.storage.saveMember(member)) {
+        if (!await this.db.saveMember(member)) {
             return { success: false, message: "Failed to update member data" };
         }
 
         this.saveCurrentMember();
 
         // Send discount voucher email
-        const emailResult = await emailService.sendDiscountEmail(member.email, member, discountCalc);
+        const emailResult = await this.emailService.sendDiscountEmail(member.email, member, discountCalc);
 
         return {
             success: true,
@@ -662,8 +819,8 @@ class JeansClubManager {
         };
     }
 
-    logActivity(memberId, message, points) {
-        const allMembers = this.storage.getAllMembers();
+    async logActivity(memberId, message, points) {
+        const allMembers = await this.db.getAllMembers();
         const memberIndex = allMembers.findIndex(m => m.id === memberId);
         
         if (memberIndex >= 0) {
@@ -676,7 +833,7 @@ class JeansClubManager {
             if (member.activityLog.length > 10) member.activityLog = member.activityLog.slice(0, 10);
             
             // Save updated member
-            this.storage.saveMember(member);
+            await this.db.saveMember(member);
         }
     }
 
@@ -701,8 +858,9 @@ class JeansClubManager {
         return btoa(unescape(encodeURIComponent(password))) === hashedPassword;
     }
 
-    getReferralStats(memberId) {
-        const member = this.storage.getAllMembers().find(m => m.id === memberId);
+    async getReferralStats(memberId) {
+        const allMembers = await this.db.getAllMembers();
+        const member = allMembers.find(m => m.id === memberId);
         if (!member || !member.referrals) return { totalReferrals: 0, totalPoints: 0 };
         return {
             totalReferrals: member.referrals.length,
@@ -710,19 +868,13 @@ class JeansClubManager {
         };
     }
 
-    getAllMembers() {
-        return this.storage.getAllMembers();
+    async getAllMembers() {
+        return await this.db.getAllMembers();
     }
 
-    resetAllData() {
-        this.storage.setData({
-            members: [],
-            lastUpdate: new Date().toISOString(),
-            version: '1.0'
-        });
-        this.currentMember = null;
-        this.isAdmin = false;
-        localStorage.removeItem('jeansClubCurrentMember');
+    async resetAllData() {
+        // This would need to be implemented in Google Sheets
+        console.log('Reset all data - would need Google Sheets implementation');
     }
 }
 
@@ -808,7 +960,7 @@ async function handleGoogleSignIn(response) {
                 alert(result.message);
             }
         } else {
-            const result = clubManager.loginWithGoogle(userData.email);
+            const result = await clubManager.loginWithGoogle(userData.email);
             if (result.success) {
                 showDashboard(result.member);
                 alert('Welcome back, ' + result.member.name + '!');
@@ -851,11 +1003,11 @@ async function demoGoogleSignup() {
     }
 }
 
-function demoGoogleLogin() {
+async function demoGoogleLogin() {
     const email = prompt("Enter the email you used for Google signup:");
     if (!email) return;
 
-    const result = clubManager.loginWithGoogle(email);
+    const result = await clubManager.loginWithGoogle(email);
     if (result.success) {
         showDashboard(result.member);
         alert('Welcome back, ' + result.member.name + '!');
@@ -874,7 +1026,7 @@ function showAdminLogin() {
     }
 }
 
-function showAdminPanel() {
+async function showAdminPanel() {
     if (!clubManager.isAdmin) {
         showAdminLogin();
         return;
@@ -884,7 +1036,7 @@ function showAdminPanel() {
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('adminSection').classList.remove('hidden');
     document.getElementById('deleteMemberSection').classList.add('hidden');
-    viewAllMembers();
+    await viewAllMembers();
 }
 
 function showDashboard(member) {
@@ -897,7 +1049,7 @@ function showDashboard(member) {
     updateDashboard(member);
 }
 
-function updateDashboard(member) {
+async function updateDashboard(member) {
     document.getElementById('memberJcId').textContent = member.jcId;
     document.getElementById('memberName').textContent = member.name;
     document.getElementById('memberEmail').textContent = member.email;
@@ -908,7 +1060,7 @@ function updateDashboard(member) {
     document.getElementById('memberReferralCode').textContent = member.referralCode;
     document.getElementById('totalSpent').textContent = member.totalSpent.toLocaleString() + ' UGX';
     
-    const referralStats = clubManager.getReferralStats(member.id);
+    const referralStats = await clubManager.getReferralStats(member.id);
     document.getElementById('referralStats').innerHTML = 'Referrals: ' + referralStats.totalReferrals + ' friends, Earned: ' + referralStats.totalPoints + ' points';
     
     updateTierProgress(member);
@@ -967,10 +1119,10 @@ function logout() {
     showLoginScreen();
 }
 
-function refreshData() {
+async function refreshData() {
     if (clubManager.currentMember) {
-        // Reload current member from central storage
-        const updatedMember = clubManager.storage.getMemberByJCId(clubManager.currentMember.jcId);
+        // Reload current member from Google Sheets
+        const updatedMember = await clubManager.db.getMemberByJCId(clubManager.currentMember.jcId);
         if (updatedMember) {
             clubManager.currentMember = updatedMember;
             clubManager.saveCurrentMember();
@@ -1022,7 +1174,7 @@ async function signUpWithEmail() {
     }
 }
 
-function loginWithCredentials() {
+async function loginWithCredentials() {
     const jcId = document.getElementById('loginJCId').value.trim();
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
@@ -1032,7 +1184,7 @@ function loginWithCredentials() {
         return;
     }
     
-    const result = clubManager.login(jcId, email, password);
+    const result = await clubManager.login(jcId, email, password);
     if (result.success) {
         showDashboard(result.member);
     } else {
@@ -1102,8 +1254,8 @@ function shareReferral() {
 }
 
 // Admin Functions
-function viewAllMembers() {
-    const members = clubManager.getAllMembers();
+async function viewAllMembers() {
+    const members = await clubManager.getAllMembers();
     const adminContent = document.getElementById('adminContent');
     
     if (members.length === 0) {
@@ -1112,15 +1264,15 @@ function viewAllMembers() {
     }
     
     let html = '<h3>Total Members: ' + members.length + '</h3><div class="members-list">';
-    members.forEach(member => {
-        const referralStats = clubManager.getReferralStats(member.id);
+    for (const member of members) {
+        const referralStats = await clubManager.getReferralStats(member.id);
         html += '<div class="admin-card"><strong>' + member.jcId + '</strong> - ' + member.name + '<br>Email: ' + member.email + '<br>Login Method: ' + (member.loginMethod === 'google' ? 'Google' : 'Email') + '<br>Tier: <span class="tier-' + member.tier.toLowerCase() + '">' + member.tier + '</span> | Points: ' + member.points.toLocaleString() + '<br>Spent: ' + member.totalSpent.toLocaleString() + ' UGX<br>Referrals: ' + referralStats.totalReferrals + ' friends<br>Referral Code: <code>' + member.referralCode + '</code><br>Joined: ' + new Date(member.joinedDate).toLocaleDateString() + '</div>';
-    });
+    }
     html += '</div>';
     adminContent.innerHTML = html;
 }
 
-function adminAddPurchase() {
+async function adminAddPurchase() {
     if (!clubManager.isAdmin) return alert("Staff access required");
     
     const jcId = document.getElementById('purchaseJCId').value.trim();
@@ -1137,18 +1289,17 @@ function adminAddPurchase() {
         return;
     }
 
-    clubManager.addPurchase(jcId, amount, description).then(result => {
-        const purchaseResult = document.getElementById('purchaseResult');
-        if (result.success) {
-            purchaseResult.innerHTML = '<span style="color: green;">Purchase added!<br>' + result.pointsEarned + ' points earned<br>New balance: ' + result.newPoints + ' points<br>' + (result.tierChanged ? 'Tier upgraded to ' + result.newTier + '!' : '') + '</span>';
-            document.getElementById('purchaseJCId').value = '';
-            document.getElementById('purchaseAmount').value = '';
-            document.getElementById('purchaseDescription').value = '';
-            setTimeout(viewAllMembers, 1000);
-        } else {
-            purchaseResult.innerHTML = '<span style="color: red;">' + result.message + '</span>';
-        }
-    });
+    const result = await clubManager.addPurchase(jcId, amount, description);
+    const purchaseResult = document.getElementById('purchaseResult');
+    if (result.success) {
+        purchaseResult.innerHTML = '<span style="color: green;">Purchase added!<br>' + result.pointsEarned + ' points earned<br>New balance: ' + result.newPoints + ' points<br>' + (result.tierChanged ? 'Tier upgraded to ' + result.newTier + '!' : '') + '</span>';
+        document.getElementById('purchaseJCId').value = '';
+        document.getElementById('purchaseAmount').value = '';
+        document.getElementById('purchaseDescription').value = '';
+        setTimeout(viewAllMembers, 1000);
+    } else {
+        purchaseResult.innerHTML = '<span style="color: red;">' + result.message + '</span>';
+    }
 }
 
 function showDeleteMemberSection() {
@@ -1157,7 +1308,7 @@ function showDeleteMemberSection() {
     document.getElementById('deleteResult').innerHTML = '';
 }
 
-function confirmDeleteMember() {
+async function confirmDeleteMember() {
     const jcId = document.getElementById('deleteJCId').value.trim();
     
     if (!jcId) {
@@ -1169,7 +1320,7 @@ function confirmDeleteMember() {
         return;
     }
 
-    const result = clubManager.deleteMemberAccount(jcId);
+    const result = await clubManager.deleteMemberAccount(jcId);
     const deleteResult = document.getElementById('deleteResult');
     
     if (result.success) {
