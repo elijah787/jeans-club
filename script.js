@@ -183,9 +183,12 @@ class GoogleSheetsDB {
                 timestamp: new Date().toISOString()
             };
 
-            console.log('Calling Google Sheets API:', payload);
+            console.log('📡 Calling Google Sheets API:', payload);
 
-            const response = await fetch(this.scriptURL, {
+            // Add cache-buster to avoid CORS issues
+            const url = this.scriptURL + '?cache=' + Date.now();
+            
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -193,23 +196,35 @@ class GoogleSheetsDB {
                 body: JSON.stringify(payload)
             });
 
+            console.log('📡 API Response status:', response.status, response.statusText);
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const result = await response.json();
-            console.log('Google Sheets API response:', result);
+            const resultText = await response.text();
+            console.log('📡 API Response text:', resultText);
+            
+            let result;
+            try {
+                result = JSON.parse(resultText);
+            } catch (e) {
+                console.error('❌ Failed to parse API response as JSON:', e);
+                throw new Error('Invalid JSON response from server');
+            }
+
+            console.log('✅ Google Sheets API response:', result);
             return result;
 
         } catch (error) {
-            console.error('Google Sheets API call failed:', error);
-            // Fallback to localStorage for demo purposes
+            console.error('❌ Google Sheets API call failed:', error);
+            console.log('🔄 Falling back to localStorage...');
             return this.fallbackToLocalStorage(action, data);
         }
     }
 
     fallbackToLocalStorage(action, data) {
-        console.log('Falling back to localStorage for action:', action);
+        console.log('🔄 Using localStorage fallback for action:', action);
         const fallbackStorage = new CentralStorage();
         
         switch(action) {
@@ -230,7 +245,7 @@ class GoogleSheetsDB {
         // Check cache first
         if (this.isCacheValid()) {
             const cache = this.getCache();
-            console.log('Using cached members data');
+            console.log('📦 Using cached members data');
             return cache.members;
         }
 
@@ -242,21 +257,27 @@ class GoogleSheetsDB {
                 members: result.members,
                 lastSync: Date.now()
             });
+            console.log('✅ Loaded', result.members.length, 'members from Google Sheets');
             return result.members;
         }
+        console.log('❌ Failed to load members from Google Sheets, using fallback');
         return [];
     }
 
     async saveMember(member) {
+        console.log('💾 Saving member to Google Sheets:', member.jcId, member.name);
         const result = await this.callSheetsAPI('saveMember', { member: member });
         
         if (result.success) {
+            console.log('✅ Successfully saved member to Google Sheets');
             // Invalidate cache to force refresh
             const cache = this.getCache();
             if (cache) {
                 cache.lastSync = 0;
                 this.setCache(cache);
             }
+        } else {
+            console.log('❌ Failed to save member to Google Sheets');
         }
         
         return result.success;
@@ -436,6 +457,7 @@ class JeansClubManager {
         this.currentMember = null;
         this.isAdmin = false;
         this.loadCurrentMember();
+        console.log('🚀 JeansClubManager initialized with Google Sheets DB');
     }
 
     generateJCId() {
@@ -461,9 +483,12 @@ class JeansClubManager {
 
     // Create account with password
     async createAccount(userData, password, referralCode = null) {
+        console.log('👤 Creating account for:', userData.email);
+        
         // Check if email already exists
         const existingMember = await this.db.getMemberByEmail(userData.email);
         if (existingMember) {
+            console.log('❌ Email already registered:', userData.email);
             return { success: false, message: "Email already registered" };
         }
 
@@ -490,9 +515,12 @@ class JeansClubManager {
             referrals: []
         };
 
+        console.log('💾 Saving new member to Google Sheets:', newMember.jcId);
+
         // Save to Google Sheets
         if (!await this.db.saveMember(newMember)) {
-            return { success: false, message: "Failed to save member data" };
+            console.log('❌ Failed to save member to Google Sheets');
+            return { success: false, message: "Failed to save member data to cloud storage" };
         }
 
         this.currentMember = newMember;
@@ -514,6 +542,7 @@ class JeansClubManager {
             referralCode: newMember.referralCode
         });
 
+        console.log('✅ Account created successfully! JC ID:', newMember.jcId);
         return { 
             success: true, 
             member: newMember,
@@ -524,6 +553,8 @@ class JeansClubManager {
 
     // Create account with Google
     async createAccountWithGoogle(userData, referralCode = null) {
+        console.log('👤 Creating Google account for:', userData.email);
+        
         // Check if email already exists
         const existingMember = await this.db.getMemberByEmail(userData.email);
         if (existingMember) {
@@ -552,6 +583,8 @@ class JeansClubManager {
             challenges: [],
             referrals: []
         };
+
+        console.log('💾 Saving Google member to Google Sheets:', newMember.jcId);
 
         // Save to Google Sheets
         if (!await this.db.saveMember(newMember)) {
@@ -587,6 +620,7 @@ class JeansClubManager {
 
     // Login with BOTH JC ID AND Email
     async login(jcId, email, password) {
+        console.log('🔐 Attempting login for JC ID:', jcId);
         const member = await this.db.getMemberByJCId(jcId);
         
         if (member && member.email === email) {
@@ -597,29 +631,36 @@ class JeansClubManager {
                 this.currentMember = member;
                 this.saveCurrentMember();
                 await this.logActivity(member.id, 'Logged in to account', 0);
+                console.log('✅ Login successful for:', member.name);
                 return { success: true, member: member };
             } else {
+                console.log('❌ Invalid password for:', jcId);
                 return { success: false, message: "Invalid password" };
             }
         }
+        console.log('❌ Account not found:', jcId, email);
         return { success: false, message: "Account not found - check JC ID and email" };
     }
 
     // Login with Google
     async loginWithGoogle(email) {
+        console.log('🔐 Attempting Google login for:', email);
         const member = await this.db.getMemberByEmail(email);
         
         if (member && member.loginMethod === 'google') {
             this.currentMember = member;
             this.saveCurrentMember();
             await this.logActivity(member.id, 'Logged in with Google', 0);
+            console.log('✅ Google login successful for:', member.name);
             return { success: true, member: member };
         }
+        console.log('❌ Google account not found:', email);
         return { success: false, message: "Google account not found. Please sign up first." };
     }
 
     // Admin function to add purchase
     async addPurchase(memberJCId, amountUGX, description) {
+        console.log('💰 Adding purchase for:', memberJCId, amountUGX, description);
         const targetMember = await this.db.getMemberByJCId(memberJCId);
 
         if (!targetMember) {
@@ -880,6 +921,8 @@ class JeansClubManager {
 
 // Initialize the system
 const clubManager = new JeansClubManager();
+
+// [Rest of your existing functions remain the same - initializeGoogleSignIn, handleGoogleSignIn, etc.]
 
 // Google Sign-In Functions
 function initializeGoogleSignIn() {
