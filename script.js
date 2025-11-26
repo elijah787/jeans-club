@@ -216,10 +216,11 @@ class SupabaseDB {
     }
 }
 
-// Google Apps Script Email Service (UPDATED - ALL EMAILS WITH QR CODE)
+// Google Apps Script Email Service (FIXED - NO MORE JSON PARSING ERROR)
 class GoogleAppsEmailService {
     constructor() {
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbxSBWASI7z3yQzsTeHLrpPV35eo9NySjI5KAXVG8NNWYBJpLoYJUEPyssCxSRC7OH801Q/exec';
+        // UPDATED: Use your new deployment URL
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbwCBwbUwWePppOi4sR9V6KE6JRGeTy_cGTz_aU_yuDR_ZZsevS62glmxZIPyVXE_zxc/exec';
         this.isActive = true;
     }
 
@@ -240,18 +241,23 @@ class GoogleAppsEmailService {
 
             console.log('Sending email via Google Apps Script:', payload);
 
+            // FIXED: Removed mode: 'no-cors' to allow reading response
             const response = await fetch(this.scriptURL, {
                 method: 'POST',
-                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(payload)
             });
 
-            const result = await response.text();
-            console.log('✅ Email sent successfully via Google Apps Script');
-            return JSON.parse(result);
+            // Check if response is OK
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ Email sent successfully via Google Apps Script:', result);
+            return result;
             
         } catch (error) {
             console.error('❌ Google Apps Script email failed:', error);
