@@ -216,7 +216,7 @@ class SupabaseDB {
     }
 }
 
-// Google Apps Script Email Service (UNCHANGED)
+// Google Apps Script Email Service (UPDATED WITH QR CODE)
 class GoogleAppsEmailService {
     constructor() {
         this.scriptURL = 'https://script.google.com/macros/s/AKfycbxSBWASI7z3yQzsTeHLrpPV35eo9NySjI5KAXVG8NNWYBJpLoYJUEPyssCxSRC7OH801Q/exec';
@@ -298,7 +298,7 @@ class GoogleAppsEmailService {
         switch(type) {
             case 'welcome':
                 subject = 'Welcome to Jean\'s Club!';
-                content = 'Hello ' + memberData.name + ',\n\nWelcome to Jean\'s Club! Your account has been created successfully.\n\nMEMBERSHIP DETAILS:\n• JC ID: ' + memberData.jcId + '\n• Tier: ' + memberData.tier + '\n• Points: ' + memberData.points + '\n• Referral Code: ' + memberData.referralCode + '\n\nStart earning points with your purchases!\n\nThank you for joining Jean\'s Club!';
+                content = 'Hello ' + memberData.name + ',\n\nWelcome to Jean\'s Club! Your account has been created successfully.\n\nMEMBERSHIP DETAILS:\n• JC ID: ' + memberData.jcId + '\n• Tier: ' + memberData.tier + '\n• Points: ' + memberData.points + '\n• Referral Code: ' + memberData.referralCode + '\n\nSHARE JEAN\'S CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nStart earning points with your purchases!\n\nThank you for joining Jean\'s Club!';
                 break;
 
             case 'purchase':
@@ -313,7 +313,7 @@ class GoogleAppsEmailService {
 
             case 'referral':
                 subject = 'Referral Success! +100 Points';
-                content = 'Hello ' + memberData.name + ',\n\nCongratulations! Someone joined using your referral code!\n\nREFERRAL DETAILS:\n• New Member: ' + extraData.newMemberName + ' (' + extraData.newMemberJCId + ')\n• Points Earned: 100 points\n• New Balance: ' + memberData.points + ' points\n\nKeep sharing your code: ' + memberData.referralCode;
+                content = 'Hello ' + memberData.name + ',\n\nCongratulations! Someone joined using your referral code!\n\nREFERRAL DETAILS:\n• New Member: ' + extraData.newMemberName + ' (' + extraData.newMemberJCId + ')\n• Points Earned: 100 points\n• New Balance: ' + memberData.points + ' points\n\nSHARE WITH MORE FRIENDS:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nKeep sharing your code: ' + memberData.referralCode;
                 break;
         }
 
