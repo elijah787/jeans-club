@@ -1,7 +1,7 @@
 // Google Apps Script Email Service
 class GoogleAppsEmailService {
     constructor() {
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbwgqslmtzGl9yp_BmyCuQW2Ei-7xKVJ-JIiQcwEvD2mD6CwJzDD4xM6w2JIJrOIW5mP/exec';
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbx7LP8L1s736vQ9cBtksr0r448_kM9KEcC9uyRNFqMbd-d-TrJW19O1EXYsLxohEbNi/exec';
         this.isActive = true;
     }
 
@@ -26,9 +26,9 @@ class GoogleAppsEmailService {
                 body: JSON.stringify(payload)
             });
 
-            const result = await response.text();
+            // For no-cors mode, we can't read the response, so assume success
             console.log('Email sent successfully via Google Apps Script');
-            return JSON.parse(result);
+            return { success: true, message: "Email sent successfully" };
             
         } catch (error) {
             console.error('Google Apps Script email failed:', error);
@@ -136,7 +136,7 @@ class GoogleAppsEmailService {
 // Enhanced Google Sheets DB Manager for Cross-Device Support
 class GoogleSheetsDB {
     constructor() {
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbwgqslmtzGl9yp_BmyCuQW2Ei-7xKVJ-JIiQcwEvD2mD6CwJzDD4xM6w2JIJrOIW5mP/exec';
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbx7LP8L1s736vQ9cBtksr0r448_kM9KEcC9uyRNFqMbd-d-TrJW19O1EXYsLxohEbNi/exec';
         this.cacheKey = 'jeansClubSheetsCache';
         this.cacheTimeout = 30000; // 30 seconds
         this.sheetId = '19uX0ZPFu2eMBAQDd4-mKIPTMSRBDClAW4TGkChX9y8Q'; // Your sheet ID
@@ -170,17 +170,11 @@ class GoogleSheetsDB {
         }
     }
 
-    isCacheValid() {
-        const cache = this.getCache();
-        if (!cache || !cache.members) return false;
-        return (Date.now() - cache.lastSync) < this.cacheTimeout;
-    }
-
     // Enhanced API call specifically for your sheet
     async callSheetsAPI(action, data = {}) {
         const payload = {
             action: action,
-            sheetId: this.sheetId,
+            sheetId: this.sheetId, // Your specific sheet ID
             ...data,
             timestamp: new Date().toISOString(),
             source: 'jeans-club-web-v2'
@@ -189,6 +183,7 @@ class GoogleSheetsDB {
         console.log('📡 Calling YOUR Google Sheet:', action, data);
 
         try {
+            // First, try to call your Google Apps Script
             const response = await fetch(this.scriptURL, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -200,6 +195,7 @@ class GoogleSheetsDB {
 
             console.log('✅ Request sent to your Google Sheet');
             
+            // Since we're using no-cors, we'll handle the response in localStorage
             return await this.handleLocalUpdate(action, data);
             
         } catch (error) {
@@ -1293,6 +1289,12 @@ async function signUpWithEmail() {
                 message += '🎁 You got 10 points + your friend got 100 points!\n\n';
             } else {
                 message += '🎁 You got 10 welcome points!\n\n';
+            }
+            
+            if (result.isFallback) {
+                message += '📧 Email details saved (check browser console)\n\n';
+            } else if (result.emailSent) {
+                message += '📧 Welcome email sent to your inbox!\n\n';
             }
             
             alert(message);
