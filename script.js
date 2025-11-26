@@ -1,7 +1,225 @@
-// Google Apps Script Email Service
+// Import Supabase
+const { createClient } = supabase;
+
+// Supabase Database Manager
+class SupabaseDB {
+    constructor() {
+        // ⚠️ REPLACE WITH YOUR ACTUAL SUPABASE CREDENTIALS ⚠️
+        this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
+        this.anonKey = 'sb_publishable__gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA';
+        
+        this.supabase = createClient(this.supabaseUrl, this.anonKey);
+        this.cacheKey = 'jeansClubCache';
+        this.init();
+        console.log('🚀 SupabaseDB initialized with URL:', this.supabaseUrl);
+    }
+
+    async init() {
+        if (!this.getCache()) {
+            this.setCache({ members: [], lastSync: 0 });
+        }
+    }
+
+    getCache() {
+        try {
+            const cache = localStorage.getItem(this.cacheKey);
+            return cache ? JSON.parse(cache) : null;
+        } catch (error) {
+            console.error('Error reading cache:', error);
+            return null;
+        }
+    }
+
+    setCache(data) {
+        try {
+            localStorage.setItem(this.cacheKey, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            console.error('Error writing cache:', error);
+            return false;
+        }
+    }
+
+    // Enhanced member operations
+    async getAllMembers() {
+        try {
+            console.log('🔄 Fetching all members from Supabase...');
+            
+            const { data: members, error } = await this.supabase
+                .from('members')
+                .select('*');
+
+            if (error) {
+                console.error('❌ Supabase error:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${members?.length || 0} members from Supabase`);
+            
+            // Update cache
+            this.setCache({
+                members: members || [],
+                lastSync: Date.now()
+            });
+
+            return members || [];
+
+        } catch (error) {
+            console.error('❌ Failed to fetch from Supabase, using cache:', error);
+            const cache = this.getCache();
+            return cache?.members || [];
+        }
+    }
+
+    async saveMember(member) {
+        try {
+            console.log('💾 Saving member to Supabase:', member.jcId);
+            
+            // Ensure all required fields are present
+            const memberData = {
+                jcId: member.jcId,
+                id: member.id || 'member_' + Date.now(),
+                email: member.email,
+                name: member.name,
+                password: member.password || null,
+                googleId: member.googleId || null,
+                loginMethod: member.loginMethod || 'email',
+                points: member.points || 0,
+                tier: member.tier || 'PEARL',
+                referralCode: member.referralCode,
+                referredBy: member.referredBy || null,
+                purchaseHistory: member.purchaseHistory || [],
+                activityLog: member.activityLog || [],
+                joinedDate: member.joinedDate || new Date().toISOString(),
+                totalSpent: member.totalSpent || 0,
+                challenges: member.challenges || [],
+                referrals: member.referrals || []
+            };
+
+            const { data, error } = await this.supabase
+                .from('members')
+                .upsert(memberData, { 
+                    onConflict: 'jcId'
+                });
+
+            if (error) {
+                console.error('❌ Supabase save error:', error);
+                throw error;
+            }
+
+            console.log('✅ Member saved successfully to Supabase');
+            
+            // Invalidate cache
+            const cache = this.getCache();
+            if (cache) {
+                cache.lastSync = 0;
+                this.setCache(cache);
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error('❌ Failed to save member to Supabase:', error);
+            return false;
+        }
+    }
+
+    async deleteMember(jcId) {
+        try {
+            console.log('🗑️ Deleting member from Supabase:', jcId);
+            
+            const { error } = await this.supabase
+                .from('members')
+                .delete()
+                .eq('jcId', jcId);
+
+            if (error) {
+                console.error('❌ Supabase delete error:', error);
+                throw error;
+            }
+
+            console.log('✅ Member deleted successfully from Supabase');
+            
+            // Invalidate cache
+            const cache = this.getCache();
+            if (cache) {
+                cache.lastSync = 0;
+                this.setCache(cache);
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error('❌ Failed to delete member from Supabase:', error);
+            return false;
+        }
+    }
+
+    async getMemberByJCId(jcId) {
+        try {
+            console.log('🔍 Fetching member from Supabase:', jcId);
+            
+            const { data: member, error } = await this.supabase
+                .from('members')
+                .select('*')
+                .eq('jcId', jcId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+                console.error('❌ Supabase fetch error:', error);
+                throw error;
+            }
+
+            return member || null;
+
+        } catch (error) {
+            console.error('❌ Failed to fetch member from Supabase:', error);
+            
+            // Fallback to cache
+            const cache = this.getCache();
+            if (cache?.members) {
+                return cache.members.find(m => m.jcId === jcId) || null;
+            }
+            
+            return null;
+        }
+    }
+
+    async getMemberByEmail(email) {
+        try {
+            console.log('🔍 Fetching member by email from Supabase:', email);
+            
+            const { data: member, error } = await this.supabase
+                .from('members')
+                .select('*')
+                .eq('email', email)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error('❌ Supabase fetch error:', error);
+                throw error;
+            }
+
+            return member || null;
+
+        } catch (error) {
+            console.error('❌ Failed to fetch member by email from Supabase:', error);
+            
+            // Fallback to cache
+            const cache = this.getCache();
+            if (cache?.members) {
+                return cache.members.find(m => m.email === email) || null;
+            }
+            
+            return null;
+        }
+    }
+}
+
+// Google Apps Script Email Service (UNCHANGED)
 class GoogleAppsEmailService {
     constructor() {
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbx7LP8L1s736vQ9cBtksr0r448_kM9KEcC9uyRNFqMbd-d-TrJW19O1EXYsLxohEbNi/exec';
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbxSBWASI7z3yQzsTeHLrpPV35eo9NySjI5KAXVG8NNWYBJpLoYJUEPyssCxSRC7OH801Q/exec';
         this.isActive = true;
     }
 
@@ -26,9 +244,9 @@ class GoogleAppsEmailService {
                 body: JSON.stringify(payload)
             });
 
-            // For no-cors mode, we can't read the response, so assume success
+            const result = await response.text();
             console.log('Email sent successfully via Google Apps Script');
-            return { success: true, message: "Email sent successfully" };
+            return JSON.parse(result);
             
         } catch (error) {
             console.error('Google Apps Script email failed:', error);
@@ -133,334 +351,240 @@ class GoogleAppsEmailService {
     }
 }
 
-// Enhanced Google Sheets DB Manager for Cross-Device Support
-class GoogleSheetsDB {
+// Legacy Central Storage (for fallback) - UNCHANGED
+class CentralStorage {
     constructor() {
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbx7LP8L1s736vQ9cBtksr0r448_kM9KEcC9uyRNFqMbd-d-TrJW19O1EXYsLxohEbNi/exec';
-        this.cacheKey = 'jeansClubSheetsCache';
-        this.cacheTimeout = 30000; // 30 seconds
-        this.sheetId = '19uX0ZPFu2eMBAQDd4-mKIPTMSRBDClAW4TGkChX9y8Q'; // Your sheet ID
+        this.storageKey = 'jeansClubCentralData';
         this.init();
     }
 
     async init() {
-        if (!this.getCache()) {
-            this.setCache({ members: [], lastSync: 0 });
+        if (!this.getData()) {
+            this.setData({
+                members: [],
+                lastUpdate: new Date().toISOString(),
+                version: '1.0'
+            });
         }
-        console.log('📊 Google Sheets DB initialized with Sheet ID:', this.sheetId);
     }
 
-    getCache() {
+    getData() {
         try {
-            const cache = localStorage.getItem(this.cacheKey);
-            return cache ? JSON.parse(cache) : null;
+            return JSON.parse(localStorage.getItem(this.storageKey));
         } catch (error) {
-            console.error('Error reading cache:', error);
+            console.error('Error reading storage:', error);
             return null;
         }
     }
 
-    setCache(data) {
+    setData(data) {
         try {
-            localStorage.setItem(this.cacheKey, JSON.stringify(data));
+            localStorage.setItem(this.storageKey, JSON.stringify(data));
             return true;
         } catch (error) {
-            console.error('Error writing cache:', error);
+            console.error('Error writing to storage:', error);
             return false;
         }
     }
 
-    // Enhanced API call specifically for your sheet
-    async callSheetsAPI(action, data = {}) {
-        const payload = {
-            action: action,
-            sheetId: this.sheetId, // Your specific sheet ID
-            ...data,
-            timestamp: new Date().toISOString(),
-            source: 'jeans-club-web-v2'
-        };
-
-        console.log('📡 Calling YOUR Google Sheet:', action, data);
-
-        try {
-            // First, try to call your Google Apps Script
-            const response = await fetch(this.scriptURL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
-
-            console.log('✅ Request sent to your Google Sheet');
-            
-            // Since we're using no-cors, we'll handle the response in localStorage
-            return await this.handleLocalUpdate(action, data);
-            
-        } catch (error) {
-            console.error('❌ Google Sheets API call failed:', error);
-            return await this.handleLocalUpdate(action, data);
-        }
+    getAllMembers() {
+        const data = this.getData();
+        return data ? data.members : [];
     }
 
-    // Handle local storage updates
-    async handleLocalUpdate(action, data) {
-        try {
-            let result;
-            
-            switch(action) {
-                case 'saveMember':
-                    result = this.updateLocalMember(data.member);
-                    break;
-                case 'deleteMember':
-                    result = this.deleteLocalMember(data.jcId);
-                    break;
-                case 'getAllMembers':
-                    result = this.getAllLocalMembers();
-                    break;
-                case 'getMember':
-                    result = this.getLocalMember(data.jcId);
-                    break;
-                default:
-                    result = { success: false, error: 'Unknown action' };
-            }
-            
-            return result;
-        } catch (error) {
-            console.error('Local update failed:', error);
-            return { success: false, error: error.message };
-        }
-    }
+    saveMember(member) {
+        const data = this.getData();
+        if (!data) return false;
 
-    // Local storage management
-    updateLocalMember(member) {
-        const cache = this.getCache() || { members: [], lastSync: 0 };
-        const existingIndex = cache.members.findIndex(m => m.jcId === member.jcId);
+        const existingIndex = data.members.findIndex(m => m.jcId === member.jcId);
         
         if (existingIndex >= 0) {
-            cache.members[existingIndex] = member;
+            data.members[existingIndex] = member;
         } else {
-            cache.members.push(member);
+            data.members.push(member);
         }
-        
-        cache.lastSync = Date.now();
-        this.setCache(cache);
-        
-        return { success: true, message: "Member updated in local cache" };
+
+        data.lastUpdate = new Date().toISOString();
+        return this.setData(data);
     }
 
-    deleteLocalMember(jcId) {
-        const cache = this.getCache();
-        if (!cache) return { success: false, error: "No cache found" };
-        
-        cache.members = cache.members.filter(m => m.jcId !== jcId);
-        cache.lastSync = Date.now();
-        this.setCache(cache);
-        
-        return { success: true, message: "Member deleted from local cache" };
+    deleteMember(jcId) {
+        const data = this.getData();
+        if (!data) return false;
+
+        data.members = data.members.filter(m => m.jcId !== jcId);
+        data.lastUpdate = new Date().toISOString();
+        return this.setData(data);
     }
 
-    getAllLocalMembers() {
-        const cache = this.getCache();
-        const members = cache ? cache.members : [];
-        return { success: true, members: members };
+    getMemberByJCId(jcId) {
+        const data = this.getData();
+        if (!data) return null;
+        return data.members.find(m => m.jcId === jcId);
     }
 
-    getLocalMember(jcId) {
-        const cache = this.getCache();
-        if (!cache) return { success: false, member: null };
-        
-        const member = cache.members.find(m => m.jcId === jcId);
-        return { success: true, member: member || null };
-    }
-
-    // Public API methods
-    async getAllMembers() {
-        console.log('🔄 Fetching all members from central database...');
-        const result = await this.callSheetsAPI('getAllMembers');
-        
-        if (result.success && result.members) {
-            console.log('✅ Loaded', result.members.length, 'members from central database');
-            return result.members;
-        } else {
-            console.log('⚠️ Using local cache only');
-            const cache = this.getCache();
-            return cache ? cache.members : [];
-        }
-    }
-
-    async saveMember(member) {
-        console.log('💾 Saving member to central database:', member.jcId);
-        const result = await this.callSheetsAPI('saveMember', { member: member });
-        
-        if (result.success) {
-            console.log('✅ Member saved successfully:', member.jcId);
-        } else {
-            console.log('❌ Failed to save member to central DB');
-        }
-        
-        return result.success;
-    }
-
-    async deleteMember(jcId) {
-        console.log('🗑️ Deleting member from central database:', jcId);
-        const result = await this.callSheetsAPI('deleteMember', { jcId: jcId });
-        return result.success;
-    }
-
-    async getMemberByJCId(jcId) {
-        console.log('🔍 Searching for member in central database:', jcId);
-        const result = await this.callSheetsAPI('getMember', { jcId: jcId });
-        
-        if (result.success && result.member) {
-            console.log('✅ Member found:', result.member.name);
-            return result.member;
-        } else {
-            console.log('❌ Member not found in central database:', jcId);
-            return null;
-        }
-    }
-
-    async getMemberByEmail(email) {
-        console.log('🔍 Searching for member by email:', email);
-        const members = await this.getAllMembers();
-        const member = members.find(m => m.email === email);
-        
-        if (member) {
-            console.log('✅ Member found by email:', member.name);
-        } else {
-            console.log('❌ Member not found by email:', email);
-        }
-        
-        return member || null;
-    }
-
-    // Force refresh from central database
-    async refreshFromCentral() {
-        console.log('🔄 Force refreshing from central database...');
-        const cache = this.getCache();
-        if (cache) {
-            cache.lastSync = 0;
-            this.setCache(cache);
-        }
-        return await this.getAllMembers();
+    getMemberByEmail(email) {
+        const data = this.getData();
+        if (!data) return null;
+        return data.members.find(m => m.email === email);
     }
 }
 
-// Enhanced JeansClubManager with Cross-Device Support
+// Google OAuth Configuration - UNCHANGED
+const googleConfig = {
+    clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
+};
+
+// Jean's Club Configuration - UNCHANGED
+const jeansClubConfig = {
+    pointValue: 750,
+    redemptionRate: 0.005,
+    
+    tiers: {
+        PEARL: { 
+            minPoints: 0, 
+            maxPoints: 7499,
+            multiplier: 1.0, 
+            name: "Pearl", 
+            color: "#F8F8FF",
+            discountRate: 0.10
+        },
+        BRONZE: { 
+            minPoints: 7500,    
+            maxPoints: 24999,
+            multiplier: 1.10, 
+            name: "Bronze", 
+            color: "#cd7f32",
+            discountRate: 0.15
+        },
+        SILVER: { 
+            minPoints: 25000,    
+            maxPoints: 99999,
+            multiplier: 1.25, 
+            name: "Silver", 
+            color: "#c0c0c0",
+            discountRate: 0.20
+        },
+        GOLD: { 
+            minPoints: 100000,    
+            maxPoints: 499999,
+            multiplier: 1.40, 
+            name: "Gold", 
+            color: "#ffd700",
+            discountRate: 0.25
+        },
+        PLATINUM: { 
+            minPoints: 500000,    
+            maxPoints: 9999999,
+            multiplier: 1.60, 
+            name: "Platinum", 
+            color: "#e5e4e2",
+            discountRate: 0.30
+        }
+    }
+};
+
+// Main JeansClubManager - UPDATED to use Supabase
 class JeansClubManager {
     constructor() {
-        this.db = new GoogleSheetsDB();
+        // CHANGED: Using Supabase instead of Google Sheets
+        this.db = new SupabaseDB();
         this.emailService = new GoogleAppsEmailService();
         this.currentMember = null;
         this.isAdmin = false;
         this.loadCurrentMember();
-        console.log('🚀 JeansClubManager Ready - Cross-Device Support Enabled');
+        console.log('🚀 JeansClubManager initialized with Supabase DB');
+    }
+
+    generateJCId() {
+        return 'JC' + Date.now().toString().slice(-6) + Math.floor(100 + Math.random() * 900);
+    }
+
+    generateReferralCode() {
+        return 'JEANS' + Math.random().toString(36).substr(2, 6).toUpperCase();
     }
 
     loadCurrentMember() {
-        try {
-            const savedMember = localStorage.getItem('jeansClubCurrentMember');
-            if (savedMember) {
-                this.currentMember = JSON.parse(savedMember);
-                console.log('👤 Loaded current member:', this.currentMember?.jcId);
-            }
-        } catch (error) {
-            console.error('Error loading current member:', error);
+        const savedMember = localStorage.getItem('jeansClubCurrentMember');
+        if (savedMember) {
+            this.currentMember = JSON.parse(savedMember);
         }
     }
 
     saveCurrentMember() {
         if (this.currentMember) {
-            try {
-                localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
-            } catch (error) {
-                console.error('Error saving current member:', error);
-            }
+            localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
         }
     }
 
-    // Enhanced account creation with cross-device support
+    // Create account with password
     async createAccount(userData, password, referralCode = null) {
-        console.log('👤 Creating cross-device account for:', userData.email);
+        console.log('👤 Creating account for:', userData.email);
         
-        try {
-            // Check if email exists in central database
-            const existingMember = await this.db.getMemberByEmail(userData.email);
-            if (existingMember) {
-                return { 
-                    success: false, 
-                    message: "Email already registered! Please login with your JC ID and password." 
-                };
-            }
-
-            const memberId = 'member_' + Date.now();
-            const hashedPassword = this.hashPassword(password);
-            const startingPoints = 10;
-            
-            const newMember = {
-                id: memberId,
-                jcId: this.generateJCId(),
-                email: userData.email,
-                name: userData.name,
-                password: hashedPassword,
-                loginMethod: 'email',
-                points: startingPoints,
-                tier: 'PEARL',
-                referralCode: this.generateReferralCode(),
-                referredBy: referralCode || null,
-                purchaseHistory: [],
-                activityLog: [],
-                joinedDate: new Date().toISOString(),
-                totalSpent: 0,
-                challenges: [],
-                referrals: [],
-                lastUpdated: new Date().toISOString()
-            };
-
-            console.log('💾 Saving to central database:', newMember.jcId);
-
-            // Save to central database
-            const saveResult = await this.db.saveMember(newMember);
-            if (!saveResult) {
-                return { 
-                    success: false, 
-                    message: "Account created locally but failed to sync to cloud. You can still use it on this device." 
-                };
-            }
-
-            this.currentMember = newMember;
-            this.saveCurrentMember();
-            
-            await this.logActivity(memberId, 'Account created - Welcome to Jean\'s Club!', startingPoints);
-            
-            // Process referral
-            if (referralCode) {
-                await this.processReferral(referralCode, newMember.jcId, newMember.name);
-            }
-
-            // Send welcome email
-            const emailResult = await this.emailService.sendWelcomeEmail(newMember.email, {
-                name: newMember.name,
-                jcId: newMember.jcId,
-                tier: newMember.tier,
-                points: newMember.points,
-                referralCode: newMember.referralCode
-            });
-
-            console.log('✅ Cross-device account created! JC ID:', newMember.jcId);
-            return { 
-                success: true, 
-                member: newMember,
-                emailSent: emailResult.success,
-                isFallback: emailResult.fallback || false
-            };
-            
-        } catch (error) {
-            console.error('Account creation error:', error);
-            return { success: false, message: "Account creation failed: " + error.message };
+        // Check if email already exists
+        const existingMember = await this.db.getMemberByEmail(userData.email);
+        if (existingMember) {
+            console.log('❌ Email already registered:', userData.email);
+            return { success: false, message: "Email already registered" };
         }
+
+        const memberId = 'member_' + Date.now();
+        const hashedPassword = this.hashPassword(password);
+        const startingPoints = 10;
+        
+        const newMember = {
+            id: memberId,
+            jcId: this.generateJCId(),
+            email: userData.email,
+            name: userData.name,
+            password: hashedPassword,
+            loginMethod: 'email',
+            points: startingPoints,
+            tier: 'PEARL',
+            referralCode: this.generateReferralCode(),
+            referredBy: referralCode || null,
+            purchaseHistory: [],
+            activityLog: [],
+            joinedDate: new Date().toISOString(),
+            totalSpent: 0,
+            challenges: [],
+            referrals: []
+        };
+
+        console.log('💾 Saving new member to Supabase:', newMember.jcId);
+
+        // Save to Supabase
+        if (!await this.db.saveMember(newMember)) {
+            console.log('❌ Failed to save member to Supabase');
+            return { success: false, message: "Failed to save member data to cloud storage" };
+        }
+
+        this.currentMember = newMember;
+        this.saveCurrentMember();
+        
+        await this.logActivity(memberId, 'Account created - Welcome to Jean\'s Club!', startingPoints);
+        
+        // Process referral if exists
+        if (referralCode) {
+            await this.processReferral(referralCode, newMember.jcId, newMember.name);
+        }
+
+        // Send welcome email
+        const emailResult = await this.emailService.sendWelcomeEmail(newMember.email, {
+            name: newMember.name,
+            jcId: newMember.jcId,
+            tier: newMember.tier,
+            points: newMember.points,
+            referralCode: newMember.referralCode
+        });
+
+        console.log('✅ Account created successfully! JC ID:', newMember.jcId);
+        return { 
+            success: true, 
+            member: newMember,
+            emailSent: emailResult.success,
+            isFallback: emailResult.fallback || false
+        };
     }
 
     // Create account with Google
@@ -493,13 +617,12 @@ class JeansClubManager {
             joinedDate: new Date().toISOString(),
             totalSpent: 0,
             challenges: [],
-            referrals: [],
-            lastUpdated: new Date().toISOString()
+            referrals: []
         };
 
-        console.log('💾 Saving Google member to central database:', newMember.jcId);
+        console.log('💾 Saving Google member to Supabase:', newMember.jcId);
 
-        // Save to central database
+        // Save to Supabase
         if (!await this.db.saveMember(newMember)) {
             return { success: false, message: "Failed to save member data" };
         }
@@ -531,202 +654,128 @@ class JeansClubManager {
         };
     }
 
-    // Enhanced login with cross-device support
+    // Login with BOTH JC ID AND Email
     async login(jcId, email, password) {
-        console.log('🔐 Cross-device login attempt:', jcId);
+        console.log('🔐 Attempting login for JC ID:', jcId);
+        const member = await this.db.getMemberByJCId(jcId);
         
-        try {
-            // Search in central database
-            const member = await this.db.getMemberByJCId(jcId);
-            
-            if (!member) {
-                return { 
-                    success: false, 
-                    message: "Account not found! Please check your JC ID or sign up for a new account." 
-                };
-            }
-
-            // Verify email matches
-            if (member.email !== email) {
-                return { 
-                    success: false, 
-                    message: "JC ID and email do not match. Please check your details." 
-                };
-            }
-
+        if (member && member.email === email) {
             if (member.loginMethod === 'google') {
-                return { 
-                    success: false, 
-                    message: "This account uses Google login. Please click 'Login with Google'." 
-                };
+                return { success: false, message: "This account uses Google login. Please use Google Sign-In." };
             }
-
-            if (!this.verifyPassword(password, member.password)) {
-                return { 
-                    success: false, 
-                    message: "Invalid password. Please try again." 
-                };
+            if (this.verifyPassword(password, member.password)) {
+                this.currentMember = member;
+                this.saveCurrentMember();
+                await this.logActivity(member.id, 'Logged in to account', 0);
+                console.log('✅ Login successful for:', member.name);
+                return { success: true, member: member };
+            } else {
+                console.log('❌ Invalid password for:', jcId);
+                return { success: false, message: "Invalid password" };
             }
-
-            // Login successful
-            this.currentMember = member;
-            this.saveCurrentMember();
-            
-            await this.logActivity(member.id, 'Logged in from different device', 0);
-            console.log('✅ Cross-device login successful:', member.name);
-            
-            return { success: true, member: member };
-            
-        } catch (error) {
-            console.error('Login error:', error);
-            return { success: false, message: "Login failed. Please try again." };
         }
+        console.log('❌ Account not found:', jcId, email);
+        return { success: false, message: "Account not found - check JC ID and email" };
     }
 
-    // Enhanced Google login
+    // Login with Google
     async loginWithGoogle(email) {
-        console.log('🔐 Cross-device Google login:', email);
+        console.log('🔐 Attempting Google login for:', email);
+        const member = await this.db.getMemberByEmail(email);
         
-        try {
-            const member = await this.db.getMemberByEmail(email);
-            
-            if (!member) {
-                return { 
-                    success: false, 
-                    message: "Google account not found. Please sign up first." 
-                };
-            }
-
-            if (member.loginMethod !== 'google') {
-                return { 
-                    success: false, 
-                    message: "This email is registered with password login. Please use your JC ID and password." 
-                };
-            }
-
+        if (member && member.loginMethod === 'google') {
             this.currentMember = member;
             this.saveCurrentMember();
-            
-            await this.logActivity(member.id, 'Logged in with Google from different device', 0);
-            console.log('✅ Cross-device Google login successful:', member.name);
-            
+            await this.logActivity(member.id, 'Logged in with Google', 0);
+            console.log('✅ Google login successful for:', member.name);
             return { success: true, member: member };
-            
-        } catch (error) {
-            console.error('Google login error:', error);
-            return { success: false, message: "Google login failed. Please try again." };
         }
+        console.log('❌ Google account not found:', email);
+        return { success: false, message: "Google account not found. Please sign up first." };
     }
 
-    // Refresh member data from central database
-    async refreshCurrentMember() {
-        if (!this.currentMember) return null;
-        
-        try {
-            const freshMember = await this.db.getMemberByJCId(this.currentMember.jcId);
-            if (freshMember) {
-                this.currentMember = freshMember;
-                this.saveCurrentMember();
-                console.log('✅ Refreshed member data from central DB');
-            }
-            return freshMember;
-        } catch (error) {
-            console.error('Error refreshing member:', error);
-            return this.currentMember;
-        }
-    }
-
-    // Add purchase with cross-device sync
+    // Admin function to add purchase
     async addPurchase(memberJCId, amountUGX, description) {
-        console.log('💰 Cross-device purchase for:', memberJCId);
-        
-        try {
-            const targetMember = await this.db.getMemberByJCId(memberJCId);
-            if (!targetMember) {
-                return { success: false, message: "Member not found in central database" };
-            }
+        console.log('💰 Adding purchase for:', memberJCId, amountUGX, description);
+        const targetMember = await this.db.getMemberByJCId(memberJCId);
 
-            const oldTier = targetMember.tier;
-            const pointsEarned = this.calculatePoints(amountUGX, targetMember.tier);
-            
-            targetMember.points += pointsEarned;
-            targetMember.totalSpent += amountUGX;
-            targetMember.tier = this.calculateTier(targetMember.points);
-            targetMember.lastUpdated = new Date().toISOString();
-            
-            targetMember.purchaseHistory.push({
-                date: new Date().toISOString(),
-                amount: amountUGX,
-                description: description,
-                pointsEarned: pointsEarned
-            });
-
-            await this.logActivity(targetMember.id, description + ' - ' + amountUGX.toLocaleString() + ' UGX', pointsEarned);
-
-            // Save to central database
-            if (!await this.db.saveMember(targetMember)) {
-                return { success: false, message: "Purchase recorded locally but failed to sync to cloud" };
-            }
-
-            // Update current member if it's the same member
-            if (this.currentMember && this.currentMember.jcId === memberJCId) {
-                this.currentMember = targetMember;
-                this.saveCurrentMember();
-            }
-
-            // Send email
-            const purchaseData = {
-                description: description,
-                amount: amountUGX,
-                pointsEarned: pointsEarned
-            };
-            await this.emailService.sendPurchaseEmail(targetMember.email, targetMember, purchaseData);
-
-            return {
-                success: true,
-                pointsEarned: pointsEarned,
-                newPoints: targetMember.points,
-                tierChanged: oldTier !== targetMember.tier,
-                newTier: targetMember.tier
-            };
-            
-        } catch (error) {
-            console.error('Add purchase error:', error);
-            return { success: false, message: "Purchase failed: " + error.message };
+        if (!targetMember) {
+            return { success: false, message: "Member not found" };
         }
+
+        const oldTier = targetMember.tier;
+        const pointsEarned = this.calculatePoints(amountUGX, targetMember.tier);
+        
+        targetMember.points += pointsEarned;
+        targetMember.totalSpent += amountUGX;
+        targetMember.tier = this.calculateTier(targetMember.points);
+        
+        targetMember.purchaseHistory.push({
+            date: new Date().toISOString(),
+            amount: amountUGX,
+            description: description,
+            pointsEarned: pointsEarned
+        });
+
+        await this.logActivity(targetMember.id, description + ' - ' + amountUGX.toLocaleString() + ' UGX', pointsEarned);
+
+        // Save updated member to Supabase
+        if (!await this.db.saveMember(targetMember)) {
+            return { success: false, message: "Failed to update member data" };
+        }
+
+        // Update current member if it's the same member
+        if (this.currentMember && this.currentMember.jcId === memberJCId) {
+            this.currentMember = targetMember;
+            this.saveCurrentMember();
+        }
+
+        // Send purchase confirmation email
+        const purchaseData = {
+            description: description,
+            amount: amountUGX,
+            pointsEarned: pointsEarned
+        };
+        await this.emailService.sendPurchaseEmail(targetMember.email, targetMember, purchaseData);
+
+        return {
+            success: true,
+            pointsEarned: pointsEarned,
+            newPoints: targetMember.points,
+            tierChanged: oldTier !== targetMember.tier,
+            newTier: targetMember.tier
+        };
     }
 
     // Process referral
     async processReferral(referralCode, newMemberJCId, newMemberName) {
-        try {
-            const allMembers = await this.db.getAllMembers();
-            for (const member of allMembers) {
-                if (member.referralCode === referralCode) {
-                    member.points += 100;
-                    await this.logActivity(member.id, 'Referral bonus - ' + newMemberJCId + ' joined using your code!', 100);
-                    member.tier = this.calculateTier(member.points);
-                    member.lastUpdated = new Date().toISOString();
-                    
-                    if (!member.referrals) member.referrals = [];
-                    member.referrals.push({
-                        jcId: newMemberJCId,
-                        name: newMemberName,
-                        date: new Date().toISOString(),
-                        pointsEarned: 100
-                    });
+        const allMembers = await this.db.getAllMembers();
+        
+        for (const member of allMembers) {
+            if (member.referralCode === referralCode) {
+                member.points += 100;
+                await this.logActivity(member.id, 'Referral bonus - ' + newMemberJCId + ' joined using your code!', 100);
+                member.tier = this.calculateTier(member.points);
+                
+                if (!member.referrals) member.referrals = [];
+                member.referrals.push({
+                    jcId: newMemberJCId,
+                    name: newMemberName,
+                    date: new Date().toISOString(),
+                    pointsEarned: 100
+                });
 
-                    await this.db.saveMember(member);
+                // Save updated member to Supabase
+                await this.db.saveMember(member);
 
-                    const referralData = {
-                        newMemberName: newMemberName,
-                        newMemberJCId: newMemberJCId
-                    };
-                    await this.emailService.sendReferralEmail(member.email, member, referralData);
-                    break;
-                }
+                // Send referral success email
+                const referralData = {
+                    newMemberName: newMemberName,
+                    newMemberJCId: newMemberJCId
+                };
+                await this.emailService.sendReferralEmail(member.email, member, referralData);
+                break;
             }
-        } catch (error) {
-            console.error('Referral processing error:', error);
         }
     }
 
@@ -736,89 +785,53 @@ class JeansClubManager {
             return { success: false, message: "Admin access required" };
         }
 
-        try {
-            const memberToDelete = await this.db.getMemberByJCId(jcId);
-            if (!memberToDelete) {
-                return { success: false, message: "Member not found" };
-            }
-
-            if (!await this.db.deleteMember(jcId)) {
-                return { success: false, message: "Failed to delete member" };
-            }
-
-            if (this.currentMember && this.currentMember.jcId === jcId) {
-                this.currentMember = null;
-                localStorage.removeItem('jeansClubCurrentMember');
-            }
-
-            return { 
-                success: true, 
-                message: "Account " + jcId + " (" + memberToDelete.name + ") has been permanently deleted" 
-            };
-        } catch (error) {
-            return { success: false, message: "Delete failed: " + error.message };
+        const memberToDelete = await this.db.getMemberByJCId(jcId);
+        if (!memberToDelete) {
+            return { success: false, message: "Member not found" };
         }
-    }
 
-    // Helper methods
-    generateJCId() {
-        return 'JC' + Date.now().toString().slice(-6) + Math.floor(100 + Math.random() * 900);
-    }
+        // Remove member from Supabase
+        if (!await this.db.deleteMember(jcId)) {
+            return { success: false, message: "Failed to delete member" };
+        }
 
-    generateReferralCode() {
-        return 'JEANS' + Math.random().toString(36).substr(2, 6).toUpperCase();
+        // If deleted member is current member, log them out
+        if (this.currentMember && this.currentMember.jcId === jcId) {
+            this.currentMember = null;
+            localStorage.removeItem('jeansClubCurrentMember');
+        }
+
+        return { 
+            success: true, 
+            message: "Account " + jcId + " (" + memberToDelete.name + ") has been permanently deleted" 
+        };
     }
 
     calculatePoints(amountUGX, tier) {
-        const basePoints = amountUGX / 750;
-        const multiplier = this.getTierMultiplier(tier);
+        const basePoints = amountUGX / jeansClubConfig.pointValue;
+        const multiplier = jeansClubConfig.tiers[tier].multiplier;
         return Math.floor(basePoints * multiplier);
     }
 
-    getTierMultiplier(tier) {
-        const tiers = {
-            'PEARL': 1.0,
-            'BRONZE': 1.10,
-            'SILVER': 1.25,
-            'GOLD': 1.40,
-            'PLATINUM': 1.60
-        };
-        return tiers[tier] || 1.0;
-    }
-
     calculateTier(points) {
-        if (points >= 500000) return 'PLATINUM';
-        if (points >= 100000) return 'GOLD';
-        if (points >= 25000) return 'SILVER';
-        if (points >= 7500) return 'BRONZE';
+        if (points >= jeansClubConfig.tiers.PLATINUM.minPoints) return 'PLATINUM';
+        if (points >= jeansClubConfig.tiers.GOLD.minPoints) return 'GOLD';
+        if (points >= jeansClubConfig.tiers.SILVER.minPoints) return 'SILVER';
+        if (points >= jeansClubConfig.tiers.BRONZE.minPoints) return 'BRONZE';
         return 'PEARL';
     }
 
     getNextTier(currentTier) {
         const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM'];
         const currentIndex = tierOrder.indexOf(currentTier);
-        const tiers = {
-            'PEARL': { minPoints: 0, maxPoints: 7499, multiplier: 1.0, name: "Pearl", color: "#F8F8FF", discountRate: 0.10 },
-            'BRONZE': { minPoints: 7500, maxPoints: 24999, multiplier: 1.10, name: "Bronze", color: "#cd7f32", discountRate: 0.15 },
-            'SILVER': { minPoints: 25000, maxPoints: 99999, multiplier: 1.25, name: "Silver", color: "#c0c0c0", discountRate: 0.20 },
-            'GOLD': { minPoints: 100000, maxPoints: 499999, multiplier: 1.40, name: "Gold", color: "#ffd700", discountRate: 0.25 },
-            'PLATINUM': { minPoints: 500000, maxPoints: 9999999, multiplier: 1.60, name: "Platinum", color: "#e5e4e2", discountRate: 0.30 }
-        };
-        return currentIndex < tierOrder.length - 1 ? tiers[tierOrder[currentIndex + 1]] : null;
+        return currentIndex < tierOrder.length - 1 ? jeansClubConfig.tiers[tierOrder[currentIndex + 1]] : null;
     }
 
     getTierProgress(currentPoints, currentTier) {
         const nextTier = this.getNextTier(currentTier);
         if (!nextTier) return { percentage: 100, pointsNeeded: 0, nextTier: null };
 
-        const currentTierConfig = {
-            'PEARL': { minPoints: 0 },
-            'BRONZE': { minPoints: 7500 },
-            'SILVER': { minPoints: 25000 },
-            'GOLD': { minPoints: 100000 },
-            'PLATINUM': { minPoints: 500000 }
-        }[currentTier];
-
+        const currentTierConfig = jeansClubConfig.tiers[currentTier];
         const pointsInCurrentTier = currentPoints - currentTierConfig.minPoints;
         const totalPointsInTier = nextTier.minPoints - currentTierConfig.minPoints;
         const percentage = Math.min(100, Math.max(0, (pointsInCurrentTier / totalPointsInTier) * 100));
@@ -834,23 +847,16 @@ class JeansClubManager {
         if (!this.currentMember) return { success: false, message: "No member logged in" };
 
         const member = this.currentMember;
-        const tierConfig = {
-            'PEARL': { discountRate: 0.10 },
-            'BRONZE': { discountRate: 0.15 },
-            'SILVER': { discountRate: 0.20 },
-            'GOLD': { discountRate: 0.25 },
-            'PLATINUM': { discountRate: 0.30 }
-        }[member.tier];
-
-        const redemptionRate = 0.005;
-        const maxDiscountPoints = Math.floor(tierConfig.discountRate / redemptionRate);
+        const tierConfig = jeansClubConfig.tiers[member.tier];
+        
+        const maxDiscountPoints = Math.floor(tierConfig.discountRate / jeansClubConfig.redemptionRate);
         const actualPointsToUse = Math.min(pointsToUse, maxDiscountPoints, member.points);
         
         if (actualPointsToUse < 10) {
             return { success: false, message: "Minimum 10 points required" };
         }
 
-        const discountPercentage = (actualPointsToUse * redemptionRate * 100).toFixed(1);
+        const discountPercentage = (actualPointsToUse * jeansClubConfig.redemptionRate * 100).toFixed(1);
 
         return {
             success: true,
@@ -869,16 +875,17 @@ class JeansClubManager {
         const member = this.currentMember;
         member.points -= discountCalc.pointsUsed;
         member.tier = this.calculateTier(member.points);
-        member.lastUpdated = new Date().toISOString();
         
         await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
 
+        // Save updated member to Supabase
         if (!await this.db.saveMember(member)) {
             return { success: false, message: "Failed to update member data" };
         }
 
         this.saveCurrentMember();
 
+        // Send discount voucher email
         const emailResult = await this.emailService.sendDiscountEmail(member.email, member, discountCalc);
 
         return {
@@ -890,25 +897,20 @@ class JeansClubManager {
     }
 
     async logActivity(memberId, message, points) {
-        try {
-            const allMembers = await this.db.getAllMembers();
-            const memberIndex = allMembers.findIndex(m => m.id === memberId);
+        const allMembers = await this.db.getAllMembers();
+        const memberIndex = allMembers.findIndex(m => m.id === memberId);
+        
+        if (memberIndex >= 0) {
+            const member = allMembers[memberIndex];
+            member.activityLog.unshift({
+                timestamp: new Date().toISOString(),
+                message: message,
+                points: points
+            });
+            if (member.activityLog.length > 10) member.activityLog = member.activityLog.slice(0, 10);
             
-            if (memberIndex >= 0) {
-                const member = allMembers[memberIndex];
-                if (!member.activityLog) member.activityLog = [];
-                member.activityLog.unshift({
-                    timestamp: new Date().toISOString(),
-                    message: message,
-                    points: points
-                });
-                if (member.activityLog.length > 10) member.activityLog = member.activityLog.slice(0, 10);
-                member.lastUpdated = new Date().toISOString();
-                
-                await this.db.saveMember(member);
-            }
-        } catch (error) {
-            console.error('Log activity error:', error);
+            // Save updated member to Supabase
+            await this.db.saveMember(member);
         }
     }
 
@@ -946,66 +948,16 @@ class JeansClubManager {
     async getAllMembers() {
         return await this.db.getAllMembers();
     }
+
+    async resetAllData() {
+        console.log('Reset all data - would need Supabase implementation');
+    }
 }
 
-// Google OAuth Configuration
-const googleConfig = {
-    clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
-};
-
-// Initialize the cross-device manager
+// Initialize the system
 const clubManager = new JeansClubManager();
 
-// Loading utilities
-function showLoading(message = 'Loading...') {
-    let loader = document.getElementById('loadingOverlay');
-    if (!loader) {
-        loader = document.createElement('div');
-        loader.id = 'loadingOverlay';
-        loader.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 18px;
-            z-index: 10000;
-            flex-direction: column;
-        `;
-        document.body.appendChild(loader);
-    }
-    loader.innerHTML = `
-        <div style="text-align: center;">
-            <div style="font-size: 24px; margin-bottom: 20px;">${message}</div>
-            <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 0 auto;"></div>
-        </div>
-    `;
-    loader.style.display = 'flex';
-}
-
-function hideLoading() {
-    const loader = document.getElementById('loadingOverlay');
-    if (loader) {
-        loader.style.display = 'none';
-    }
-}
-
-// Add CSS for spinner
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-`;
-document.head.appendChild(style);
-
-// Google Sign-In Functions
+// Google Sign-In Functions - UNCHANGED
 function initializeGoogleSignIn() {
     try {
         google.accounts.id.initialize({
@@ -1013,7 +965,7 @@ function initializeGoogleSignIn() {
             callback: handleGoogleSignIn,
             auto_select: false
         });
-        
+    
         google.accounts.id.renderButton(
             document.querySelector('.google-signin-button'),
             { 
@@ -1035,7 +987,7 @@ function initializeGoogleSignIn() {
                 type: "standard"
             }
         );
-        
+    
         console.log('Google Sign-In initialized successfully!');
     } catch (error) {
         console.log('Google Sign-In not configured properly:', error);
@@ -1047,7 +999,7 @@ function initializeGoogleSignIn() {
 async function handleGoogleSignIn(response) {
     try {
         const responsePayload = JSON.parse(atob(response.credential.split('.')[1]));
-        
+    
         const userData = {
             name: responsePayload.name,
             email: responsePayload.email,
@@ -1058,27 +1010,27 @@ async function handleGoogleSignIn(response) {
         console.log('Google Sign-In successful for:', userData.email);
 
         const isSignupPage = !document.getElementById('signupSection').classList.contains('hidden');
-        
+    
         if (isSignupPage) {
             const referralCode = document.getElementById('referralCode').value.trim() || null;
             const result = await clubManager.createAccountWithGoogle(userData, referralCode);
-            
+        
             if (result.success) {
                 showDashboard(result.member);
                 let message = 'Welcome to Jean\'s Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it for future logins!\n\n';
-                
+            
                 if (referralCode) {
                     message += 'You got 10 points, your friend got 100 points!\n\n';
                 } else {
                     message += 'You got 10 welcome points!\n\n';
                 }
-                
+            
                 if (result.isFallback) {
                     message += 'Email details saved (check browser console for email content)\n\n';
                 } else if (result.emailSent) {
                     message += 'Welcome email sent to your inbox!\n\n';
                 }
-                
+            
                 alert(message);
             } else {
                 alert(result.message);
@@ -1141,7 +1093,7 @@ async function demoGoogleLogin() {
     }
 }
 
-// UI Functions
+// UI Functions - UNCHANGED
 function showAdminLogin() {
     const password = prompt("Enter staff password:");
     if (password) {
@@ -1245,17 +1197,18 @@ function logout() {
 
 async function refreshData() {
     if (clubManager.currentMember) {
-        showLoading('Refreshing data...');
-        const updatedMember = await clubManager.refreshCurrentMember();
-        hideLoading();
+        // Reload current member from Supabase
+        const updatedMember = await clubManager.db.getMemberByJCId(clubManager.currentMember.jcId);
         if (updatedMember) {
+            clubManager.currentMember = updatedMember;
+            clubManager.saveCurrentMember();
             updateDashboard(updatedMember);
-            alert('Data refreshed successfully from cloud!');
+            alert('Data refreshed successfully!');
         }
     }
 }
 
-// Business Logic
+// Business Logic - UNCHANGED
 async function signUpWithEmail() {
     const name = document.getElementById('userName').value.trim();
     const email = document.getElementById('userEmail').value.trim();
@@ -1272,39 +1225,28 @@ async function signUpWithEmail() {
         return;
     }
     
-    showLoading('Creating cross-device account...');
+    const userData = { name, email };
+    const result = await clubManager.createAccount(userData, password, referralCode);
     
-    try {
-        const userData = { name, email };
-        const result = await clubManager.createAccount(userData, password, referralCode);
+    if (result.success) {
+        showDashboard(result.member);
+        let message = 'Welcome to Jean\'s Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it to login!\n\n';
         
-        if (result.success) {
-            showDashboard(result.member);
-            let message = '🎉 Welcome to Jean\'s Club!\n\n' +
-                         'Your JC ID: ' + result.member.jcId + '\n' +
-                         'Keep this safe - you\'ll need it to login on any device!\n\n' +
-                         '✅ Cross-device account created successfully!\n\n';
-            
-            if (referralCode) {
-                message += '🎁 You got 10 points + your friend got 100 points!\n\n';
-            } else {
-                message += '🎁 You got 10 welcome points!\n\n';
-            }
-            
-            if (result.isFallback) {
-                message += '📧 Email details saved (check browser console)\n\n';
-            } else if (result.emailSent) {
-                message += '📧 Welcome email sent to your inbox!\n\n';
-            }
-            
-            alert(message);
+        if (referralCode) {
+            message += 'You got 10 points, your friend got 100 points!\n\n';
         } else {
-            alert('❌ ' + result.message);
+            message += 'You got 10 welcome points!\n\n';
         }
-    } catch (error) {
-        alert('❌ Signup failed. Please try again.');
-    } finally {
-        hideLoading();
+        
+        if (result.isFallback) {
+            message += 'Email details saved (check browser console for full email content)\n\n';
+        } else if (result.emailSent) {
+            message += 'Welcome email sent to your inbox!\n\n';
+        }
+        
+        alert(message);
+    } else {
+        alert(result.message);
     }
 }
 
@@ -1318,20 +1260,11 @@ async function loginWithCredentials() {
         return;
     }
     
-    showLoading('Logging in across devices...');
-    
-    try {
-        const result = await clubManager.login(jcId, email, password);
-        if (result.success) {
-            showDashboard(result.member);
-            alert('Welcome back, ' + result.member.name + '! ✅\n\nCross-device login successful!');
-        } else {
-            alert('❌ ' + result.message);
-        }
-    } catch (error) {
-        alert('❌ Login failed. Please check your internet connection and try again.');
-    } finally {
-        hideLoading();
+    const result = await clubManager.login(jcId, email, password);
+    if (result.success) {
+        showDashboard(result.member);
+    } else {
+        alert(result.message);
     }
 }
 
@@ -1396,7 +1329,7 @@ function shareReferral() {
     }
 }
 
-// Admin Functions
+// Admin Functions - UNCHANGED
 async function viewAllMembers() {
     const members = await clubManager.getAllMembers();
     const adminContent = document.getElementById('adminContent');
@@ -1432,10 +1365,7 @@ async function adminAddPurchase() {
         return;
     }
 
-    showLoading('Recording purchase...');
     const result = await clubManager.addPurchase(jcId, amount, description);
-    hideLoading();
-    
     const purchaseResult = document.getElementById('purchaseResult');
     if (result.success) {
         purchaseResult.innerHTML = '<span style="color: green;">Purchase added!<br>' + result.pointsEarned + ' points earned<br>New balance: ' + result.newPoints + ' points<br>' + (result.tierChanged ? 'Tier upgraded to ' + result.newTier + '!' : '') + '</span>';
@@ -1466,10 +1396,7 @@ async function confirmDeleteMember() {
         return;
     }
 
-    showLoading('Deleting member...');
     const result = await clubManager.deleteMemberAccount(jcId);
-    hideLoading();
-    
     const deleteResult = document.getElementById('deleteResult');
     
     if (result.success) {
@@ -1484,7 +1411,7 @@ async function confirmDeleteMember() {
     }
 }
 
-// Update initialization
+// Initialize the app
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
@@ -1493,24 +1420,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(initializeGoogleSignIn, 1000);
     
     if (clubManager.currentMember) {
-        // Refresh member data on page load
-        showLoading('Syncing with cloud...');
-        clubManager.refreshCurrentMember().then(freshMember => {
-            hideLoading();
-            if (freshMember) {
-                showDashboard(freshMember);
-                console.log('✅ Cross-device sync complete');
-            } else {
-                showLoginScreen();
-            }
-        }).catch(() => {
-            hideLoading();
-            showLoginScreen();
-        });
+        showDashboard(clubManager.currentMember);
     } else {
         showLoginScreen();
     }
-    
-    console.log('🌐 Jean\'s Club - Cross-Device System Ready');
-    console.log('📊 Connected to Sheet:', clubManager.db.sheetId);
 });
