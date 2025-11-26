@@ -216,7 +216,7 @@ class SupabaseDB {
     }
 }
 
-// Google Apps Script Email Service (UPDATED WITH QR CODE)
+// Google Apps Script Email Service (UPDATED - ALL EMAILS WITH QR CODE)
 class GoogleAppsEmailService {
     constructor() {
         this.scriptURL = 'https://script.google.com/macros/s/AKfycbxSBWASI7z3yQzsTeHLrpPV35eo9NySjI5KAXVG8NNWYBJpLoYJUEPyssCxSRC7OH801Q/exec';
@@ -225,12 +225,17 @@ class GoogleAppsEmailService {
 
     async sendEmailToGoogleScript(email, type, memberData, extraData = null) {
         try {
+            const emailContent = this.buildEmailContent(type, memberData, extraData);
+            const subject = this.getSubject(type, memberData, extraData);
+            
             const payload = {
-                email: email,
-                type: type,
-                memberData: memberData,
-                subject: this.getSubject(type, memberData, extraData),
-                message: this.getMessage(type, extraData)
+                action: 'sendEmail',
+                emailData: {
+                    email: email,
+                    type: type,
+                    subject: subject,
+                    message: emailContent
+                }
             };
 
             console.log('Sending email via Google Apps Script:', payload);
@@ -245,13 +250,37 @@ class GoogleAppsEmailService {
             });
 
             const result = await response.text();
-            console.log('Email sent successfully via Google Apps Script');
+            console.log('✅ Email sent successfully via Google Apps Script');
             return JSON.parse(result);
             
         } catch (error) {
-            console.error('Google Apps Script email failed:', error);
+            console.error('❌ Google Apps Script email failed:', error);
             return this.fallbackEmail(email, memberData, type, extraData);
         }
+    }
+
+    buildEmailContent(type, memberData, extraData) {
+        let content = '';
+        
+        switch(type) {
+            case 'welcome':
+                content = 'Hello ' + memberData.name + ',\n\nWelcome to Jean\'s Club! Your account has been created successfully.\n\nMEMBERSHIP DETAILS:\n• JC ID: ' + memberData.jcId + '\n• Tier: ' + memberData.tier + '\n• Points: ' + memberData.points + '\n• Referral Code: ' + memberData.referralCode + '\n\nStart earning points with your purchases!\n\nThank you for joining Jean\'s Club!';
+                break;
+
+            case 'purchase':
+                content = 'Hello ' + memberData.name + ',\n\nYour purchase has been recorded!\n\nPURCHASE DETAILS:\n• Amount: ' + extraData.amount.toLocaleString() + ' UGX\n• Description: ' + extraData.description + '\n• Points Earned: +' + extraData.pointsEarned + '\n• New Balance: ' + memberData.points + ' points\n\nThank you for shopping with Jean\'s Club!';
+                break;
+
+            case 'discount':
+                content = 'Hello ' + memberData.name + ',\n\nYour discount voucher has been created!\n\nDISCOUNT DETAILS:\n• Discount: ' + extraData.discountPercentage + '%\n• Points Used: ' + extraData.pointsUsed + '\n• Max Possible: ' + extraData.maxPossibleDiscount + '\n\nPresent this email at checkout to redeem your discount!';
+                break;
+
+            case 'referral':
+                content = 'Hello ' + memberData.name + ',\n\nCongratulations! Someone joined using your referral code!\n\nREFERRAL DETAILS:\n• New Member: ' + extraData.newMemberName + ' (' + extraData.newMemberJCId + ')\n• Points Earned: 100 points\n• New Balance: ' + memberData.points + ' points\n\nKeep sharing your code: ' + memberData.referralCode;
+                break;
+        }
+        
+        return content;
     }
 
     getSubject(type, memberData, extraData) {
@@ -261,14 +290,6 @@ class GoogleAppsEmailService {
             case 'discount': return (extraData?.discountPercentage || 0) + '% Discount Voucher';
             case 'referral': return 'Referral Success! +100 Points';
             default: return 'Message from Jean\'s Club';
-        }
-    }
-
-    getMessage(type, extraData) {
-        switch(type) {
-            case 'purchase': return (extraData?.description || '') + ' - ' + (extraData?.amount?.toLocaleString() || '0') + ' UGX';
-            case 'referral': return (extraData?.newMemberName || '') + ' (' + (extraData?.newMemberJCId || '') + ')';
-            default: return '';
         }
     }
 
@@ -303,12 +324,12 @@ class GoogleAppsEmailService {
 
             case 'purchase':
                 subject = 'Purchase Recorded - ' + extraData.description;
-                content = 'Hello ' + memberData.name + ',\n\nYour purchase has been recorded!\n\nPURCHASE DETAILS:\n• Amount: ' + extraData.amount.toLocaleString() + ' UGX\n• Description: ' + extraData.description + '\n• Points Earned: +' + extraData.pointsEarned + '\n• New Balance: ' + memberData.points + ' points\n\nThank you for shopping with Jean\'s Club!';
+                content = 'Hello ' + memberData.name + ',\n\nYour purchase has been recorded!\n\nPURCHASE DETAILS:\n• Amount: ' + extraData.amount.toLocaleString() + ' UGX\n• Description: ' + extraData.description + '\n• Points Earned: +' + extraData.pointsEarned + '\n• New Balance: ' + memberData.points + ' points\n\nSHARE JEAN\'S CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nThank you for shopping with Jean\'s Club!';
                 break;
 
             case 'discount':
                 subject = extraData.discountPercentage + '% Discount Voucher';
-                content = 'Hello ' + memberData.name + ',\n\nYour discount voucher has been created!\n\nDISCOUNT DETAILS:\n• Discount: ' + extraData.discountPercentage + '%\n• Points Used: ' + extraData.pointsUsed + '\n• Max Possible: ' + extraData.maxPossibleDiscount + '\n\nPresent this email at checkout to redeem your discount!';
+                content = 'Hello ' + memberData.name + ',\n\nYour discount voucher has been created!\n\nDISCOUNT DETAILS:\n• Discount: ' + extraData.discountPercentage + '%\n• Points Used: ' + extraData.pointsUsed + '\n• Max Possible: ' + extraData.maxPossibleDiscount + '\n\nSHARE JEAN\'S CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nPresent this email at checkout to redeem your discount!';
                 break;
 
             case 'referral':
