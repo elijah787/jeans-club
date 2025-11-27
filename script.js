@@ -1248,7 +1248,7 @@ class JesusClubManager {
 
     // Admin login
     adminLogin(password) {
-        if (password === 'jesusclub2024') {
+        if (password === 'jeansclub2024') {
             this.isAdmin = true;
             return { success: true };
         }
