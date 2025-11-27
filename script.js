@@ -395,11 +395,11 @@ class GoogleAppsEmailService {
         
         switch(type) {
             case 'welcome':
-                content = 'Hello ' + memberData.name + ',\n\nWelcome to Jean\'s Club! Your account has been created successfully.\n\nMEMBERSHIP DETAILS:\n• JC ID: ' + memberData.jcId + '\n• Tier: ' + memberData.tier + '\n• Points: ' + memberData.points + '\n• Referral Code: ' + memberData.referralCode + '\n\nStart earning points with your purchases!\n\nThank you for joining Jean\'s Club!';
+                content = 'Hello ' + memberData.name + ',\n\nWelcome to Jesus Club! Your account has been created successfully.\n\nMEMBERSHIP DETAILS:\n• JC ID: ' + memberData.jcId + '\n• Tier: ' + memberData.tier + '\n• Points: ' + memberData.points + '\n• Referral Code: ' + memberData.referralCode + '\n\nStart earning points with your purchases!\n\nThank you for joining Jesus Club!';
                 break;
 
             case 'purchase':
-                content = 'Hello ' + memberData.name + ',\n\nYour purchase has been recorded!\n\nPURCHASE DETAILS:\n• Amount: ' + extraData.amount.toLocaleString() + ' UGX\n• Description: ' + extraData.description + '\n• Points Earned: +' + extraData.pointsEarned + '\n• New Balance: ' + memberData.points + ' points\n\nThank you for shopping with Jean\'s Club!';
+                content = 'Hello ' + memberData.name + ',\n\nYour purchase has been recorded!\n\nPURCHASE DETAILS:\n• Amount: ' + extraData.amount.toLocaleString() + ' UGX\n• Description: ' + extraData.description + '\n• Points Earned: +' + extraData.pointsEarned + '\n• New Balance: ' + memberData.points + ' points\n\nThank you for shopping with Jesus Club!';
                 break;
 
             case 'discount':
@@ -425,13 +425,13 @@ class GoogleAppsEmailService {
 
     getSubject(type, memberData, extraData) {
         switch(type) {
-            case 'welcome': return 'Welcome to Jean\'s Club!';
+            case 'welcome': return 'Welcome to Jesus Club!';
             case 'purchase': return 'Purchase Recorded - ' + (extraData?.description || '');
             case 'discount': return (extraData?.discountPercentage || 0) + '% Discount Voucher';
             case 'referral': return 'Referral Success! +100 Points';
-            case 'newsletter_welcome': return "Welcome to Jean's Club Newsletter!";
-            case 'newsletter': return extraData?.subject || "Jean's Club Newsletter";
-            default: return 'Message from Jean\'s Club';
+            case 'newsletter_welcome': return "Welcome to Jesus Club Newsletter!";
+            case 'newsletter': return extraData?.subject || "Jesus Club Newsletter";
+            default: return 'Message from Jesus Club';
         }
     }
 
@@ -457,10 +457,10 @@ class GoogleAppsEmailService {
 
     // NEWSLETTER EMAIL METHODS
     async sendNewsletterWelcomeEmail(email, name = null) {
-        const subject = "Welcome to Jean's Club Newsletter!";
+        const subject = "Welcome to Jesus Club Newsletter!";
         const message = `Hello ${name || 'there'}!
 
-Thank you for subscribing to Jean's Club newsletter!
+Thank you for subscribing to Jesus Club newsletter!
 
 You'll now receive:
 • Exclusive discounts and promotions
@@ -472,7 +472,7 @@ You'll now receive:
 Stay tuned for amazing deals and fashion insights!
 
 Best regards,
-The Jean's Club Team`;
+The Jesus Club Team`;
 
         return this.sendEmailToGoogleScript(email, 'newsletter_welcome', { name, email }, { subject, message });
     }
@@ -483,10 +483,10 @@ The Jean's Club Team`;
 ${content}
 
 ---
-Thank you for being a Jean's Club member!
+Thank you for being a Jesus Club member!
 Unsubscribe: https://elijah787.github.io/jeans-club#unsubscribe
 
-Jean's Club - Premium Denim & Fashion
+Jesus Club - Premium Denim & Fashion
 https://elijah787.github.io/jeans-club`;
 
         return this.sendEmailToGoogleScript(email, 'newsletter', { name, email }, { subject, message: personalizedContent });
@@ -497,18 +497,18 @@ https://elijah787.github.io/jeans-club`;
 
         switch(type) {
             case 'welcome':
-                subject = 'Welcome to Jean\'s Club!';
-                content = 'Hello ' + memberData.name + ',\n\nWelcome to Jean\'s Club! Your account has been created successfully.\n\nMEMBERSHIP DETAILS:\n• JC ID: ' + memberData.jcId + '\n• Tier: ' + memberData.tier + '\n• Points: ' + memberData.points + '\n• Referral Code: ' + memberData.referralCode + '\n\nSHARE JEAN\'S CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nStart earning points with your purchases!\n\nThank you for joining Jean\'s Club!';
+                subject = 'Welcome to Jesus Club!';
+                content = 'Hello ' + memberData.name + ',\n\nWelcome to Jesus Club! Your account has been created successfully.\n\nMEMBERSHIP DETAILS:\n• JC ID: ' + memberData.jcId + '\n• Tier: ' + memberData.tier + '\n• Points: ' + memberData.points + '\n• Referral Code: ' + memberData.referralCode + '\n\nSHARE JESUS CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nStart earning points with your purchases!\n\nThank you for joining Jesus Club!';
                 break;
 
             case 'purchase':
                 subject = 'Purchase Recorded - ' + extraData.description;
-                content = 'Hello ' + memberData.name + ',\n\nYour purchase has been recorded!\n\nPURCHASE DETAILS:\n• Amount: ' + extraData.amount.toLocaleString() + ' UGX\n• Description: ' + extraData.description + '\n• Points Earned: +' + extraData.pointsEarned + '\n• New Balance: ' + memberData.points + ' points\n\nSHARE JEAN\'S CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nThank you for shopping with Jean\'s Club!';
+                content = 'Hello ' + memberData.name + ',\n\nYour purchase has been recorded!\n\nPURCHASE DETAILS:\n• Amount: ' + extraData.amount.toLocaleString() + ' UGX\n• Description: ' + extraData.description + '\n• Points Earned: +' + extraData.pointsEarned + '\n• New Balance: ' + memberData.points + ' points\n\nSHARE JESUS CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nThank you for shopping with Jesus Club!';
                 break;
 
             case 'discount':
                 subject = extraData.discountPercentage + '% Discount Voucher';
-                content = 'Hello ' + memberData.name + ',\n\nYour discount voucher has been created!\n\nDISCOUNT DETAILS:\n• Discount: ' + extraData.discountPercentage + '%\n• Points Used: ' + extraData.pointsUsed + '\n• Max Possible: ' + extraData.maxPossibleDiscount + '\n\nSHARE JEAN\'S CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nPresent this email at checkout to redeem your discount!';
+                content = 'Hello ' + memberData.name + ',\n\nYour discount voucher has been created!\n\nDISCOUNT DETAILS:\n• Discount: ' + extraData.discountPercentage + '%\n• Points Used: ' + extraData.pointsUsed + '\n• Max Possible: ' + extraData.maxPossibleDiscount + '\n\nSHARE JESUS CLUB:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nPresent this email at checkout to redeem your discount!';
                 break;
 
             case 'referral':
@@ -518,10 +518,10 @@ https://elijah787.github.io/jeans-club`;
 
             // NEWSLETTER FALLBACK
             case 'newsletter_welcome':
-                subject = "Welcome to Jean's Club Newsletter!";
+                subject = "Welcome to Jesus Club Newsletter!";
                 content = `Hello ${memberData.name || 'there'}!
 
-Thank you for subscribing to Jean's Club newsletter!
+Thank you for subscribing to Jesus Club newsletter!
 
 You'll now receive:
 • Exclusive discounts and promotions
@@ -533,20 +533,20 @@ You'll now receive:
 Stay tuned for amazing deals and fashion insights!
 
 Best regards,
-The Jean's Club Team`;
+The Jesus Club Team`;
                 break;
 
             case 'newsletter':
-                subject = extraData?.subject || "Jean's Club Newsletter";
+                subject = extraData?.subject || "Jesus Club Newsletter";
                 content = `Hello ${memberData.name || 'Valued Member'}!
 
 ${extraData?.message || ''}
 
 ---
-Thank you for being a Jean's Club member!
+Thank you for being a Jesus Club member!
 Unsubscribe: https://elijah787.github.io/jeans-club#unsubscribe
 
-Jean's Club - Premium Denim & Fashion
+Jesus Club - Premium Denim & Fashion
 https://elijah787.github.io/jeans-club`;
                 break;
         }
@@ -669,8 +669,8 @@ const googleConfig = {
     clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
 };
 
-// Jean's Club Configuration - UNCHANGED
-const jeansClubConfig = {
+// Jesus Club Configuration - UPDATED NAME
+const jesusClubConfig = {
     pointValue: 750,
     redemptionRate: 0.005,
     
@@ -718,16 +718,185 @@ const jeansClubConfig = {
     }
 };
 
-// Main JeansClubManager - UPDATED to use Supabase
-class JeansClubManager {
+// Add to Homescreen Manager - MANDATORY
+class MandatoryA2HS {
     constructor() {
-        // CHANGED: Using Supabase instead of Google Sheets
+        this.deferredPrompt = null;
+        this.hasShownInvitation = false;
+        this.userEngagementScore = 0;
+        this.init();
+    }
+
+    init() {
+        if (this.isAppInstalled()) return;
+
+        // Listen for install prompt (Android)
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            this.scheduleMandatoryPrompt('android');
+        });
+
+        // iOS detection with delayed prompt
+        if (this.isIOS()) {
+            this.scheduleMandatoryPrompt('ios');
+        }
+
+        this.setupEngagementTracking();
+    }
+
+    setupEngagementTracking() {
+        // Track user engagement to show prompt at right time
+        let engagementTimer;
+        
+        const trackEngagement = () => {
+            this.userEngagementScore += 1;
+            
+            // Show prompt after 25+ engagement points or 45 seconds
+            if (this.userEngagementScore >= 25 && !this.hasShownInvitation) {
+                this.showMandatoryPrompt();
+            }
+        };
+
+        // Track various engagement activities
+        ['click', 'scroll', 'touchstart', 'keydown', 'mousemove'].forEach(event => {
+            document.addEventListener(event, trackEngagement, { passive: true });
+        });
+
+        // Fallback timer - show after 45 seconds regardless
+        setTimeout(() => {
+            if (!this.hasShownInvitation && !this.isAppInstalled()) {
+                this.showMandatoryPrompt();
+            }
+        }, 45000);
+    }
+
+    scheduleMandatoryPrompt(platform) {
+        // Show prompt after short delay
+        setTimeout(() => {
+            if (!this.hasShownInvitation && !this.isAppInstalled()) {
+                this.showMandatoryPrompt();
+            }
+        }, 10000); // 10 second delay
+    }
+
+    showMandatoryPrompt() {
+        if (this.hasShownInvitation || this.isAppInstalled()) return;
+        
+        const invitation = document.getElementById('a2hs-prompt');
+        const mainContent = document.getElementById('main-content');
+        
+        if (!invitation) return;
+
+        // BLOCK THE ENTIRE PAGE - User cannot do anything else
+        document.body.classList.add('blur-background');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
+        
+        // Update CTA text based on platform
+        const ctaButton = document.getElementById('install-cta');
+        if (this.deferredPrompt) {
+            ctaButton.querySelector('.cta-text').textContent = 'Add Jesus Club to Homescreen';
+        } else {
+            ctaButton.querySelector('.cta-text').textContent = 'Add to Homescreen';
+        }
+
+        invitation.classList.remove('hidden');
+        this.hasShownInvitation = true;
+        
+        console.log('🔒 Mandatory A2HS prompt shown - user must interact');
+    }
+
+    async installApp() {
+        if (this.deferredPrompt) {
+            this.deferredPrompt.prompt();
+            const { outcome } = await this.deferredPrompt.userChoice;
+            
+            if (outcome === 'accepted') {
+                this.showSuccessMessage();
+                this.closePrompt();
+            } else {
+                // If user cancels, show manual instructions but KEEP PROMPT OPEN
+                this.showManualInstructions();
+                // Don't close the prompt - user must complete the action
+            }
+        } else {
+            // For iOS, show manual instructions
+            this.showManualInstructions();
+            // Still don't close the prompt - user must complete manually
+        }
+    }
+
+    showManualInstructions() {
+        const isIOS = this.isIOS();
+        const instructions = isIOS ? 
+            "📱 To complete setup:\n\n1. Tap the Share button (📤) at bottom\n2. Scroll down and tap 'Add to Homescreen'\n3. Tap 'Add' in top right\n4. Return to this page after installation\n\nYour app will be ready to use! 👖" :
+            "📱 To complete setup:\n\n1. Tap menu (⋮) in top right\n2. Tap 'Add to Homescreen' or 'Install'\n3. Confirm the installation\n4. Return to this page after installation\n\nYour app will be ready to use! 👖";
+        
+        alert(instructions);
+    }
+
+    showSuccessMessage() {
+        // Only unblock the page after successful installation
+        document.body.classList.remove('blur-background');
+        document.body.style.overflow = '';
+        
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #27ae60;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            z-index: 10001;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            font-weight: 600;
+            text-align: center;
+        `;
+        toast.innerHTML = '🎉 Success! Jesus Club added to your homescreen';
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                document.body.removeChild(toast);
+            }
+        }, 4000);
+    }
+
+    closePrompt() {
+        const invitation = document.getElementById('a2hs-prompt');
+        if (invitation) {
+            invitation.classList.add('hidden');
+        }
+        // Only re-enable if app is installed
+        if (this.isAppInstalled()) {
+            document.body.classList.remove('blur-background');
+            document.body.style.overflow = '';
+        }
+    }
+
+    isAppInstalled() {
+        return window.matchMedia('(display-mode: standalone)').matches || 
+               window.navigator.standalone === true;
+    }
+
+    isIOS() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+}
+
+// Main JesusClubManager - UPDATED to use Supabase
+class JesusClubManager {
+    constructor() {
         this.db = new SupabaseDB();
         this.emailService = new GoogleAppsEmailService();
+        this.a2hsManager = new MandatoryA2HS(); // Initialize A2HS
         this.currentMember = null;
         this.isAdmin = false;
         this.loadCurrentMember();
-        console.log('🚀 JeansClubManager initialized with Supabase DB');
+        console.log('🚀 JesusClubManager initialized with Supabase DB');
     }
 
     generateJCId() {
@@ -735,7 +904,7 @@ class JeansClubManager {
     }
 
     generateReferralCode() {
-        return 'JEANS' + Math.random().toString(36).substr(2, 6).toUpperCase();
+        return 'JESUS' + Math.random().toString(36).substr(2, 6).toUpperCase();
     }
 
     loadCurrentMember() {
@@ -796,7 +965,7 @@ class JeansClubManager {
         this.currentMember = newMember;
         this.saveCurrentMember();
         
-        await this.logActivity(memberId, 'Account created - Welcome to Jean\'s Club!', startingPoints);
+        await this.logActivity(memberId, 'Account created - Welcome to Jesus Club!', startingPoints);
         
         // Process referral if exists
         if (referralCode) {
@@ -864,7 +1033,7 @@ class JeansClubManager {
         this.currentMember = newMember;
         this.saveCurrentMember();
         
-        await this.logActivity(memberId, 'Account created with Google - Welcome to Jean\'s Club!', startingPoints);
+        await this.logActivity(memberId, 'Account created with Google - Welcome to Jesus Club!', startingPoints);
         
         // Process referral if exists
         if (referralCode) {
@@ -1141,30 +1310,30 @@ class JeansClubManager {
     }
 
     calculatePoints(amountUGX, tier) {
-        const basePoints = amountUGX / jeansClubConfig.pointValue;
-        const multiplier = jeansClubConfig.tiers[tier].multiplier;
+        const basePoints = amountUGX / jesusClubConfig.pointValue;
+        const multiplier = jesusClubConfig.tiers[tier].multiplier;
         return Math.floor(basePoints * multiplier);
     }
 
     calculateTier(points) {
-        if (points >= jeansClubConfig.tiers.PLATINUM.minPoints) return 'PLATINUM';
-        if (points >= jeansClubConfig.tiers.GOLD.minPoints) return 'GOLD';
-        if (points >= jeansClubConfig.tiers.SILVER.minPoints) return 'SILVER';
-        if (points >= jeansClubConfig.tiers.BRONZE.minPoints) return 'BRONZE';
+        if (points >= jesusClubConfig.tiers.PLATINUM.minPoints) return 'PLATINUM';
+        if (points >= jesusClubConfig.tiers.GOLD.minPoints) return 'GOLD';
+        if (points >= jesusClubConfig.tiers.SILVER.minPoints) return 'SILVER';
+        if (points >= jesusClubConfig.tiers.BRONZE.minPoints) return 'BRONZE';
         return 'PEARL';
     }
 
     getNextTier(currentTier) {
         const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM'];
         const currentIndex = tierOrder.indexOf(currentTier);
-        return currentIndex < tierOrder.length - 1 ? jeansClubConfig.tiers[tierOrder[currentIndex + 1]] : null;
+        return currentIndex < tierOrder.length - 1 ? jesusClubConfig.tiers[tierOrder[currentIndex + 1]] : null;
     }
 
     getTierProgress(currentPoints, currentTier) {
         const nextTier = this.getNextTier(currentTier);
         if (!nextTier) return { percentage: 100, pointsNeeded: 0, nextTier: null };
 
-        const currentTierConfig = jeansClubConfig.tiers[currentTier];
+        const currentTierConfig = jesusClubConfig.tiers[currentTier];
         const pointsInCurrentTier = currentPoints - currentTierConfig.minPoints;
         const totalPointsInTier = nextTier.minPoints - currentTierConfig.minPoints;
         const percentage = Math.min(100, Math.max(0, (pointsInCurrentTier / totalPointsInTier) * 100));
@@ -1180,16 +1349,16 @@ class JeansClubManager {
         if (!this.currentMember) return { success: false, message: "No member logged in" };
 
         const member = this.currentMember;
-        const tierConfig = jeansClubConfig.tiers[member.tier];
+        const tierConfig = jesusClubConfig.tiers[member.tier];
         
-        const maxDiscountPoints = Math.floor(tierConfig.discountRate / jeansClubConfig.redemptionRate);
+        const maxDiscountPoints = Math.floor(tierConfig.discountRate / jesusClubConfig.redemptionRate);
         const actualPointsToUse = Math.min(pointsToUse, maxDiscountPoints, member.points);
         
         if (actualPointsToUse < 10) {
             return { success: false, message: "Minimum 10 points required" };
         }
 
-        const discountPercentage = (actualPointsToUse * jeansClubConfig.redemptionRate * 100).toFixed(1);
+        const discountPercentage = (actualPointsToUse * jesusClubConfig.redemptionRate * 100).toFixed(1);
 
         return {
             success: true,
@@ -1249,7 +1418,7 @@ class JeansClubManager {
 
     // Admin login
     adminLogin(password) {
-        if (password === 'jeansclub2024') {
+        if (password === 'jesusclub2024') {
             this.isAdmin = true;
             return { success: true };
         }
@@ -1288,9 +1457,14 @@ class JeansClubManager {
 }
 
 // Initialize the system
-const clubManager = new JeansClubManager();
+const clubManager = new JesusClubManager();
 
-// Google Sign-In Functions - UNCHANGED
+// Global A2HS function
+function addToHomescreen() {
+    clubManager.a2hsManager.installApp();
+}
+
+// Google Sign-In Functions
 function initializeGoogleSignIn() {
     try {
         google.accounts.id.initialize({
@@ -1356,7 +1530,7 @@ async function handleGoogleSignIn(response) {
                 }
 
                 showDashboard(result.member);
-                let message = 'Welcome to Jean\'s Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it for future logins!\n\n';
+                let message = 'Welcome to Jesus Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it for future logins!\n\n';
             
                 if (referralCode) {
                     message += 'You got 10 points, your friend got 100 points!\n\n';
@@ -1438,7 +1612,7 @@ async function demoGoogleLogin() {
     }
 }
 
-// UI Functions - UPDATED with newsletter
+// UI Functions
 function showAdminLogin() {
     const password = prompt("Enter staff password:");
     if (password) {
@@ -1618,7 +1792,7 @@ async function sendNewsletter() {
     }
 }
 
-// Business Logic - UPDATED with newsletter
+// Business Logic
 async function signUpWithEmail() {
     const name = document.getElementById('userName').value.trim();
     const email = document.getElementById('userEmail').value.trim();
@@ -1646,7 +1820,7 @@ async function signUpWithEmail() {
         }
 
         showDashboard(result.member);
-        let message = 'Welcome to Jean\'s Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it to login!\n\n';
+        let message = 'Welcome to Jesus Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it to login!\n\n';
         
         if (referralCode) {
             message += 'You got 10 points, your friend got 100 points!\n\n';
@@ -1728,7 +1902,7 @@ async function redeemPoints() {
 function shareReferral() {
     if (!clubManager.currentMember) return;
     const member = clubManager.currentMember;
-    const shareText = 'Join Jean\'s Club Loyalty Program!\n\nUse my referral code when signing up: ' + member.referralCode + '\n\nWe both get bonus points:\n• You get 10 welcome points\n• I get 100 referral points\n\nSign up now and start earning rewards!';
+    const shareText = 'Join Jesus Club Loyalty Program!\n\nUse my referral code when signing up: ' + member.referralCode + '\n\nWe both get bonus points:\n• You get 10 welcome points\n• I get 100 referral points\n\nSign up now and start earning rewards!';
     
     if (navigator.clipboard) {
         navigator.clipboard.writeText(shareText).then(() => {
@@ -1745,7 +1919,7 @@ function shareReferral() {
     }
 }
 
-// Admin Functions - UPDATED with newsletter
+// Admin Functions
 async function viewAllMembers() {
     const members = await clubManager.getAllMembers();
     const adminContent = document.getElementById('adminContent');
