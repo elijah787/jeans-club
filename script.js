@@ -214,6 +214,109 @@ class SupabaseDB {
             return null;
         }
     }
+
+    // NEWSLETTER METHODS
+    async subscribeToNewsletter(email, name = null) {
+        try {
+            console.log('📧 Subscribing to newsletter:', email);
+            
+            const { data, error } = await this.supabase
+                .from('newsletter_subscriptions')
+                .upsert({
+                    email: email,
+                    name: name,
+                    is_active: true,
+                    subscribed_at: new Date().toISOString(),
+                    last_sent: null
+                }, { 
+                    onConflict: 'email'
+                });
+
+            if (error) {
+                console.error('❌ Newsletter subscription error:', error);
+                throw error;
+            }
+
+            console.log('✅ Newsletter subscription successful');
+            return true;
+
+        } catch (error) {
+            console.error('❌ Failed to subscribe to newsletter:', error);
+            return false;
+        }
+    }
+
+    async unsubscribeFromNewsletter(email) {
+        try {
+            console.log('📧 Unsubscribing from newsletter:', email);
+            
+            const { data, error } = await this.supabase
+                .from('newsletter_subscriptions')
+                .update({ 
+                    is_active: false,
+                    unsubscribed_at: new Date().toISOString()
+                })
+                .eq('email', email);
+
+            if (error) {
+                console.error('❌ Newsletter unsubscribe error:', error);
+                throw error;
+            }
+
+            console.log('✅ Newsletter unsubscribe successful');
+            return true;
+
+        } catch (error) {
+            console.error('❌ Failed to unsubscribe from newsletter:', error);
+            return false;
+        }
+    }
+
+    async getNewsletterSubscribers(activeOnly = true) {
+        try {
+            let query = this.supabase
+                .from('newsletter_subscriptions')
+                .select('*');
+
+            if (activeOnly) {
+                query = query.eq('is_active', true);
+            }
+
+            const { data: subscribers, error } = await query;
+
+            if (error) {
+                console.error('❌ Newsletter fetch error:', error);
+                throw error;
+            }
+
+            return subscribers || [];
+
+        } catch (error) {
+            console.error('❌ Failed to fetch newsletter subscribers:', error);
+            return [];
+        }
+    }
+
+    async getNewsletterStatus(email) {
+        try {
+            const { data: subscription, error } = await this.supabase
+                .from('newsletter_subscriptions')
+                .select('is_active')
+                .eq('email', email)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error('❌ Newsletter status error:', error);
+                throw error;
+            }
+
+            return subscription ? subscription.is_active : false;
+
+        } catch (error) {
+            console.error('❌ Failed to get newsletter status:', error);
+            return false;
+        }
+    }
 }
 
 // Google Apps Script Email Service (FIXED - CORS HANDLING)
@@ -306,6 +409,15 @@ class GoogleAppsEmailService {
             case 'referral':
                 content = 'Hello ' + memberData.name + ',\n\nCongratulations! Someone joined using your referral code!\n\nREFERRAL DETAILS:\n• New Member: ' + extraData.newMemberName + ' (' + extraData.newMemberJCId + ')\n• Points Earned: 100 points\n• New Balance: ' + memberData.points + ' points\n\nKeep sharing your code: ' + memberData.referralCode;
                 break;
+
+            // NEWSLETTER EMAIL TYPES
+            case 'newsletter_welcome':
+                content = extraData.message;
+                break;
+
+            case 'newsletter':
+                content = extraData.message;
+                break;
         }
         
         return content;
@@ -317,6 +429,8 @@ class GoogleAppsEmailService {
             case 'purchase': return 'Purchase Recorded - ' + (extraData?.description || '');
             case 'discount': return (extraData?.discountPercentage || 0) + '% Discount Voucher';
             case 'referral': return 'Referral Success! +100 Points';
+            case 'newsletter_welcome': return "Welcome to Jean's Club Newsletter!";
+            case 'newsletter': return extraData?.subject || "Jean's Club Newsletter";
             default: return 'Message from Jean\'s Club';
         }
     }
@@ -341,6 +455,43 @@ class GoogleAppsEmailService {
         return this.sendEmailToGoogleScript(email, 'referral', memberData, referralData);
     }
 
+    // NEWSLETTER EMAIL METHODS
+    async sendNewsletterWelcomeEmail(email, name = null) {
+        const subject = "Welcome to Jean's Club Newsletter!";
+        const message = `Hello ${name || 'there'}!
+
+Thank you for subscribing to Jean's Club newsletter!
+
+You'll now receive:
+• Exclusive discounts and promotions
+• New product announcements
+• Style tips and fashion trends
+• Member-only events
+• Points bonus opportunities
+
+Stay tuned for amazing deals and fashion insights!
+
+Best regards,
+The Jean's Club Team`;
+
+        return this.sendEmailToGoogleScript(email, 'newsletter_welcome', { name, email }, { subject, message });
+    }
+
+    async sendNewsletterEmail(email, subject, content, name = null) {
+        const personalizedContent = `Hello ${name || 'Valued Member'}!
+
+${content}
+
+---
+Thank you for being a Jean's Club member!
+Unsubscribe: https://elijah787.github.io/jeans-club#unsubscribe
+
+Jean's Club - Premium Denim & Fashion
+https://elijah787.github.io/jeans-club`;
+
+        return this.sendEmailToGoogleScript(email, 'newsletter', { name, email }, { subject, message: personalizedContent });
+    }
+
     fallbackEmail(email, memberData, type, extraData = null) {
         let subject, content;
 
@@ -363,6 +514,40 @@ class GoogleAppsEmailService {
             case 'referral':
                 subject = 'Referral Success! +100 Points';
                 content = 'Hello ' + memberData.name + ',\n\nCongratulations! Someone joined using your referral code!\n\nREFERRAL DETAILS:\n• New Member: ' + extraData.newMemberName + ' (' + extraData.newMemberJCId + ')\n• Points Earned: 100 points\n• New Balance: ' + memberData.points + ' points\n\nSHARE WITH MORE FRIENDS:\n🔳 Scan QR Code: https://elijah787.github.io/jeans-club\n📱 Or visit: https://elijah787.github.io/jeans-club\n\nKeep sharing your code: ' + memberData.referralCode;
+                break;
+
+            // NEWSLETTER FALLBACK
+            case 'newsletter_welcome':
+                subject = "Welcome to Jean's Club Newsletter!";
+                content = `Hello ${memberData.name || 'there'}!
+
+Thank you for subscribing to Jean's Club newsletter!
+
+You'll now receive:
+• Exclusive discounts and promotions
+• New product announcements
+• Style tips and fashion trends
+• Member-only events
+• Points bonus opportunities
+
+Stay tuned for amazing deals and fashion insights!
+
+Best regards,
+The Jean's Club Team`;
+                break;
+
+            case 'newsletter':
+                subject = extraData?.subject || "Jean's Club Newsletter";
+                content = `Hello ${memberData.name || 'Valued Member'}!
+
+${extraData?.message || ''}
+
+---
+Thank you for being a Jean's Club member!
+Unsubscribe: https://elijah787.github.io/jeans-club#unsubscribe
+
+Jean's Club - Premium Denim & Fashion
+https://elijah787.github.io/jeans-club`;
                 break;
         }
 
@@ -856,6 +1041,105 @@ class JeansClubManager {
         };
     }
 
+    // NEWSLETTER METHODS
+    async subscribeToNewsletter(email, name = null) {
+        try {
+            const result = await this.db.subscribeToNewsletter(email, name);
+            
+            if (result) {
+                // Send welcome newsletter email
+                await this.emailService.sendNewsletterWelcomeEmail(email, name);
+                return { success: true, message: "Successfully subscribed to newsletter!" };
+            } else {
+                return { success: false, message: "Failed to subscribe to newsletter" };
+            }
+        } catch (error) {
+            console.error('Newsletter subscription error:', error);
+            return { success: false, message: "Subscription failed. Please try again." };
+        }
+    }
+
+    async unsubscribeFromNewsletter(email) {
+        try {
+            const result = await this.db.unsubscribeFromNewsletter(email);
+            return { 
+                success: result, 
+                message: result ? "Successfully unsubscribed from newsletter" : "Failed to unsubscribe" 
+            };
+        } catch (error) {
+            console.error('Newsletter unsubscribe error:', error);
+            return { success: false, message: "Unsubscribe failed. Please try again." };
+        }
+    }
+
+    async getNewsletterStatus(email) {
+        try {
+            return await this.db.getNewsletterStatus(email);
+        } catch (error) {
+            console.error('Newsletter status error:', error);
+            return false;
+        }
+    }
+
+    // Admin function to send newsletter to all subscribers
+    async sendNewsletterToAll(subject, content) {
+        if (!this.isAdmin) {
+            return { success: false, message: "Admin access required" };
+        }
+
+        try {
+            const subscribers = await this.db.getNewsletterSubscribers(true);
+            let sentCount = 0;
+            let failedCount = 0;
+
+            for (const subscriber of subscribers) {
+                try {
+                    const emailResult = await this.emailService.sendNewsletterEmail(
+                        subscriber.email, 
+                        subject, 
+                        content,
+                        subscriber.name
+                    );
+                    
+                    if (emailResult.success) {
+                        sentCount++;
+                        // Update last_sent timestamp
+                        await this.updateNewsletterLastSent(subscriber.email);
+                    } else {
+                        failedCount++;
+                    }
+                } catch (error) {
+                    console.error(`Failed to send to ${subscriber.email}:`, error);
+                    failedCount++;
+                }
+            }
+
+            return {
+                success: true,
+                message: `Newsletter sent to ${sentCount} subscribers${failedCount > 0 ? `, ${failedCount} failed` : ''}`
+            };
+
+        } catch (error) {
+            console.error('Newsletter send error:', error);
+            return { success: false, message: "Failed to send newsletter: " + error.message };
+        }
+    }
+
+    async updateNewsletterLastSent(email) {
+        try {
+            const { data, error } = await this.db.supabase
+                .from('newsletter_subscriptions')
+                .update({ last_sent: new Date().toISOString() })
+                .eq('email', email);
+
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Failed to update newsletter last_sent:', error);
+            return false;
+        }
+    }
+
     calculatePoints(amountUGX, tier) {
         const basePoints = amountUGX / jeansClubConfig.pointValue;
         const multiplier = jeansClubConfig.tiers[tier].multiplier;
@@ -1065,6 +1349,12 @@ async function handleGoogleSignIn(response) {
             const result = await clubManager.createAccountWithGoogle(userData, referralCode);
         
             if (result.success) {
+                // Handle newsletter signup
+                const newsletterCheckbox = document.getElementById('newsletterSignup');
+                if (newsletterCheckbox && newsletterCheckbox.checked) {
+                    await clubManager.subscribeToNewsletter(result.member.email, result.member.name);
+                }
+
                 showDashboard(result.member);
                 let message = 'Welcome to Jean\'s Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it for future logins!\n\n';
             
@@ -1117,6 +1407,12 @@ async function demoGoogleSignup() {
     const result = await clubManager.createAccountWithGoogle(userData, referralCode);
     
     if (result.success) {
+        // Handle newsletter signup
+        const newsletterCheckbox = document.getElementById('newsletterSignup');
+        if (newsletterCheckbox && newsletterCheckbox.checked) {
+            await clubManager.subscribeToNewsletter(result.member.email, result.member.name);
+        }
+
         showDashboard(result.member);
         let message = 'Demo Google account created!\nJC ID: ' + result.member.jcId + '\n\n';
         if (result.isFallback) {
@@ -1142,7 +1438,7 @@ async function demoGoogleLogin() {
     }
 }
 
-// UI Functions - UNCHANGED
+// UI Functions - UPDATED with newsletter
 function showAdminLogin() {
     const password = prompt("Enter staff password:");
     if (password) {
@@ -1187,6 +1483,15 @@ async function updateDashboard(member) {
     
     const referralStats = await clubManager.getReferralStats(member.id);
     document.getElementById('referralStats').innerHTML = 'Referrals: ' + referralStats.totalReferrals + ' friends, Earned: ' + referralStats.totalPoints + ' points';
+    
+    // Update newsletter status
+    const newsletterStatus = await clubManager.getNewsletterStatus(member.email);
+    const newsletterButton = document.getElementById('newsletterToggle');
+    if (newsletterButton) {
+        newsletterButton.textContent = newsletterStatus ? 
+            'Unsubscribe from Newsletter' : 
+            'Subscribe to Newsletter';
+    }
     
     updateTierProgress(member);
     updateActivityLog(member);
@@ -1257,7 +1562,63 @@ async function refreshData() {
     }
 }
 
-// Business Logic - UNCHANGED
+// NEWSLETTER UI FUNCTIONS
+async function toggleNewsletter() {
+    if (!clubManager.currentMember) return;
+    
+    const button = document.getElementById('newsletterToggle');
+    const isSubscribed = button.textContent.includes('Unsubscribe');
+    
+    if (isSubscribed) {
+        const result = await clubManager.unsubscribeFromNewsletter(clubManager.currentMember.email);
+        if (result.success) {
+            button.textContent = 'Subscribe to Newsletter';
+            alert('You have been unsubscribed from our newsletter.');
+        } else {
+            alert(result.message);
+        }
+    } else {
+        const result = await clubManager.subscribeToNewsletter(
+            clubManager.currentMember.email,
+            clubManager.currentMember.name
+        );
+        if (result.success) {
+            button.textContent = 'Unsubscribe from Newsletter';
+            alert('You have been subscribed to our newsletter!');
+        } else {
+            alert(result.message);
+        }
+    }
+}
+
+async function sendNewsletter() {
+    if (!clubManager.isAdmin) return alert("Staff access required");
+    
+    const subject = document.getElementById('newsletterSubject').value.trim();
+    const content = document.getElementById('newsletterContent').value.trim();
+    
+    if (!subject || !content) {
+        document.getElementById('newsletterResult').innerHTML = '<span style="color: red;">Please enter subject and content</span>';
+        return;
+    }
+    
+    if (!confirm(`Send newsletter to all subscribers?\n\nSubject: ${subject}\n\nThis will email all active newsletter subscribers.`)) {
+        return;
+    }
+    
+    const result = await clubManager.sendNewsletterToAll(subject, content);
+    const newsletterResult = document.getElementById('newsletterResult');
+    
+    if (result.success) {
+        newsletterResult.innerHTML = '<span style="color: green;">' + result.message + '</span>';
+        document.getElementById('newsletterSubject').value = '';
+        document.getElementById('newsletterContent').value = '';
+    } else {
+        newsletterResult.innerHTML = '<span style="color: red;">' + result.message + '</span>';
+    }
+}
+
+// Business Logic - UPDATED with newsletter
 async function signUpWithEmail() {
     const name = document.getElementById('userName').value.trim();
     const email = document.getElementById('userEmail').value.trim();
@@ -1278,6 +1639,12 @@ async function signUpWithEmail() {
     const result = await clubManager.createAccount(userData, password, referralCode);
     
     if (result.success) {
+        // Handle newsletter signup
+        const newsletterCheckbox = document.getElementById('newsletterSignup');
+        if (newsletterCheckbox && newsletterCheckbox.checked) {
+            await clubManager.subscribeToNewsletter(result.member.email, result.member.name);
+        }
+
         showDashboard(result.member);
         let message = 'Welcome to Jean\'s Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it to login!\n\n';
         
@@ -1378,7 +1745,7 @@ function shareReferral() {
     }
 }
 
-// Admin Functions - UNCHANGED
+// Admin Functions - UPDATED with newsletter
 async function viewAllMembers() {
     const members = await clubManager.getAllMembers();
     const adminContent = document.getElementById('adminContent');

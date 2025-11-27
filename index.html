@@ -62,7 +62,7 @@
             color: #333;
         }
 
-        input, select, button {
+        input, select, button, textarea {
             width: 100%;
             padding: 12px;
             border: 2px solid #ddd;
@@ -70,7 +70,7 @@
             font-size: 16px;
         }
 
-        input:focus, select:focus {
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -215,6 +215,22 @@
             flex: 1;
         }
 
+        .newsletter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .newsletter-checkbox input {
+            width: auto;
+        }
+
+        .newsletter-checkbox label {
+            margin: 0;
+            font-weight: normal;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -230,6 +246,10 @@
             
             .header h1 {
                 font-size: 2em;
+            }
+            
+            .nav-buttons {
+                flex-direction: column;
             }
         }
     </style>
@@ -264,6 +284,13 @@
                 <label for="referralCode">Referral Code (Optional)</label>
                 <input type="text" id="referralCode" placeholder="Enter referral code if any" autocomplete="off">
             </div>
+            
+            <!-- NEW: Newsletter Signup Checkbox -->
+            <div class="newsletter-checkbox">
+                <input type="checkbox" id="newsletterSignup" checked>
+                <label for="newsletterSignup">Subscribe to our newsletter for exclusive deals and updates</label>
+            </div>
+            
             <button class="btn" onclick="signUpWithEmail()">Create Account</button>
             <div class="form-group" style="text-align: center; margin: 20px 0;">
                 <div style="border-bottom: 1px solid #ddd; line-height: 0.1em; margin: 10px 0 20px;">
@@ -361,6 +388,15 @@
                 <p id="tierProgressText">Loading progress...</p>
             </div>
 
+            <!-- NEW: Newsletter Preferences -->
+            <div class="info-card">
+                <h3>Newsletter Preferences</h3>
+                <p>Get exclusive deals, new arrivals, and style tips delivered to your inbox</p>
+                <button class="btn" onclick="toggleNewsletter()" id="newsletterToggle">
+                    Subscribe to Newsletter
+                </button>
+            </div>
+
             <div class="info-card">
                 <h3>Referral Stats</h3>
                 <p id="referralStats">Loading stats...</p>
@@ -412,6 +448,21 @@
                 </div>
                 <button class="btn" onclick="adminAddPurchase()">Add Purchase</button>
                 <div id="purchaseResult" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- NEW: Newsletter Sending -->
+            <div class="info-card">
+                <h3>Send Newsletter</h3>
+                <div class="form-group">
+                    <label for="newsletterSubject">Subject</label>
+                    <input type="text" id="newsletterSubject" placeholder="Enter newsletter subject">
+                </div>
+                <div class="form-group">
+                    <label for="newsletterContent">Content</label>
+                    <textarea id="newsletterContent" placeholder="Enter newsletter content" rows="6" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; font-family: inherit;"></textarea>
+                </div>
+                <button class="btn" onclick="sendNewsletter()">Send Newsletter to All Subscribers</button>
+                <div id="newsletterResult" style="margin-top: 10px;"></div>
             </div>
 
             <div id="adminContent">
