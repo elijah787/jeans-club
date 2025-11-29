@@ -72,59 +72,59 @@ class SupabaseDB {
     }
 
     async saveMember(member) {
-        try {
-            console.log('💾 Saving member to Supabase:', member.jcId);
-            
-            // Ensure all required fields are present
-            const memberData = {
-                jcId: member.jcId,
-                id: member.id || 'member_' + Date.now(),
-                email: member.email,
-                name: member.name,
-                password: member.password || null,
-                googleId: member.googleId || null,
-                loginMethod: member.loginMethod || 'email',
-                points: member.points || 0,
-                tier: member.tier || 'PEARL',
-                referralCode: member.referralCode,
-                referredBy: member.referredBy || null,
-                purchaseHistory: member.purchaseHistory || [],
-                activityLog: member.activityLog || [],
-                joinedDate: member.joinedDate || new Date().toISOString(),
-                totalSpent: member.totalSpent || 0,
-                challenges: member.challenges || [],
-                referrals: member.referrals || [],
-                resetToken: member.resetToken || null,
-                resetTokenExpiry: member.resetTokenExpiry || null
-            };
+    try {
+        console.log('💾 Saving member to Supabase:', member.jcId);
+        
+        // Use exact camelCase field names to match your database
+        const memberData = {
+            jcId: member.jcId,
+            id: member.id || 'member_' + Date.now(),
+            email: member.email,
+            name: member.name,
+            password: member.password || null,
+            googleId: member.googleId || null,
+            loginMethod: member.loginMethod || 'email',
+            points: member.points || 0,
+            tier: member.tier || 'PEARL',
+            referralCode: member.referralCode,
+            referredBy: member.referredBy || null,
+            purchaseHistory: member.purchaseHistory || [],
+            activityLog: member.activityLog || [],
+            joinedDate: member.joinedDate || new Date().toISOString(),
+            totalSpent: member.totalSpent || 0,
+            challenges: member.challenges || [],
+            referrals: member.referrals || [],
+            resetToken: member.resetToken || null,
+            resetTokenExpiry: member.resetTokenExpiry || null
+        };
 
-            const { data, error } = await this.supabase
-                .from('members')
-                .upsert(memberData, { 
-                    onConflict: 'jcId'
-                });
+        const { data, error } = await this.supabase
+            .from('members')
+            .upsert(memberData, { 
+                onConflict: 'jcId'
+            });
 
-            if (error) {
-                console.error('❌ Supabase save error:', error);
-                throw error;
-            }
-
-            console.log('✅ Member saved successfully to Supabase');
-            
-            // Invalidate cache
-            const cache = this.getCache();
-            if (cache) {
-                cache.lastSync = 0;
-                this.setCache(cache);
-            }
-
-            return true;
-
-        } catch (error) {
-            console.error('❌ Failed to save member to Supabase:', error);
-            return false;
+        if (error) {
+            console.error('❌ Supabase save error:', error);
+            throw error;
         }
+
+        console.log('✅ Member saved successfully to Supabase');
+        
+        // Invalidate cache
+        const cache = this.getCache();
+        if (cache) {
+            cache.lastSync = 0;
+            this.setCache(cache);
+        }
+
+        return true;
+
+    } catch (error) {
+        console.error('❌ Failed to save member to Supabase:', error);
+        return false;
     }
+}
 
     async deleteMember(jcId) {
         try {
