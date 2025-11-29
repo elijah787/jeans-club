@@ -310,14 +310,15 @@
                 <input type="text" id="loginJCId" placeholder="Enter your JC ID" autocomplete="off">
             </div>
             <div class="form-group">
-                <label for="loginEmail">Email Address</label>
-                <input type="email" id="loginEmail" placeholder="Enter your email" autocomplete="off">
-            </div>
-            <div class="form-group">
                 <label for="loginPassword">Password</label>
                 <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password">
             </div>
             <button class="btn" onclick="loginWithCredentials()">Login</button>
+            
+            <div class="form-group" style="text-align: center; margin: 20px 0;">
+                <a href="#" onclick="showPasswordResetScreen()" style="color: #667eea; text-decoration: none;">Forgot Password?</a>
+            </div>
+            
             <div class="form-group" style="text-align: center; margin: 20px 0;">
                 <div style="border-bottom: 1px solid #ddd; line-height: 0.1em; margin: 10px 0 20px;">
                     <span style="background: white; padding: 0 10px; color: #666;">OR</span>
@@ -329,6 +330,54 @@
             </div>
             <div class="form-group" style="text-align: center; margin-top: 20px;">
                 <button class="btn secondary" onclick="showAdminLogin()">Staff Login</button>
+            </div>
+        </div>
+
+        <!-- Password Reset Section -->
+        <div id="passwordResetSection" class="card hidden">
+            <div class="nav-buttons">
+                <button class="btn secondary" onclick="showLoginScreen()">Back to Login</button>
+            </div>
+
+            <h2 class="section-title">Reset Your Password</h2>
+            
+            <div class="info-card">
+                <h3>Request Password Reset</h3>
+                <div class="form-group">
+                    <label for="resetJCId">Your JC ID</label>
+                    <input type="text" id="resetJCId" placeholder="Enter your JC ID">
+                </div>
+                <button class="btn" onclick="requestPasswordReset()">Send Reset Code</button>
+                <div id="resetRequestResult" style="margin-top: 10px;"></div>
+            </div>
+
+            <div id="resetForm" class="info-card hidden">
+                <h3>Enter Reset Code & New Password</h3>
+                <div class="form-group">
+                    <label for="resetToken">Reset Code (Check your email)</label>
+                    <input type="text" id="resetToken" placeholder="Enter the reset code from email">
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">New Password</label>
+                    <input type="password" id="newPassword" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" placeholder="Confirm new password">
+                </div>
+                <button class="btn" onclick="executePasswordReset()">Reset Password</button>
+                <div id="resetExecuteResult" style="margin-top: 10px;"></div>
+            </div>
+
+            <div class="info-card">
+                <h3>Need Help?</h3>
+                <p>If you're having trouble resetting your password:</p>
+                <ul>
+                    <li>Make sure you're entering the correct JC ID</li>
+                    <li>Check your spam folder for the reset email</li>
+                    <li>Reset codes expire after 1 hour</li>
+                    <li>Google accounts don't use passwords - use Google Sign-In</li>
+                </ul>
             </div>
         </div>
 
