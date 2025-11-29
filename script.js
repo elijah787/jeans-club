@@ -1351,7 +1351,7 @@ class GoogleAppsEmailService {
             margin-top: 30px; 
             padding: 25px; 
             color: #666; 
-            font-size: 14px; 
+            fontSize: 14px; 
             border-top: 1px solid #eee; 
             background: #f8f9fa; 
         }
@@ -2012,15 +2012,16 @@ class JeansClubManager {
         }
 
         const memberId = 'member_' + Date.now();
-        const hashedPassword = this.hashPassword(password);
-        const startingPoints = 10;
+        
+        // Calculate starting points: 10 welcome points + 10 extra points if using referral code
+        const startingPoints = referralCode ? 20 : 10;
         
         const newMember = {
             id: memberId,
             jcId: this.generateJCId(),
             email: userData.email,
             name: userData.name,
-            password: hashedPassword,
+            password: this.hashPassword(password),
             loginMethod: 'email',
             points: startingPoints,
             tier: 'PEARL',
@@ -2047,9 +2048,13 @@ class JeansClubManager {
         this.currentMember = newMember;
         this.saveCurrentMember();
         
-        await this.logActivity(memberId, 'Account created - Welcome to Jeans Club!', startingPoints);
+        // Log activity with correct points
+        const activityMessage = referralCode ? 
+            'Account created with referral code - Welcome to Jeans Club! (+20 points)' : 
+            'Account created - Welcome to Jeans Club! (+10 points)';
+        await this.logActivity(memberId, activityMessage, startingPoints);
         
-        // Process referral if exists
+        // Process referral if exists - this gives the referrer 100 points
         if (referralCode) {
             await this.processReferral(referralCode, newMember.jcId, newMember.name);
         }
@@ -2083,7 +2088,9 @@ class JeansClubManager {
         }
 
         const memberId = 'member_' + Date.now();
-        const startingPoints = 10;
+        
+        // Calculate starting points: 10 welcome points + 10 extra points if using referral code
+        const startingPoints = referralCode ? 20 : 10;
         
         const newMember = {
             id: memberId,
@@ -2117,9 +2124,13 @@ class JeansClubManager {
         this.currentMember = newMember;
         this.saveCurrentMember();
         
-        await this.logActivity(memberId, 'Account created with Google - Welcome to Jeans Club!', startingPoints);
+        // Log activity with correct points
+        const activityMessage = referralCode ? 
+            'Account created with Google and referral code - Welcome to Jeans Club! (+20 points)' : 
+            'Account created with Google - Welcome to Jeans Club! (+10 points)';
+        await this.logActivity(memberId, activityMessage, startingPoints);
         
-        // Process referral if exists
+        // Process referral if exists - this gives the referrer 100 points
         if (referralCode) {
             await this.processReferral(referralCode, newMember.jcId, newMember.name);
         }
@@ -2313,7 +2324,7 @@ class JeansClubManager {
         };
     }
 
-    // Process referral
+    // Process referral - gives 100 points to referrer
     async processReferral(referralCode, newMemberJCId, newMemberName) {
         const allMembers = await this.db.getAllMembers();
         
@@ -2691,7 +2702,7 @@ async function handleGoogleSignIn(response) {
                 let message = 'Welcome to Jeans Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it for future logins!\n\n';
             
                 if (referralCode) {
-                    message += 'You got 10 points, your friend got 100 points!\n\n';
+                    message += 'You got 20 points (10 welcome + 10 referral bonus)!\nYour friend got 100 points for referring you!\n\n';
                 } else {
                     message += 'You got 10 welcome points!\n\n';
                 }
@@ -2747,6 +2758,11 @@ async function demoGoogleSignup() {
 
         showDashboard(result.member);
         let message = 'Demo Google account created!\nJC ID: ' + result.member.jcId + '\n\n';
+        if (referralCode) {
+            message += 'You got 20 points (10 welcome + 10 referral bonus)!\n';
+        } else {
+            message += 'You got 10 welcome points!\n';
+        }
         if (result.isFallback) {
             message += 'Email details saved (check console)\n\n';
         }
@@ -3001,7 +3017,7 @@ async function signUpWithEmail() {
         let message = 'Welcome to Jeans Club!\n\nYour JC ID: ' + result.member.jcId + '\nKeep this safe - you\'ll need it to login!\n\n';
         
         if (referralCode) {
-            message += 'You got 10 points, your friend got 100 points!\n\n';
+            message += 'You got 20 points (10 welcome + 10 referral bonus)!\nYour friend got 100 points for referring you!\n\n';
         } else {
             message += 'You got 10 welcome points!\n\n';
         }
@@ -3140,7 +3156,7 @@ async function redeemPoints() {
 function shareReferral() {
     if (!clubManager.currentMember) return;
     const member = clubManager.currentMember;
-    const shareText = 'Join Jeans Club Loyalty Program!\n\nUse my referral code when signing up: ' + member.referralCode + '\n\nWe both get bonus points:\n• You get 10 welcome points\n• I get 100 referral points\n\nSign up now and start earning rewards!';
+    const shareText = 'Join Jeans Club Loyalty Program!\n\nUse my referral code when signing up: ' + member.referralCode + '\n\nWe both get bonus points:\n• You get 20 points (10 welcome + 10 referral bonus)\n• I get 100 referral points\n\nSign up now and start earning rewards!';
     
     if (navigator.clipboard) {
         navigator.clipboard.writeText(shareText).then(() => {
