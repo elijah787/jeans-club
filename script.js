@@ -576,7 +576,7 @@ class GoogleAppsEmailService {
 <body>
     <div class="email-container">
         <div class="email-header">
-            <h1>👖 Welcome to Jeans Club!</h1>
+            <h1> Welcome to Jeans Club!</h1>
             <p>Your Premium Denim Experience Starts Here</p>
         </div>
         
