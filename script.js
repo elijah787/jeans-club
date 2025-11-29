@@ -1756,7 +1756,7 @@ Stay tuned for amazing content delivered straight to your inbox!`;
 
         switch(type) {
             case 'welcome':
-                subject = '👖 Welcome to Jeans Club! Your Premium Denim Journey Starts Here';
+                subject = ' Welcome to Jeans Club! Your Premium Denim Journey Starts Here';
                 content = this.buildWelcomeEmail(memberData);
                 break;
 
