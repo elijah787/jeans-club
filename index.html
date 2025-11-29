@@ -307,7 +307,7 @@
             font-weight: normal;
         }
 
-        /* NEW MEMBER CARD STYLES - Based on reference images */
+        /* IMPROVED MEMBER CARD STYLES */
         .member-card-container {
             display: flex;
             justify-content: center;
@@ -331,25 +331,28 @@
             transform: translateY(-5px);
         }
 
-        /* Card background gradients based on tier */
+        /* IMPROVED Card background gradients based on tier - REALISTIC COLORS */
         .member-card.pearl {
-            background: linear-gradient(135deg, #a0a0a0 0%, #808080 100%);
+            background: linear-gradient(135deg, #E8E8E8 0%, #D0D0D0 100%);
+            color: #333;
         }
 
         .member-card.bronze {
-            background: linear-gradient(135deg, #cd7f32 0%, #b56a21 100%);
+            background: linear-gradient(135deg, #CD7F32 0%, #8B4513 100%);
         }
 
         .member-card.silver {
-            background: linear-gradient(135deg, #c0c0c0 0%, #a0a0a0 100%);
+            background: linear-gradient(135deg, #C0C0C0 0%, #A0A0A0 100%);
+            color: #333;
         }
 
         .member-card.gold {
-            background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
+            background: linear-gradient(135deg, #FFD700 0%, #D4AF37 100%);
+            color: #333;
         }
 
         .member-card.platinum {
-            background: linear-gradient(135deg, #e5e4e2 0%, #c9c8c6 100%);
+            background: linear-gradient(135deg, #E5E4E2 0%, #B6B6B6 100%);
             color: #333;
         }
 
@@ -402,50 +405,43 @@
             position: absolute;
             top: 110px;
             left: 25px;
-            font-size: 20px;
-            letter-spacing: 3px;
+            font-size: 18px;
+            letter-spacing: 2px;
             font-family: 'Courier New', monospace;
             font-weight: bold;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            width: calc(100% - 50px);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .card-holder {
             position: absolute;
-            bottom: 60px;
+            bottom: 80px;
             left: 25px;
-            font-size: 14px;
+            font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            opacity: 0.8;
         }
 
         .card-holder-name {
             font-size: 16px;
             font-weight: bold;
             margin-top: 5px;
-        }
-
-        .card-expiry {
-            position: absolute;
-            bottom: 60px;
-            right: 25px;
-            font-size: 14px;
-            text-align: right;
-        }
-
-        .card-expiry-date {
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .card-tier {
             position: absolute;
             bottom: 25px;
             left: 25px;
-            font-size: 12px;
+            font-size: 14px;
             text-transform: uppercase;
             letter-spacing: 2px;
-            opacity: 0.8;
+            font-weight: bold;
         }
 
         .card-type {
@@ -872,7 +868,7 @@
             
             <h2 class="section-title">Member Dashboard</h2>
             
-            <!-- NEW MEMBER CARD DISPLAY -->
+            <!-- IMPROVED MEMBER CARD DISPLAY -->
             <div class="member-card-container">
                 <div id="memberCard" class="member-card">
                     <div class="card-background-pattern"></div>
@@ -883,10 +879,6 @@
                     <div class="card-holder">
                         CARD HOLDER
                         <div class="card-holder-name" id="cardHolderName">-</div>
-                    </div>
-                    <div class="card-expiry">
-                        EXPIRES
-                        <div class="card-expiry-date" id="cardExpiryDate">MM/YY</div>
                     </div>
                     <div class="card-tier" id="cardTier">-</div>
                     <div class="card-type">PREMIUM</div>
@@ -4267,34 +4259,29 @@
             updateDashboard(member);
         }
 
-        // NEW FUNCTION: Update member card with member data
+        // UPDATED FUNCTION: Update member card with member data - IMPROVED
         function updateMemberCard(member) {
             const memberCard = document.getElementById('memberCard');
             const cardHolderName = document.getElementById('cardHolderName');
             const cardNumber = document.getElementById('cardNumber');
             const cardTier = document.getElementById('cardTier');
             
-            // Update card styling based on tier
+            // Update card styling based on tier with realistic colors
             memberCard.className = 'member-card ' + member.tier.toLowerCase();
             
             // Update card details
             cardHolderName.textContent = member.name.toUpperCase();
             cardTier.textContent = member.tier;
             
-            // Format JC ID as card number with special styling
+            // Format JC ID as card number with proper spacing and styling
             const jcId = member.jcId;
-            const formattedNumber = jcId.replace(/(.{4})/g, '$1 ').trim();
+            // Format as JC XXXX XXXX XXXX (group in 4s)
+            const formattedNumber = jcId.replace(/(.{2})(.{4})(.{4})(.{4})/, '$1 $2 $3 $4');
             cardNumber.innerHTML = formattedNumber.split('').map(char => {
                 return char === ' ' ? ' ' : `<span>${char}</span>`;
             }).join('');
             
-            // Set expiry date (2 years from join date)
-            const joinDate = new Date(member.joinedDate);
-            const expiryDate = new Date(joinDate);
-            expiryDate.setFullYear(joinDate.getFullYear() + 2);
-            const expiryMonth = (expiryDate.getMonth() + 1).toString().padStart(2, '0');
-            const expiryYear = expiryDate.getFullYear().toString().slice(-2);
-            document.getElementById('cardExpiryDate').textContent = `${expiryMonth}/${expiryYear}`;
+            // Remove expiry date completely as requested
         }
 
         async function updateDashboard(member) {
