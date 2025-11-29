@@ -307,6 +307,182 @@
             font-weight: normal;
         }
 
+        /* NEW MEMBER CARD STYLES - Based on reference images */
+        .member-card-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .member-card {
+            width: 360px;
+            height: 220px;
+            border-radius: 20px;
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+            font-family: 'Arial', sans-serif;
+            color: white;
+            transition: transform 0.3s ease;
+        }
+
+        .member-card:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Card background gradients based on tier */
+        .member-card.pearl {
+            background: linear-gradient(135deg, #a0a0a0 0%, #808080 100%);
+        }
+
+        .member-card.bronze {
+            background: linear-gradient(135deg, #cd7f32 0%, #b56a21 100%);
+        }
+
+        .member-card.silver {
+            background: linear-gradient(135deg, #c0c0c0 0%, #a0a0a0 100%);
+        }
+
+        .member-card.gold {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
+        }
+
+        .member-card.platinum {
+            background: linear-gradient(135deg, #e5e4e2 0%, #c9c8c6 100%);
+            color: #333;
+        }
+
+        /* Card design elements */
+        .card-background-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1;
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(255,255,255,0.8) 2px, transparent 2px),
+                radial-gradient(circle at 80% 20%, rgba(255,255,255,0.6) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        .card-logo {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            font-weight: bold;
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+
+        .card-chip {
+            position: absolute;
+            top: 60px;
+            left: 25px;
+            width: 40px;
+            height: 30px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%);
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        .card-chip::after {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 30px;
+            height: 20px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%);
+            border-radius: 3px;
+        }
+
+        .card-number {
+            position: absolute;
+            top: 110px;
+            left: 25px;
+            font-size: 20px;
+            letter-spacing: 3px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .card-holder {
+            position: absolute;
+            bottom: 60px;
+            left: 25px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card-holder-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .card-expiry {
+            position: absolute;
+            bottom: 60px;
+            right: 25px;
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .card-expiry-date {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .card-tier {
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.8;
+        }
+
+        .card-type {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            font-weight: bold;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        /* Special number styling like the reference images */
+        .card-number span {
+            display: inline-block;
+            background: rgba(0,0,0,0.2);
+            padding: 2px 5px;
+            margin: 0 2px;
+            border-radius: 3px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        /* Holographic effect */
+        .card-hologram {
+            position: absolute;
+            top: 20px;
+            right: 80px;
+            width: 50px;
+            height: 30px;
+            background: linear-gradient(45deg, 
+                rgba(255,255,255,0) 0%, 
+                rgba(255,255,255,0.4) 50%, 
+                rgba(255,255,255,0) 100%);
+            border-radius: 5px;
+            transform: skewX(-20deg);
+        }
+
         /* Chat Bot Styles */
         .chat-bot-container {
             position: fixed;
@@ -552,6 +728,11 @@
             .stats-grid {
                 grid-template-columns: 1fr 1fr;
             }
+            
+            .member-card {
+                width: 320px;
+                height: 200px;
+            }
         }
     </style>
     <!-- Add Supabase CDN -->
@@ -690,6 +871,27 @@
             </div>
             
             <h2 class="section-title">Member Dashboard</h2>
+            
+            <!-- NEW MEMBER CARD DISPLAY -->
+            <div class="member-card-container">
+                <div id="memberCard" class="member-card">
+                    <div class="card-background-pattern"></div>
+                    <div class="card-logo">JEANS CLUB</div>
+                    <div class="card-chip"></div>
+                    <div class="card-hologram"></div>
+                    <div class="card-number" id="cardNumber">XXXX XXXX XXXX XXXX</div>
+                    <div class="card-holder">
+                        CARD HOLDER
+                        <div class="card-holder-name" id="cardHolderName">-</div>
+                    </div>
+                    <div class="card-expiry">
+                        EXPIRES
+                        <div class="card-expiry-date" id="cardExpiryDate">MM/YY</div>
+                    </div>
+                    <div class="card-tier" id="cardTier">-</div>
+                    <div class="card-type">PREMIUM</div>
+                </div>
+            </div>
             
             <div class="member-info">
                 <div class="info-card">
@@ -4065,6 +4267,36 @@
             updateDashboard(member);
         }
 
+        // NEW FUNCTION: Update member card with member data
+        function updateMemberCard(member) {
+            const memberCard = document.getElementById('memberCard');
+            const cardHolderName = document.getElementById('cardHolderName');
+            const cardNumber = document.getElementById('cardNumber');
+            const cardTier = document.getElementById('cardTier');
+            
+            // Update card styling based on tier
+            memberCard.className = 'member-card ' + member.tier.toLowerCase();
+            
+            // Update card details
+            cardHolderName.textContent = member.name.toUpperCase();
+            cardTier.textContent = member.tier;
+            
+            // Format JC ID as card number with special styling
+            const jcId = member.jcId;
+            const formattedNumber = jcId.replace(/(.{4})/g, '$1 ').trim();
+            cardNumber.innerHTML = formattedNumber.split('').map(char => {
+                return char === ' ' ? ' ' : `<span>${char}</span>`;
+            }).join('');
+            
+            // Set expiry date (2 years from join date)
+            const joinDate = new Date(member.joinedDate);
+            const expiryDate = new Date(joinDate);
+            expiryDate.setFullYear(joinDate.getFullYear() + 2);
+            const expiryMonth = (expiryDate.getMonth() + 1).toString().padStart(2, '0');
+            const expiryYear = expiryDate.getFullYear().toString().slice(-2);
+            document.getElementById('cardExpiryDate').textContent = `${expiryMonth}/${expiryYear}`;
+        }
+
         async function updateDashboard(member) {
             document.getElementById('memberJcId').textContent = member.jcId;
             document.getElementById('memberName').textContent = member.name;
@@ -4075,6 +4307,9 @@
             document.getElementById('memberPoints').textContent = member.points.toLocaleString();
             document.getElementById('memberReferralCode').textContent = member.referralCode;
             document.getElementById('totalSpent').textContent = member.totalSpent.toLocaleString() + ' UGX';
+            
+            // Update the member card
+            updateMemberCard(member);
             
             const referralStats = await clubManager.getReferralStats(member.id);
             document.getElementById('referralStats').innerHTML = 'Referrals: ' + referralStats.totalReferrals + ' friends, Earned: ' + referralStats.totalPoints + ' points';
