@@ -444,7 +444,7 @@
             font-weight: bold;
         }
 
-        .card-type {
+        .card-date {
             position: absolute;
             bottom: 25px;
             right: 25px;
@@ -464,19 +464,31 @@
             text-align: center;
         }
 
-        /* Holographic effect */
+        /* SIM card holographic effect */
         .card-hologram {
             position: absolute;
             top: 20px;
             right: 80px;
             width: 50px;
             height: 30px;
-            background: linear-gradient(45deg, 
-                rgba(255,255,255,0) 0%, 
-                rgba(255,255,255,0.4) 50%, 
-                rgba(255,255,255,0) 100%);
+            background: 
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 5px,
+                    rgba(255,255,255,0.2) 5px,
+                    rgba(255,255,255,0.2) 10px
+                ),
+                repeating-linear-gradient(
+                    -45deg,
+                    transparent,
+                    transparent 5px,
+                    rgba(255,255,255,0.1) 5px,
+                    rgba(255,255,255,0.1) 10px
+                );
             border-radius: 5px;
-            transform: skewX(-20deg);
+            transform: skewX(-10deg);
+            box-shadow: 0 0 5px rgba(255,255,255,0.3);
         }
 
         /* Chat Bot Styles */
@@ -881,7 +893,7 @@
                         <div class="card-holder-name" id="cardHolderName">-</div>
                     </div>
                     <div class="card-tier" id="cardTier">-</div>
-                    <div class="card-type">PREMIUM</div>
+                    <div class="card-date" id="cardDate">MM/YY</div>
                 </div>
             </div>
             
@@ -1780,7 +1792,7 @@
                         return { 
                             success: true, 
                             message: 'Email sent successfully (fallback mode)',
-                            fallback: true
+                            fallback: true 
                         };
                     }
                     
@@ -4265,6 +4277,7 @@
             const cardHolderName = document.getElementById('cardHolderName');
             const cardNumber = document.getElementById('cardNumber');
             const cardTier = document.getElementById('cardTier');
+            const cardDate = document.getElementById('cardDate');
             
             // Update card styling based on tier with realistic colors
             memberCard.className = 'member-card ' + member.tier.toLowerCase();
@@ -4281,7 +4294,11 @@
                 return char === ' ' ? ' ' : `<span>${char}</span>`;
             }).join('');
             
-            // Remove expiry date completely as requested
+            // Set card creation date in MM/YY format
+            const joinedDate = new Date(member.joinedDate);
+            const month = String(joinedDate.getMonth() + 1).padStart(2, '0');
+            const year = String(joinedDate.getFullYear()).slice(-2);
+            cardDate.textContent = `${month}/${year}`;
         }
 
         async function updateDashboard(member) {
