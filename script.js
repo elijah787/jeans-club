@@ -321,12 +321,13 @@ class SupabaseDB {
     }
 }
 
-// Google Apps Script Email Service (FIXED - CORS HANDLING)
+// Google Apps Script Email Service (UPDATED WITH NEW URL)
 class GoogleAppsEmailService {
     constructor() {
         // UPDATED: Use your new deployment URL
-        this.scriptURL = 'https://script.google.com/macros/s/AKfycbxWrl3oDdHJSXcl1ajaxaosfhQqV4uxIwiQ4pn0lZPquet9Kc1W_cdXhvowfU-58rZY/exec';
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbwPycPrQFn5hux5eHrbAg1KIc8aO96HwrEI-KUZG7YmITm1ACyqIDQJcWGP5pqq9kun/exec';
         this.isActive = true;
+        console.log('📧 Email service initialized with URL:', this.scriptURL);
     }
 
     async sendEmailToGoogleScript(email, type, memberData, extraData = null) {
@@ -341,11 +342,12 @@ class GoogleAppsEmailService {
                     type: type,
                     subject: subject,
                     message: emailContent,
-                    html: true // Add this flag to indicate HTML content
+                    html: true // This will now work with the updated Google Apps Script
                 }
             };
 
-            console.log('Sending email via Google Apps Script:', payload);
+            console.log('📤 Sending email via Google Apps Script:', payload.emailData.type);
+            console.log('🔗 Using URL:', this.scriptURL);
 
             // Try direct fetch first
             try {
@@ -434,7 +436,7 @@ class GoogleAppsEmailService {
         return content;
     }
 
-    // BEAUTIFUL EMAIL TEMPLATES START HERE
+    // BEAUTIFUL EMAIL TEMPLATES
     buildWelcomeEmail(memberData) {
         return `
 <!DOCTYPE html>
