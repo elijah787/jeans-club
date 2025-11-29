@@ -1,6 +1,322 @@
 // Import Supabase
 const { createClient } = supabase;
 
+// AI Chat Bot Database
+const qaDatabase = {
+    // Points & Rewards
+    "how to earn points": "You earn points by making purchases at Jeans Club! Each UGX 750 spent = 1 base point, multiplied by your tier bonus. Plus, you get 10 welcome points when joining!",
+    "how do i earn points": "You earn points by making purchases at Jeans Club! Each UGX 750 spent = 1 base point, multiplied by your tier bonus. Plus, you get 10 welcome points when joining!",
+    "points system": "We have a tier-based points system: Pearl (1x), Bronze (1.1x), Silver (1.25x), Gold (1.4x), Platinum (1.6x). Every UGX 750 = 1 point, then multiplied by your tier multiplier.",
+    
+    // Tiers
+    "what are the tiers": "We have 5 exciting tiers: Pearl (starting), Bronze (7,500+ points), Silver (25,000+), Gold (100,000+), Platinum (500,000+). Each tier gives you better point multipliers and higher discount limits!",
+    "tiers": "We have 5 exciting tiers: Pearl (starting), Bronze (7,500+ points), Silver (25,000+), Gold (100,000+), Platinum (500,000+). Each tier gives you better point multipliers and higher discount limits!",
+    "how to move up tiers": "Earn more points through purchases and referrals! Tier thresholds: Bronze (7,500), Silver (25,000), Gold (100,000), Platinum (500,000 points).",
+    
+    // Referrals
+    "how to refer friends": "Share your unique referral code from your dashboard! When friends join using your code: THEY get 20 points (10 welcome + 10 bonus), YOU get 100 points!",
+    "referral program": "Share your code and both you and your friend win! You get 100 points, they get 20 points when they sign up with your code.",
+    "referral benefits": "When you refer a friend: You earn 100 points immediately, your friend starts with 20 points instead of 10!",
+    
+    // Discounts
+    "how to get discount": "Redeem your points for discount vouchers! Go to your dashboard, enter points to use, and we'll email you a discount voucher.",
+    "redeem points": "In your dashboard, use the 'Redeem Points' section. Minimum 10 points required. We'll send the discount voucher to your email instantly!",
+    "discount voucher": "Convert your points to % discounts. Higher tiers can get bigger discounts! Vouchers are emailed to you and can be used in-store.",
+    
+    // Account Issues
+    "forgot password": "Click 'Forgot Password' on login, enter your JC ID, check your email for a reset code, then create a new password.",
+    "reset password": "Click 'Forgot Password' on login, enter your JC ID, check your email for a reset code, then create a new password.",
+    "lost jc id": "Please contact support with your registered email address to recover your JC ID.",
+    
+    // General
+    "what is jeans club": "Jeans Club is a loyalty program where you earn points for purchases, climb through tiers for better benefits, and get exclusive discounts!",
+    "how it works": "1. Sign up 2. Earn points with purchases 3. Move up tiers 4. Redeem points for discounts 5. Refer friends for bonus points!",
+    "benefits": "Earn points on purchases, get tier bonuses, redeem for discounts, refer friends for rewards, and receive exclusive member emails!"
+};
+
+function answerQuestion(question) {
+    const lowerQ = question.toLowerCase().trim();
+    
+    // Exact match first
+    if (qaDatabase[lowerQ]) {
+        return qaDatabase[lowerQ];
+    }
+    
+    // Keyword matching
+    for (const [key, answer] of Object.entries(qaDatabase)) {
+        if (lowerQ.includes(key)) {
+            return answer;
+        }
+    }
+    
+    // Default response for unknown questions
+    return "I'm not sure about that specific question. Please contact our support team for personalized assistance!";
+}
+
+// Advanced Analytics System
+class AnalyticsEngine {
+    constructor() {
+        this.analyticsData = {
+            memberEngagement: {
+                loginFrequency: {},
+                pointsRedemptionRate: {},
+                tierProgressionSpeed: {},
+                referralEffectiveness: {}
+            },
+            
+            purchasePatterns: {
+                averageSpend: {},
+                purchaseFrequency: {},
+                pointsAccumulationRate: {},
+                seasonalTrends: {}
+            },
+            
+            tierPerformance: {
+                tierDistribution: {},
+                retentionByTier: {},
+                spendingByTier: {}
+            }
+        };
+        this.init();
+    }
+
+    init() {
+        // Load analytics data from localStorage
+        const savedAnalytics = localStorage.getItem('jeansClubAnalytics');
+        if (savedAnalytics) {
+            this.analyticsData = JSON.parse(savedAnalytics);
+        }
+    }
+
+    saveAnalytics() {
+        localStorage.setItem('jeansClubAnalytics', JSON.stringify(this.analyticsData));
+    }
+
+    // Track member login
+    trackLogin(memberJCId) {
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        
+        if (!this.analyticsData.memberEngagement.loginFrequency[memberJCId]) {
+            this.analyticsData.memberEngagement.loginFrequency[memberJCId] = [];
+        }
+        
+        this.analyticsData.memberEngagement.loginFrequency[memberJCId].push(now.toISOString());
+        
+        // Keep only last 30 days of login data
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        this.analyticsData.memberEngagement.loginFrequency[memberJCId] = 
+            this.analyticsData.memberEngagement.loginFrequency[memberJCId].filter(
+                timestamp => new Date(timestamp) > thirtyDaysAgo
+            );
+        
+        this.saveAnalytics();
+    }
+
+    // Track purchase patterns
+    trackPurchase(memberJCId, amount, pointsEarned) {
+        const now = new Date();
+        const month = now.toISOString().substring(0, 7); // YYYY-MM
+        
+        // Average spend
+        if (!this.analyticsData.purchasePatterns.averageSpend[memberJCId]) {
+            this.analyticsData.purchasePatterns.averageSpend[memberJCId] = { total: 0, count: 0 };
+        }
+        this.analyticsData.purchasePatterns.averageSpend[memberJCId].total += amount;
+        this.analyticsData.purchasePatterns.averageSpend[memberJCId].count += 1;
+
+        // Purchase frequency
+        if (!this.analyticsData.purchasePatterns.purchaseFrequency[memberJCId]) {
+            this.analyticsData.purchasePatterns.purchaseFrequency[memberJCId] = [];
+        }
+        this.analyticsData.purchasePatterns.purchaseFrequency[memberJCId].push(now.toISOString());
+
+        // Points accumulation
+        if (!this.analyticsData.purchasePatterns.pointsAccumulationRate[memberJCId]) {
+            this.analyticsData.purchasePatterns.pointsAccumulationRate[memberJCId] = { points: 0, firstPurchase: now.toISOString() };
+        }
+        this.analyticsData.purchasePatterns.pointsAccumulationRate[memberJCId].points += pointsEarned;
+
+        // Seasonal trends
+        if (!this.analyticsData.purchasePatterns.seasonalTrends[month]) {
+            this.analyticsData.purchasePatterns.seasonalTrends[month] = { total: 0, count: 0 };
+        }
+        this.analyticsData.purchasePatterns.seasonalTrends[month].total += amount;
+        this.analyticsData.purchasePatterns.seasonalTrends[month].count += 1;
+
+        this.saveAnalytics();
+    }
+
+    // Track tier progression
+    trackTierChange(memberJCId, oldTier, newTier, points) {
+        if (!this.analyticsData.memberEngagement.tierProgressionSpeed[memberJCId]) {
+            this.analyticsData.memberEngagement.tierProgressionSpeed[memberJCId] = {
+                startTier: oldTier,
+                currentTier: newTier,
+                progression: [],
+                joinDate: new Date().toISOString()
+            };
+        }
+        
+        this.analyticsData.memberEngagement.tierProgressionSpeed[memberJCId].progression.push({
+            date: new Date().toISOString(),
+            fromTier: oldTier,
+            toTier: newTier,
+            points: points
+        });
+
+        this.analyticsData.memberEngagement.tierProgressionSpeed[memberJCId].currentTier = newTier;
+        this.saveAnalytics();
+    }
+
+    // Track referral effectiveness
+    trackReferral(referrerJCId, referredJCId) {
+        if (!this.analyticsData.memberEngagement.referralEffectiveness[referrerJCId]) {
+            this.analyticsData.memberEngagement.referralEffectiveness[referrerJCId] = [];
+        }
+        
+        this.analyticsData.memberEngagement.referralEffectiveness[referrerJCId].push({
+            referredJCId: referredJCId,
+            date: new Date().toISOString()
+        });
+
+        this.saveAnalytics();
+    }
+
+    // Track points redemption
+    trackRedemption(memberJCId, pointsUsed) {
+        if (!this.analyticsData.memberEngagement.pointsRedemptionRate[memberJCId]) {
+            this.analyticsData.memberEngagement.pointsRedemptionRate[memberJCId] = { redeemed: 0, earned: 0 };
+        }
+        
+        this.analyticsData.memberEngagement.pointsRedemptionRate[memberJCId].redeemed += pointsUsed;
+        this.saveAnalytics();
+    }
+
+    // Update tier distribution
+    updateTierDistribution(members) {
+        const distribution = { PEARL: 0, BRONZE: 0, SILVER: 0, GOLD: 0, PLATINUM: 0 };
+        
+        members.forEach(member => {
+            if (distribution[member.tier] !== undefined) {
+                distribution[member.tier]++;
+            }
+        });
+
+        this.analyticsData.tierPerformance.tierDistribution = distribution;
+        this.saveAnalytics();
+    }
+
+    // Generate analytics reports
+    generateAnalyticsReport() {
+        const members = JSON.parse(localStorage.getItem('jeansClubCache') || '{"members":[]}').members;
+        this.updateTierDistribution(members);
+
+        const report = {
+            summary: {
+                totalMembers: members.length,
+                totalPoints: members.reduce((sum, m) => sum + m.points, 0),
+                totalSpent: members.reduce((sum, m) => sum + m.totalSpent, 0),
+                averagePointsPerMember: members.length > 0 ? Math.round(members.reduce((sum, m) => sum + m.points, 0) / members.length) : 0
+            },
+            tierDistribution: this.analyticsData.tierPerformance.tierDistribution,
+            engagement: {
+                activeMembers: Object.keys(this.analyticsData.memberEngagement.loginFrequency).length,
+                averageLogins: this.calculateAverageLogins(),
+                redemptionRate: this.calculateRedemptionRate()
+            },
+            purchases: {
+                monthlyTrends: this.getMonthlyTrends(),
+                averageTransaction: this.calculateAverageTransaction()
+            },
+            topPerformers: {
+                topSpenders: this.getTopSpenders(members),
+                topReferrers: this.getTopReferrers()
+            }
+        };
+
+        return report;
+    }
+
+    calculateAverageLogins() {
+        const loginData = this.analyticsData.memberEngagement.loginFrequency;
+        const totalLogins = Object.values(loginData).reduce((sum, logins) => sum + logins.length, 0);
+        const activeMembers = Object.keys(loginData).length;
+        
+        return activeMembers > 0 ? (totalLogins / activeMembers).toFixed(1) : 0;
+    }
+
+    calculateRedemptionRate() {
+        const redemptionData = this.analyticsData.memberEngagement.pointsRedemptionRate;
+        let totalRedeemed = 0;
+        let totalEarned = 0;
+
+        Object.values(redemptionData).forEach(data => {
+            totalRedeemed += data.redeemed;
+            totalEarned += data.earned;
+        });
+
+        return totalEarned > 0 ? ((totalRedeemed / totalEarned) * 100).toFixed(1) + '%' : '0%';
+    }
+
+    calculateAverageTransaction() {
+        const spendData = this.analyticsData.purchasePatterns.averageSpend;
+        let totalAmount = 0;
+        let totalTransactions = 0;
+
+        Object.values(spendData).forEach(data => {
+            totalAmount += data.total;
+            totalTransactions += data.count;
+        });
+
+        return totalTransactions > 0 ? Math.round(totalAmount / totalTransactions) : 0;
+    }
+
+    getMonthlyTrends() {
+        const seasonalData = this.analyticsData.purchasePatterns.seasonalTrends;
+        const trends = [];
+
+        Object.entries(seasonalData).forEach(([month, data]) => {
+            trends.push({
+                month: month,
+                average: Math.round(data.total / data.count),
+                transactions: data.count
+            });
+        });
+
+        return trends.sort((a, b) => a.month.localeCompare(b.month)).slice(-6); // Last 6 months
+    }
+
+    getTopSpenders(members) {
+        return members
+            .filter(m => m.totalSpent > 0)
+            .sort((a, b) => b.totalSpent - a.totalSpent)
+            .slice(0, 5)
+            .map(m => ({
+                name: m.name,
+                jcId: m.jcId,
+                tier: m.tier,
+                totalSpent: m.totalSpent,
+                points: m.points
+            }));
+    }
+
+    getTopReferrers() {
+        const referralData = this.analyticsData.memberEngagement.referralEffectiveness;
+        const referrers = [];
+
+        Object.entries(referralData).forEach(([jcId, referrals]) => {
+            referrers.push({
+                jcId: jcId,
+                referrals: referrals.length,
+                lastReferral: referrals[referrals.length - 1]?.date
+            });
+        });
+
+        return referrers.sort((a, b) => b.referrals - a.referrals).slice(0, 5);
+    }
+}
+
 // Supabase Database Manager
 class SupabaseDB {
     constructor() {
@@ -1969,10 +2285,11 @@ class JeansClubManager {
     constructor() {
         this.db = new SupabaseDB();
         this.emailService = new GoogleAppsEmailService();
+        this.analytics = new AnalyticsEngine();
         this.currentMember = null;
         this.isAdmin = false;
         this.loadCurrentMember();
-        console.log('🚀 JeansClubManager initialized with Supabase DB');
+        console.log('🚀 JeansClubManager initialized with Supabase DB and Analytics');
     }
 
     generateJCId() {
@@ -2047,6 +2364,9 @@ class JeansClubManager {
 
         this.currentMember = newMember;
         this.saveCurrentMember();
+        
+        // Track analytics
+        this.analytics.trackLogin(newMember.jcId);
         
         // Log activity with correct points
         const activityMessage = referralCode ? 
@@ -2124,6 +2444,9 @@ class JeansClubManager {
         this.currentMember = newMember;
         this.saveCurrentMember();
         
+        // Track analytics
+        this.analytics.trackLogin(newMember.jcId);
+        
         // Log activity with correct points
         const activityMessage = referralCode ? 
             'Account created with Google and referral code - Welcome to Jeans Club! (+20 points)' : 
@@ -2164,6 +2487,10 @@ class JeansClubManager {
             if (this.verifyPassword(password, member.password)) {
                 this.currentMember = member;
                 this.saveCurrentMember();
+                
+                // Track analytics
+                this.analytics.trackLogin(member.jcId);
+                
                 await this.logActivity(member.id, 'Logged in to account', 0);
                 console.log('✅ Login successful for:', member.name);
                 return { success: true, member: member };
@@ -2184,6 +2511,10 @@ class JeansClubManager {
         if (member && member.loginMethod === 'google') {
             this.currentMember = member;
             this.saveCurrentMember();
+            
+            // Track analytics
+            this.analytics.trackLogin(member.jcId);
+            
             await this.logActivity(member.id, 'Logged in with Google', 0);
             console.log('✅ Google login successful for:', member.name);
             return { success: true, member: member };
@@ -2294,6 +2625,13 @@ class JeansClubManager {
             pointsEarned: pointsEarned
         });
 
+        // Track analytics
+        this.analytics.trackPurchase(memberJCId, amountUGX, pointsEarned);
+        
+        if (oldTier !== targetMember.tier) {
+            this.analytics.trackTierChange(memberJCId, oldTier, targetMember.tier, targetMember.points);
+        }
+
         await this.logActivity(targetMember.id, description + ' - ' + amountUGX.toLocaleString() + ' UGX', pointsEarned);
 
         // Save updated member to Supabase
@@ -2331,6 +2669,10 @@ class JeansClubManager {
         for (const member of allMembers) {
             if (member.referralCode === referralCode) {
                 member.points += 100;
+                
+                // Track analytics
+                this.analytics.trackReferral(member.jcId, newMemberJCId);
+                
                 await this.logActivity(member.id, 'Referral bonus - ' + newMemberJCId + ' joined using your code!', 100);
                 member.tier = this.calculateTier(member.points);
                 
@@ -2552,6 +2894,9 @@ class JeansClubManager {
         member.points -= discountCalc.pointsUsed;
         member.tier = this.calculateTier(member.points);
         
+        // Track analytics
+        this.analytics.trackRedemption(member.jcId, discountCalc.pointsUsed);
+        
         await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
 
         // Save updated member to Supabase
@@ -2623,6 +2968,19 @@ class JeansClubManager {
 
     async getAllMembers() {
         return await this.db.getAllMembers();
+    }
+
+    // Analytics methods for admin
+    async generateAnalyticsReport() {
+        if (!this.isAdmin) {
+            return { success: false, message: "Admin access required" };
+        }
+        
+        const report = this.analytics.generateAnalyticsReport();
+        return {
+            success: true,
+            report: report
+        };
     }
 
     async resetAllData() {
@@ -2806,6 +3164,7 @@ async function showAdminPanel() {
     document.getElementById('adminSection').classList.remove('hidden');
     document.getElementById('deleteMemberSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.add('hidden');
+    document.getElementById('analyticsSection').classList.add('hidden');
     await viewAllMembers();
 }
 
@@ -2816,6 +3175,7 @@ function showDashboard(member) {
     document.getElementById('dashboardSection').classList.remove('hidden');
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.add('hidden');
+    document.getElementById('analyticsSection').classList.add('hidden');
     
     updateDashboard(member);
 }
@@ -2884,6 +3244,7 @@ function showLoginScreen() {
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.add('hidden');
+    document.getElementById('analyticsSection').classList.add('hidden');
 }
 
 function showSignupScreen() {
@@ -2892,6 +3253,7 @@ function showSignupScreen() {
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.add('hidden');
+    document.getElementById('analyticsSection').classList.add('hidden');
 }
 
 function showPasswordResetScreen() {
@@ -2900,6 +3262,7 @@ function showPasswordResetScreen() {
     document.getElementById('dashboardSection').classList.add('hidden');
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.remove('hidden');
+    document.getElementById('analyticsSection').classList.add('hidden');
     
     // Clear any previous messages
     document.getElementById('resetRequestResult').innerHTML = '';
@@ -2984,6 +3347,212 @@ async function sendNewsletter() {
     } else {
         newsletterResult.innerHTML = '<span style="color: red;">' + result.message + '</span>';
     }
+}
+
+// AI Chat Bot Functions
+function showChatBot() {
+    const chatContainer = document.getElementById('chatBotContainer');
+    if (chatContainer.classList.contains('hidden')) {
+        chatContainer.classList.remove('hidden');
+        document.getElementById('chatMessages').innerHTML = '<div class="chat-message bot-message">Hello! I\'m your Jeans Club assistant. How can I help you today?</div>';
+    } else {
+        chatContainer.classList.add('hidden');
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    const chatMessages = document.getElementById('chatMessages');
+    
+    // Add user message
+    chatMessages.innerHTML += `<div class="chat-message user-message">${message}</div>`;
+    
+    // Get bot response
+    const response = answerQuestion(message);
+    
+    // Add bot response after a short delay
+    setTimeout(() => {
+        chatMessages.innerHTML += `<div class="chat-message bot-message">${response}</div>`;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, 500);
+    
+    input.value = '';
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendChatMessage();
+    }
+}
+
+// Analytics Functions for Admin
+async function showAnalyticsPanel() {
+    if (!clubManager.isAdmin) {
+        showAdminLogin();
+        return;
+    }
+    
+    document.getElementById('signupSection').classList.add('hidden');
+    document.getElementById('loginSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('adminSection').classList.add('hidden');
+    document.getElementById('passwordResetSection').classList.add('hidden');
+    document.getElementById('analyticsSection').classList.remove('hidden');
+    
+    await generateAnalyticsReport();
+}
+
+async function generateAnalyticsReport() {
+    const result = await clubManager.generateAnalyticsReport();
+    
+    if (!result.success) {
+        document.getElementById('analyticsContent').innerHTML = '<div style="color: red;">' + result.message + '</div>';
+        return;
+    }
+    
+    const report = result.report;
+    let html = `
+        <div class="analytics-summary">
+            <h3>📊 Analytics Summary</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Total Members</h4>
+                    <div class="stat-number">${report.summary.totalMembers}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Points</h4>
+                    <div class="stat-number">${report.summary.totalPoints.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Spent</h4>
+                    <div class="stat-number">${report.summary.totalSpent.toLocaleString()} UGX</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Avg Points/Member</h4>
+                    <div class="stat-number">${report.summary.averagePointsPerMember}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>👥 Tier Distribution</h3>
+            <div class="tier-distribution">
+    `;
+    
+    // Tier distribution
+    Object.entries(report.tierDistribution).forEach(([tier, count]) => {
+        const percentage = report.summary.totalMembers > 0 ? 
+            Math.round((count / report.summary.totalMembers) * 100) : 0;
+        html += `
+            <div class="tier-dist-item">
+                <span class="tier-name tier-${tier.toLowerCase()}">${tier}</span>
+                <div class="tier-bar">
+                    <div class="tier-fill" style="width: ${percentage}%"></div>
+                </div>
+                <span class="tier-count">${count} (${percentage}%)</span>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>📈 Engagement Metrics</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Active Members</h4>
+                    <div class="stat-number">${report.engagement.activeMembers}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Avg Logins/Member</h4>
+                    <div class="stat-number">${report.engagement.averageLogins}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Points Redemption Rate</h4>
+                    <div class="stat-number">${report.engagement.redemptionRate}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>💰 Purchase Insights</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Avg Transaction</h4>
+                    <div class="stat-number">${report.purchases.averageTransaction.toLocaleString()} UGX</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>🏆 Top Performers</h3>
+            <div class="top-performers">
+                <h4>Top 5 Spenders</h4>
+                <div class="performers-list">
+    `;
+    
+    report.topPerformers.topSpenders.forEach((spender, index) => {
+        html += `
+            <div class="performer-item">
+                <span class="rank">${index + 1}.</span>
+                <span class="name">${spender.name}</span>
+                <span class="jc-id">(${spender.jcId})</span>
+                <span class="tier tier-${spender.tier.toLowerCase()}">${spender.tier}</span>
+                <span class="amount">${spender.totalSpent.toLocaleString()} UGX</span>
+            </div>
+        `;
+    });
+    
+    html += `
+                </div>
+                
+                <h4>Top 5 Referrers</h4>
+                <div class="performers-list">
+    `;
+    
+    report.topPerformers.topReferrers.forEach((referrer, index) => {
+        html += `
+            <div class="performer-item">
+                <span class="rank">${index + 1}.</span>
+                <span class="jc-id">${referrer.jcId}</span>
+                <span class="referrals">${referrer.referrals} referrals</span>
+            </div>
+        `;
+    });
+    
+    html += `
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>📅 Monthly Trends (Last 6 Months)</h3>
+            <div class="monthly-trends">
+    `;
+    
+    report.purchases.monthlyTrends.forEach(trend => {
+        html += `
+            <div class="trend-item">
+                <span class="month">${trend.month}</span>
+                <span class="avg-spend">Avg: ${trend.average.toLocaleString()} UGX</span>
+                <span class="transactions">${trend.transactions} transactions</span>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('analyticsContent').innerHTML = html;
 }
 
 // Business Logic
