@@ -434,60 +434,211 @@ class GoogleAppsEmailService {
         return content;
     }
 
+    // BEAUTIFUL EMAIL TEMPLATES START HERE
     buildWelcomeEmail(memberData) {
         return `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Jeans Club!</title>
     <style>
-        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .card { background: white; padding: 25px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #667eea; }
-        .highlight { background: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107; margin: 15px 0; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
-        .btn { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
-        .tier-badge { background: #667eea; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        body { 
+            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f9f9f9; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .email-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .email-header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .email-header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .email-header p { 
+            margin: 10px 0 0; 
+            opacity: 0.9; 
+            font-size: 16px; 
+        }
+        .email-content { 
+            padding: 40px 30px; 
+        }
+        .email-card { 
+            background: #f8f9fa; 
+            padding: 25px; 
+            margin: 25px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #667eea; 
+        }
+        .highlight-box { 
+            background: #e7f3ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #2196F3; 
+        }
+        .benefits-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 15px; 
+            margin: 20px 0; 
+        }
+        .benefit-item { 
+            text-align: center; 
+            padding: 15px; 
+            background: white; 
+            border-radius: 8px; 
+            border: 1px solid #e0e0e0; 
+        }
+        .benefit-icon { 
+            font-size: 24px; 
+            margin-bottom: 10px; 
+        }
+        .referral-section { 
+            background: #fff3cd; 
+            padding: 25px; 
+            border-radius: 8px; 
+            text-align: center; 
+            margin: 25px 0; 
+            border: 2px dashed #ffc107; 
+        }
+        .referral-code { 
+            font-size: 32px; 
+            font-weight: bold; 
+            color: #667eea; 
+            letter-spacing: 3px; 
+            margin: 15px 0; 
+            font-family: 'Courier New', monospace; 
+        }
+        .tier-badge { 
+            display: inline-block; 
+            background: #667eea; 
+            color: white; 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            font-size: 14px; 
+            font-weight: bold; 
+            margin: 5px 0; 
+        }
+        .email-footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 14px; 
+            border-top: 1px solid #eee; 
+            background: #f8f9fa; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+        td { 
+            padding: 12px 8px; 
+            border-bottom: 1px solid #e0e0e0; 
+        }
+        .btn { 
+            display: inline-block; 
+            background: #667eea; 
+            color: white; 
+            padding: 14px 32px; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            margin: 15px 0; 
+            font-weight: bold; 
+            font-size: 16px; 
+        }
+        @media (max-width: 600px) {
+            .benefits-grid { grid-template-columns: 1fr; }
+            .email-content { padding: 25px 20px; }
+            .referral-code { font-size: 24px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>👖 Welcome to Jeans Club!</h1>
-        <p>Your Premium Denim Experience Starts Here</p>
-    </div>
-    
-    <div class="content">
-        <div class="card">
-            <h2>Hello ${memberData.name},</h2>
-            <p>Welcome to the Jeans Club family! We're thrilled to have you as a member of our exclusive loyalty program.</p>
-            
-            <div class="highlight">
-                <h3>🎉 Your Membership Details</h3>
-                <p><strong>JC ID:</strong> ${memberData.jcId}</p>
-                <p><strong>Tier:</strong> <span class="tier-badge">${memberData.tier}</span></p>
-                <p><strong>Starting Points:</strong> ${memberData.points} points</p>
-                <p><strong>Referral Code:</strong> <code style="background: #f4f4f4; padding: 5px 10px; border-radius: 3px; font-weight: bold;">${memberData.referralCode}</code></p>
-            </div>
-
-            <h3>🚀 What's Next?</h3>
-            <ul>
-                <li>🎁 <strong>Earn points</strong> with every purchase</li>
-                <li>⭐ <strong>Rise through tiers</strong> for better rewards</li>
-                <li>👥 <strong>Refer friends</strong> and earn 100 points each</li>
-                <li>💎 <strong>Exclusive discounts</strong> and early access to sales</li>
-            </ul>
-
-            <div style="text-align: center; margin: 25px 0;">
-                <p><strong>Share your referral code:</strong></p>
-                <div style="font-size: 24px; font-weight: bold; color: #667eea; letter-spacing: 2px;">${memberData.referralCode}</div>
-            </div>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>👖 Welcome to Jeans Club!</h1>
+            <p>Your Premium Denim Experience Starts Here</p>
         </div>
         
-        <div class="footer">
-            <p>Thank you for choosing Jeans Club - Where Style Meets Rewards!</p>
-            <p>📍 Visit us: https://elijah787.github.io/jeans-club</p>
-            <p style="font-size: 10px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+        <div class="email-content">
+            <h2 style="color: #333; margin-top: 0;">Hello ${memberData.name},</h2>
+            <p style="font-size: 16px; color: #555;">Welcome to the Jeans Club family! We're thrilled to have you as a member of our exclusive loyalty program where style meets rewards.</p>
+            
+            <div class="email-card">
+                <h3 style="color: #667eea; margin-top: 0;">🎉 Your Membership Details</h3>
+                <table>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">JC ID:</td>
+                        <td style="color: #333;">${memberData.jcId}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Tier:</td>
+                        <td><span class="tier-badge">${memberData.tier}</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Starting Points:</td>
+                        <td style="color: #333;">${memberData.points} points</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Referral Code:</td>
+                        <td><code style="background: #f4f4f4; padding: 8px 12px; border-radius: 4px; font-weight: bold; color: #667eea;">${memberData.referralCode}</code></td>
+                    </tr>
+                </table>
+            </div>
+
+            <h3 style="color: #333;">🚀 What's Next?</h3>
+            <div class="benefits-grid">
+                <div class="benefit-item">
+                    <div class="benefit-icon">🎁</div>
+                    <p style="margin: 0; font-weight: bold; color: #333;">Earn Points</p>
+                    <p style="margin: 5px 0 0; font-size: 14px; color: #666;">With every purchase</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">⭐</div>
+                    <p style="margin: 0; font-weight: bold; color: #333;">Rise Through Tiers</p>
+                    <p style="margin: 5px 0 0; font-size: 14px; color: #666;">For better rewards</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">👥</div>
+                    <p style="margin: 0; font-weight: bold; color: #333;">Refer Friends</p>
+                    <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Earn 100 points each</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">💎</div>
+                    <p style="margin: 0; font-weight: bold; color: #333;">Exclusive Discounts</p>
+                    <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Early access to sales</p>
+                </div>
+            </div>
+
+            <div class="referral-section">
+                <h3 style="color: #333; margin-top: 0;">📣 Share Your Referral Code</h3>
+                <div class="referral-code">${memberData.referralCode}</div>
+                <p style="color: #666; margin: 10px 0;">Share with friends and both of you earn bonus points!</p>
+            </div>
+            
+            <div class="email-footer">
+                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">Thank you for choosing Jeans Club - Where Style Meets Rewards!</p>
+                <p style="margin: 5px 0; color: #666;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
+                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+            </div>
         </div>
     </div>
 </body>
@@ -500,67 +651,150 @@ class GoogleAppsEmailService {
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Recorded - Jeans Club</title>
     <style>
-        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 25px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 25px; border-radius: 0 0 10px 10px; }
-        .card { background: white; padding: 25px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #28a745; }
-        .points-earned { background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
-        .tier-badge { background: #667eea; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        body { 
+            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f9f9f9; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .email-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .email-header { 
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .email-header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .email-header p { 
+            margin: 10px 0 0; 
+            opacity: 0.9; 
+            font-size: 16px; 
+        }
+        .email-content { 
+            padding: 40px 30px; 
+        }
+        .points-earned { 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            color: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            text-align: center; 
+            margin: 25px 0; 
+        }
+        .email-card { 
+            background: #f8f9fa; 
+            padding: 25px; 
+            margin: 25px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #28a745; 
+        }
+        .tier-badge { 
+            display: inline-block; 
+            background: #667eea; 
+            color: white; 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            font-size: 14px; 
+            font-weight: bold; 
+        }
+        .email-footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 14px; 
+            border-top: 1px solid #eee; 
+            background: #f8f9fa; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+        td { 
+            padding: 12px 8px; 
+            border-bottom: 1px solid #e0e0e0; 
+        }
+        .tip-box { 
+            background: #e7f3ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #2196F3; 
+        }
+        @media (max-width: 600px) {
+            .email-content { padding: 25px 20px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🛍️ Purchase Recorded!</h1>
-        <p>Thank You for Shopping with Jeans Club</p>
-    </div>
-    
-    <div class="content">
-        <div class="card">
-            <h2>Hello ${memberData.name},</h2>
-            <p>Your recent purchase has been successfully recorded in your Jeans Club account!</p>
-            
-            <div class="points-earned">
-                <h3>🎊 Points Earned!</h3>
-                <div style="font-size: 36px; font-weight: bold; color: #155724;">+${extraData.pointsEarned}</div>
-                <p>points added to your account</p>
-            </div>
-
-            <h3>📋 Purchase Details</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Description:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${extraData.description}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Amount:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">UGX ${extraData.amount.toLocaleString()}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Points Earned:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">+${extraData.pointsEarned} points</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>New Balance:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>${memberData.points} points</strong></td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px;"><strong>Current Tier:</strong></td>
-                    <td style="padding: 8px;"><span class="tier-badge">${memberData.tier}</span></td>
-                </tr>
-            </table>
-
-            <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <h4>💡 Pro Tip</h4>
-                <p>You're getting closer to the next tier! Keep shopping to unlock even better rewards and higher point multipliers.</p>
-            </div>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>🛍️ Purchase Recorded!</h1>
+            <p>Thank You for Shopping with Jeans Club</p>
         </div>
         
-        <div class="footer">
-            <p>Thank you for being a valued Jeans Club member!</p>
-            <p>📍 Visit us: https://elijah787.github.io/jeans-club</p>
-            <p style="font-size: 10px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+        <div class="email-content">
+            <h2 style="color: #333; margin-top: 0;">Hello ${memberData.name},</h2>
+            <p style="font-size: 16px; color: #555;">Your recent purchase has been successfully recorded in your Jeans Club account!</p>
+            
+            <div class="points-earned">
+                <h3 style="margin: 0 0 10px; font-size: 24px;">🎊 Points Earned!</h3>
+                <div style="font-size: 48px; font-weight: bold; margin: 10px 0;">+${extraData.pointsEarned}</div>
+                <p style="margin: 0; opacity: 0.9; font-size: 16px;">points added to your account</p>
+            </div>
+
+            <div class="email-card">
+                <h3 style="color: #28a745; margin-top: 0;">📋 Purchase Details</h3>
+                <table>
+                    <tr>
+                        <td style="font-weight: bold; color: #555; width: 40%;">Description:</td>
+                        <td style="color: #333;">${extraData.description}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Amount:</td>
+                        <td style="color: #333;">UGX ${extraData.amount.toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Points Earned:</td>
+                        <td style="color: #333; font-weight: bold;">+${extraData.pointsEarned} points</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">New Balance:</td>
+                        <td style="color: #333; font-weight: bold;">${memberData.points} points</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Current Tier:</td>
+                        <td><span class="tier-badge">${memberData.tier}</span></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="tip-box">
+                <h4 style="color: #2196F3; margin: 0 0 10px;">💡 Pro Tip</h4>
+                <p style="margin: 0; color: #555;">You're getting closer to the next tier! Keep shopping to unlock even better rewards and higher point multipliers.</p>
+            </div>
+            
+            <div class="email-footer">
+                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">Thank you for being a valued Jeans Club member!</p>
+                <p style="margin: 5px 0; color: #666;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
+                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+            </div>
         </div>
     </div>
 </body>
@@ -573,61 +807,154 @@ class GoogleAppsEmailService {
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discount Voucher - Jeans Club</title>
     <style>
-        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; padding: 25px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 25px; border-radius: 0 0 10px 10px; }
-        .card { background: white; padding: 25px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #ff6b6b; }
-        .discount-badge { background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: white; padding: 30px; border-radius: 10px; text-align: center; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
-        .voucher-code { background: #fff3cd; padding: 15px; border: 2px dashed #ffc107; border-radius: 8px; text-align: center; margin: 20px 0; }
+        body { 
+            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f9f9f9; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .email-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .email-header { 
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .email-header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .email-header p { 
+            margin: 10px 0 0; 
+            opacity: 0.9; 
+            font-size: 16px; 
+        }
+        .email-content { 
+            padding: 40px 30px; 
+        }
+        .discount-badge { 
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24); 
+            color: white; 
+            padding: 40px 30px; 
+            border-radius: 10px; 
+            text-align: center; 
+            margin: 25px 0; 
+        }
+        .voucher-details { 
+            background: #fff3cd; 
+            padding: 25px; 
+            border: 2px dashed #ffc107; 
+            border-radius: 8px; 
+            text-align: center; 
+            margin: 25px 0; 
+        }
+        .email-card { 
+            background: #f8f9fa; 
+            padding: 25px; 
+            margin: 25px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #ff6b6b; 
+        }
+        .email-footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 14px; 
+            border-top: 1px solid #eee; 
+            background: #f8f9fa; 
+        }
+        .info-box { 
+            background: #e7f3ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #2196F3; 
+        }
+        .notes-box { 
+            background: #fff3cd; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #ffc107; 
+        }
+        @media (max-width: 600px) {
+            .email-content { padding: 25px 20px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🎫 Discount Voucher Created!</h1>
-        <p>Your Points Have Been Converted to Savings</p>
-    </div>
-    
-    <div class="content">
-        <div class="card">
-            <h2>Hello ${memberData.name},</h2>
-            <p>Great news! You've successfully converted your loyalty points into an exclusive discount voucher.</p>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>🎫 Discount Voucher Created!</h1>
+            <p>Your Points Have Been Converted to Savings</p>
+        </div>
+        
+        <div class="email-content">
+            <h2 style="color: #333; margin-top: 0;">Hello ${memberData.name},</h2>
+            <p style="font-size: 16px; color: #555;">Great news! You've successfully converted your loyalty points into an exclusive discount voucher.</p>
             
             <div class="discount-badge">
-                <div style="font-size: 48px; font-weight: bold;">${extraData.discountPercentage}%</div>
-                <div style="font-size: 18px;">DISCOUNT</div>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Valid for your next purchase</p>
+                <div style="font-size: 64px; font-weight: bold; margin: 10px 0;">${extraData.discountPercentage}%</div>
+                <div style="font-size: 24px; margin: 10px 0;">DISCOUNT</div>
+                <p style="margin: 10px 0 0; opacity: 0.9; font-size: 16px;">Valid for your next purchase</p>
             </div>
 
-            <div class="voucher-code">
-                <h3>📋 Voucher Details</h3>
-                <p><strong>Points Used:</strong> ${extraData.pointsUsed} points</p>
-                <p><strong>Discount Rate:</strong> ${extraData.discountPercentage}% off</p>
-                <p><strong>Maximum Possible:</strong> ${extraData.maxPossibleDiscount}% (for your tier)</p>
-                <p><strong>Remaining Points:</strong> ${memberData.points} points</p>
+            <div class="voucher-details">
+                <h3 style="color: #333; margin-top: 0;">📋 Voucher Details</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; margin: 20px 0;">
+                    <div>
+                        <p style="margin: 0; font-weight: bold; color: #555;">Points Used:</p>
+                        <p style="margin: 5px 0 0; color: #333;">${extraData.pointsUsed} points</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; font-weight: bold; color: #555;">Discount Rate:</p>
+                        <p style="margin: 5px 0 0; color: #333;">${extraData.discountPercentage}% off</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; font-weight: bold; color: #555;">Max Possible:</p>
+                        <p style="margin: 5px 0 0; color: #333;">${extraData.maxPossibleDiscount}% (for your tier)</p>
+                    </div>
+                    <div>
+                        <p style="margin: 0; font-weight: bold; color: #555;">Remaining Points:</p>
+                        <p style="margin: 5px 0 0; color: #333;">${memberData.points} points</p>
+                    </div>
+                </div>
             </div>
 
-            <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <h4>💎 How to Redeem</h4>
-                <p>Simply present this email at checkout to apply your ${extraData.discountPercentage}% discount. Our staff will verify and apply your discount instantly!</p>
+            <div class="info-box">
+                <h4 style="color: #2196F3; margin: 0 0 10px;">💎 How to Redeem</h4>
+                <p style="margin: 0; color: #555;">Simply present this email at checkout to apply your ${extraData.discountPercentage}% discount. Our staff will verify and apply your discount instantly!</p>
             </div>
 
-            <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <h4>⏰ Important Notes</h4>
-                <ul>
+            <div class="notes-box">
+                <h4 style="color: #856404; margin: 0 0 10px;">⏰ Important Notes</h4>
+                <ul style="margin: 0; padding-left: 20px; color: #555;">
                     <li>This voucher is valid for one-time use only</li>
                     <li>Cannot be combined with other promotions</li>
                     <li>Valid on full-priced items only</li>
                     <li>No cash value</li>
                 </ul>
             </div>
-        </div>
-        
-        <div class="footer">
-            <p>We look forward to seeing you soon at Jeans Club!</p>
-            <p>📍 Visit us: https://elijah787.github.io/jeans-club</p>
-            <p style="font-size: 10px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+            
+            <div class="email-footer">
+                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">We look forward to seeing you soon at Jeans Club!</p>
+                <p style="margin: 5px 0; color: #666;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
+                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+            </div>
         </div>
     </div>
 </body>
@@ -640,70 +967,161 @@ class GoogleAppsEmailService {
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral Success - Jeans Club</title>
     <style>
-        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%); color: white; padding: 25px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 25px; border-radius: 0 0 10px 10px; }
-        .card { background: white; padding: 25px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #ffd700; }
-        .bonus-badge { background: linear-gradient(135deg, #ffd700, #ffa500); color: white; padding: 25px; border-radius: 10px; text-align: center; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
-        .referral-code { background: #fff3cd; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; border: 2px dashed #ffc107; }
+        body { 
+            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f9f9f9; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .email-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .email-header { 
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .email-header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .email-header p { 
+            margin: 10px 0 0; 
+            opacity: 0.9; 
+            font-size: 16px; 
+        }
+        .email-content { 
+            padding: 40px 30px; 
+        }
+        .bonus-badge { 
+            background: linear-gradient(135deg, #FFD700, #FFA500); 
+            color: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            text-align: center; 
+            margin: 25px 0; 
+        }
+        .email-card { 
+            background: #f8f9fa; 
+            padding: 25px; 
+            margin: 25px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #FFD700; 
+        }
+        .referral-section { 
+            background: #fff3cd; 
+            padding: 25px; 
+            border-radius: 8px; 
+            text-align: center; 
+            margin: 25px 0; 
+            border: 2px dashed #ffc107; 
+        }
+        .referral-code { 
+            font-size: 32px; 
+            font-weight: bold; 
+            color: #e67e22; 
+            letter-spacing: 3px; 
+            margin: 15px 0; 
+            font-family: 'Courier New', monospace; 
+        }
+        .email-footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 14px; 
+            border-top: 1px solid #eee; 
+            background: #f8f9fa; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+        td { 
+            padding: 12px 8px; 
+            border-bottom: 1px solid #e0e0e0; 
+        }
+        .sharing-tips { 
+            background: #e7f3ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #2196F3; 
+        }
+        @media (max-width: 600px) {
+            .email-content { padding: 25px 20px; }
+            .referral-code { font-size: 24px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🎊 Referral Success!</h1>
-        <p>You've Earned Bonus Points</p>
-    </div>
-    
-    <div class="content">
-        <div class="card">
-            <h2>Hello ${memberData.name},</h2>
-            <p>Congratulations! Your friend has joined Jeans Club using your referral code.</p>
-            
-            <div class="bonus-badge">
-                <div style="font-size: 36px; font-weight: bold;">+100</div>
-                <div style="font-size: 18px;">BONUS POINTS</div>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">Added to your account</p>
-            </div>
-
-            <h3>👥 Referral Details</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>New Member:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${extraData.newMemberName}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>JC ID:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${extraData.newMemberJCId}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Points Earned:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">+100 points</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px;"><strong>New Balance:</strong></td>
-                    <td style="padding: 8px;"><strong>${memberData.points} points</strong></td>
-                </tr>
-            </table>
-
-            <div class="referral-code">
-                <h3>📣 Keep Sharing!</h3>
-                <p>Your unique referral code:</p>
-                <div style="font-size: 28px; font-weight: bold; color: #e67e22; letter-spacing: 3px; margin: 15px 0;">${memberData.referralCode}</div>
-                <p>Share with friends and earn 100 points for each successful referral!</p>
-            </div>
-
-            <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <h4>💡 Sharing Ideas</h4>
-                <p>Share your code via WhatsApp, social media, or directly with friends who love premium denim!</p>
-            </div>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>🎊 Referral Success!</h1>
+            <p>You've Earned Bonus Points</p>
         </div>
         
-        <div class="footer">
-            <p>Thank you for growing the Jeans Club community!</p>
-            <p>📍 Visit us: https://elijah787.github.io/jeans-club</p>
-            <p style="font-size: 10px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+        <div class="email-content">
+            <h2 style="color: #333; margin-top: 0;">Hello ${memberData.name},</h2>
+            <p style="font-size: 16px; color: #555;">Congratulations! Your friend has joined Jeans Club using your referral code.</p>
+            
+            <div class="bonus-badge">
+                <div style="font-size: 48px; font-weight: bold; margin: 10px 0;">+100</div>
+                <div style="font-size: 20px; margin: 10px 0;">BONUS POINTS</div>
+                <p style="margin: 10px 0 0; opacity: 0.9; font-size: 16px;">Added to your account</p>
+            </div>
+
+            <div class="email-card">
+                <h3 style="color: #e67e22; margin-top: 0;">👥 Referral Details</h3>
+                <table>
+                    <tr>
+                        <td style="font-weight: bold; color: #555; width: 40%;">New Member:</td>
+                        <td style="color: #333;">${extraData.newMemberName}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">JC ID:</td>
+                        <td style="color: #333;">${extraData.newMemberJCId}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Points Earned:</td>
+                        <td style="color: #333; font-weight: bold;">+100 points</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">New Balance:</td>
+                        <td style="color: #333; font-weight: bold;">${memberData.points} points</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="referral-section">
+                <h3 style="color: #333; margin-top: 0;">📣 Keep Sharing!</h3>
+                <p style="color: #666; margin: 10px 0;">Your unique referral code:</p>
+                <div class="referral-code">${memberData.referralCode}</div>
+                <p style="color: #666; margin: 10px 0;">Share with friends and earn 100 points for each successful referral!</p>
+            </div>
+
+            <div class="sharing-tips">
+                <h4 style="color: #2196F3; margin: 0 0 10px;">💡 Sharing Ideas</h4>
+                <p style="margin: 0; color: #555;">Share your code via WhatsApp, social media, or directly with friends who love premium denim!</p>
+            </div>
+            
+            <div class="email-footer">
+                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">Thank you for growing the Jeans Club community!</p>
+                <p style="margin: 5px 0; color: #666;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
+                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+            </div>
         </div>
     </div>
 </body>
@@ -716,53 +1134,136 @@ class GoogleAppsEmailService {
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Reset - Jeans Club</title>
     <style>
-        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; padding: 25px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 25px; border-radius: 0 0 10px 10px; }
-        .card { background: white; padding: 25px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #6c757d; }
-        .reset-code { background: #f8f9fa; padding: 25px; border: 2px dashed #6c757d; border-radius: 8px; text-align: center; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
-        .security-note { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
+        body { 
+            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f9f9f9; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .email-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .email-header { 
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .email-header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .email-header p { 
+            margin: 10px 0 0; 
+            opacity: 0.9; 
+            font-size: 16px; 
+        }
+        .email-content { 
+            padding: 40px 30px; 
+        }
+        .reset-code-box { 
+            background: #f8f9fa; 
+            padding: 30px; 
+            border: 2px dashed #6c757d; 
+            border-radius: 8px; 
+            text-align: center; 
+            margin: 25px 0; 
+        }
+        .reset-code { 
+            font-size: 32px; 
+            font-weight: bold; 
+            color: #495057; 
+            letter-spacing: 3px; 
+            margin: 15px 0; 
+            font-family: 'Courier New', monospace; 
+        }
+        .email-card { 
+            background: #f8f9fa; 
+            padding: 25px; 
+            margin: 25px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #6c757d; 
+        }
+        .security-note { 
+            background: #fff3cd; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #ffc107; 
+        }
+        .email-footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 14px; 
+            border-top: 1px solid #eee; 
+            background: #f8f9fa; 
+        }
+        ol { 
+            margin: 0; 
+            padding-left: 20px; 
+        }
+        li { 
+            margin-bottom: 10px; 
+            color: #555; 
+        }
+        @media (max-width: 600px) {
+            .email-content { padding: 25px 20px; }
+            .reset-code { font-size: 24px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🔒 Password Reset Request</h1>
-        <p>Jeans Club Account Security</p>
-    </div>
-    
-    <div class="content">
-        <div class="card">
-            <h2>Hello ${memberData.name},</h2>
-            <p>We received a request to reset your Jeans Club account password. Use the reset code below to create a new password.</p>
-            
-            <div class="reset-code">
-                <h3>Your Reset Code</h3>
-                <div style="font-size: 32px; font-weight: bold; color: #495057; letter-spacing: 3px; margin: 15px 0;">${extraData.resetToken}</div>
-                <p style="margin: 0;">Valid until: ${new Date(extraData.expiry).toLocaleString()}</p>
-            </div>
-
-            <h3>📝 How to Reset Your Password</h3>
-            <ol>
-                <li>Go to the Jeans Club login page</li>
-                <li>Click "Forgot Password?"</li>
-                <li>Enter your JC ID: <strong>${memberData.jcId}</strong></li>
-                <li>Enter the reset code above</li>
-                <li>Create your new password</li>
-            </ol>
-
-            <div class="security-note">
-                <h4>⚠️ Security Notice</h4>
-                <p>If you didn't request this password reset, please ignore this email. Your account security is important to us.</p>
-                <p>The reset code will expire in 1 hour for security reasons.</p>
-            </div>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>🔒 Password Reset Request</h1>
+            <p>Jeans Club Account Security</p>
         </div>
         
-        <div class="footer">
-            <p>Need help? Contact our support team.</p>
-            <p>📍 Visit us: https://elijah787.github.io/jeans-club</p>
-            <p style="font-size: 10px; color: #999;">This is an automated security message. Please do not reply to this email.</p>
+        <div class="email-content">
+            <h2 style="color: #333; margin-top: 0;">Hello ${memberData.name},</h2>
+            <p style="font-size: 16px; color: #555;">We received a request to reset your Jeans Club account password. Use the reset code below to create a new password.</p>
+            
+            <div class="reset-code-box">
+                <h3 style="color: #495057; margin-top: 0;">Your Reset Code</h3>
+                <div class="reset-code">${extraData.resetToken}</div>
+                <p style="margin: 10px 0 0; color: #666; font-size: 14px;">Valid until: ${new Date(extraData.expiry).toLocaleString()}</p>
+            </div>
+
+            <div class="email-card">
+                <h3 style="color: #495057; margin-top: 0;">📝 How to Reset Your Password</h3>
+                <ol>
+                    <li>Go to the Jeans Club login page</li>
+                    <li>Click "Forgot Password?"</li>
+                    <li>Enter your JC ID: <strong>${memberData.jcId}</strong></li>
+                    <li>Enter the reset code above</li>
+                    <li>Create your new password</li>
+                </ol>
+            </div>
+
+            <div class="security-note">
+                <h4 style="color: #856404; margin: 0 0 10px;">⚠️ Security Notice</h4>
+                <p style="margin: 0 0 10px; color: #555;">If you didn't request this password reset, please ignore this email. Your account security is important to us.</p>
+                <p style="margin: 0; color: #555;">The reset code will expire in 1 hour for security reasons.</p>
+            </div>
+            
+            <div class="email-footer">
+                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">Need help? Contact our support team.</p>
+                <p style="margin: 5px 0; color: #666;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
+                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">This is an automated security message. Please do not reply to this email.</p>
+            </div>
         </div>
     </div>
 </body>
@@ -775,55 +1276,145 @@ class GoogleAppsEmailService {
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Reset Successful - Jeans Club</title>
     <style>
-        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 25px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 25px; border-radius: 0 0 10px 10px; }
-        .card { background: white; padding: 25px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #28a745; }
-        .success-badge { background: #d4edda; color: #155724; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; border: 2px solid #c3e6cb; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
-        .security-note { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #ffc107; }
+        body { 
+            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f9f9f9; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .email-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .email-header { 
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .email-header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .email-header p { 
+            margin: 10px 0 0; 
+            opacity: 0.9; 
+            font-size: 16px; 
+        }
+        .email-content { 
+            padding: 40px 30px; 
+        }
+        .success-badge { 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 30px; 
+            border-radius: 8px; 
+            text-align: center; 
+            margin: 25px 0; 
+            border: 2px solid #c3e6cb; 
+        }
+        .email-card { 
+            background: #f8f9fa; 
+            padding: 25px; 
+            margin: 25px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #28a745; 
+        }
+        .security-alert { 
+            background: #fff3cd; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #ffc107; 
+        }
+        .security-tips { 
+            background: #e7f3ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #2196F3; 
+        }
+        .email-footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 14px; 
+            border-top: 1px solid #eee; 
+            background: #f8f9fa; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+        td { 
+            padding: 12px 8px; 
+            border-bottom: 1px solid #e0e0e0; 
+        }
+        ul { 
+            margin: 0; 
+            padding-left: 20px; 
+        }
+        li { 
+            margin-bottom: 8px; 
+            color: #555; 
+        }
+        @media (max-width: 600px) {
+            .email-content { padding: 25px 20px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>✅ Password Reset Successful</h1>
-        <p>Your Account Security Has Been Updated</p>
-    </div>
-    
-    <div class="content">
-        <div class="card">
-            <h2>Hello ${memberData.name},</h2>
+    <div class="email-container">
+        <div class="email-header">
+            <h1>✅ Password Reset Successful</h1>
+            <p>Your Account Security Has Been Updated</p>
+        </div>
+        
+        <div class="email-content">
+            <h2 style="color: #333; margin-top: 0;">Hello ${memberData.name},</h2>
             
             <div class="success-badge">
-                <div style="font-size: 48px;">🔒</div>
-                <h3>Password Successfully Reset!</h3>
-                <p>Your Jeans Club account password has been updated successfully.</p>
+                <div style="font-size: 48px; margin: 10px 0;">🔒</div>
+                <h3 style="margin: 10px 0; color: #155724;">Password Successfully Reset!</h3>
+                <p style="margin: 0; color: #155724;">Your Jeans Club account password has been updated successfully.</p>
             </div>
 
-            <h3>📋 Account Details</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>JC ID:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${memberData.jcId}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Password Reset:</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${new Date().toLocaleString()}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px;"><strong>Current Tier:</strong></td>
-                    <td style="padding: 8px;">${memberData.tier}</td>
-                </tr>
-            </table>
-
-            <div class="security-note">
-                <h4>🔐 Security Alert</h4>
-                <p>If you did not make this change, please contact our support team immediately. Your account security is important to us.</p>
+            <div class="email-card">
+                <h3 style="color: #28a745; margin-top: 0;">📋 Account Details</h3>
+                <table>
+                    <tr>
+                        <td style="font-weight: bold; color: #555; width: 40%;">JC ID:</td>
+                        <td style="color: #333;">${memberData.jcId}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Password Reset:</td>
+                        <td style="color: #333;">${new Date().toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; color: #555;">Current Tier:</td>
+                        <td style="color: #333;">${memberData.tier}</td>
+                    </tr>
+                </table>
             </div>
 
-            <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <h4>💡 Tips for Account Security</h4>
+            <div class="security-alert">
+                <h4 style="color: #856404; margin: 0 0 10px;">🔐 Security Alert</h4>
+                <p style="margin: 0; color: #555;">If you did not make this change, please contact our support team immediately. Your account security is important to us.</p>
+            </div>
+
+            <div class="security-tips">
+                <h4 style="color: #2196F3; margin: 0 0 10px;">💡 Tips for Account Security</h4>
                 <ul>
                     <li>Use a strong, unique password</li>
                     <li>Never share your password with anyone</li>
@@ -831,12 +1422,12 @@ class GoogleAppsEmailService {
                     <li>Regularly update your password</li>
                 </ul>
             </div>
-        </div>
-        
-        <div class="footer">
-            <p>Thank you for securing your Jeans Club account!</p>
-            <p>📍 Visit us: https://elijah787.github.io/jeans-club</p>
-            <p style="font-size: 10px; color: #999;">This is an automated security message. Please do not reply to this email.</p>
+            
+            <div class="email-footer">
+                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">Thank you for securing your Jeans Club account!</p>
+                <p style="margin: 5px 0; color: #666;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
+                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">This is an automated security message. Please do not reply to this email.</p>
+            </div>
         </div>
     </div>
 </body>
@@ -849,65 +1440,138 @@ class GoogleAppsEmailService {
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Newsletter - Jeans Club</title>
     <style>
-        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .card { background: white; padding: 25px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #667eea; }
-        .welcome-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 25px; border-radius: 10px; text-align: center; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
-        .benefits { background: #e7f3ff; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        body { 
+            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f9f9f9; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .email-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .email-header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .email-header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .email-header p { 
+            margin: 10px 0 0; 
+            opacity: 0.9; 
+            font-size: 16px; 
+        }
+        .email-content { 
+            padding: 40px 30px; 
+        }
+        .welcome-badge { 
+            background: linear-gradient(135deg, #667eea, #764ba2); 
+            color: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            text-align: center; 
+            margin: 25px 0; 
+        }
+        .benefits-section { 
+            background: #e7f3ff; 
+            padding: 25px; 
+            border-radius: 8px; 
+            margin: 25px 0; 
+        }
+        .benefits-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 15px; 
+            margin: 20px 0; 
+        }
+        .benefit-item { 
+            text-align: center; 
+            padding: 15px; 
+            background: white; 
+            border-radius: 8px; 
+        }
+        .email-footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 14px; 
+            border-top: 1px solid #eee; 
+            background: #f8f9fa; 
+        }
+        @media (max-width: 600px) {
+            .email-content { padding: 25px 20px; }
+            .benefits-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📬 Welcome to Our Newsletter!</h1>
-        <p>Stay Updated with Jeans Club</p>
-    </div>
-    
-    <div class="content">
-        <div class="card">
+    <div class="email-container">
+        <div class="email-header">
+            <h1>📬 Welcome to Our Newsletter!</h1>
+            <p>Stay Updated with Jeans Club</p>
+        </div>
+        
+        <div class="email-content">
             <div class="welcome-badge">
-                <h2>Hello ${memberData.name || 'there'}!</h2>
-                <p>You're officially subscribed to the Jeans Club Newsletter</p>
+                <h2 style="margin: 0 0 10px;">Hello ${memberData.name || 'there'}!</h2>
+                <p style="margin: 0; opacity: 0.9;">You're officially subscribed to the Jeans Club Newsletter</p>
             </div>
 
-            <p>Thank you for joining our exclusive newsletter community! We're excited to keep you informed about the latest trends, offers, and updates.</p>
+            <p style="font-size: 16px; color: #555;">Thank you for joining our exclusive newsletter community! We're excited to keep you informed about the latest trends, offers, and updates.</p>
 
-            <div class="benefits">
-                <h3>🎁 What You'll Receive</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 15px 0;">
-                    <div style="text-align: center;">
+            <div class="benefits-section">
+                <h3 style="color: #667eea; margin-top: 0;">🎁 What You'll Receive</h3>
+                <div class="benefits-grid">
+                    <div class="benefit-item">
                         <div style="font-size: 24px;">💎</div>
-                        <p><strong>Exclusive Discounts</strong><br>Member-only promotions</p>
+                        <p style="margin: 10px 0 0; font-weight: bold; color: #333;">Exclusive Discounts</p>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Member-only promotions</p>
                     </div>
-                    <div style="text-align: center;">
+                    <div class="benefit-item">
                         <div style="font-size: 24px;">🆕</div>
-                        <p><strong>New Arrivals</strong><br>First look at new collections</p>
+                        <p style="margin: 10px 0 0; font-weight: bold; color: #333;">New Arrivals</p>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">First look at new collections</p>
                     </div>
-                    <div style="text-align: center;">
+                    <div class="benefit-item">
                         <div style="font-size: 24px;">💡</div>
-                        <p><strong>Style Tips</strong><br>Fashion trends & styling advice</p>
+                        <p style="margin: 10px 0 0; font-weight: bold; color: #333;">Style Tips</p>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Fashion trends & styling advice</p>
                     </div>
-                    <div style="text-align: center;">
+                    <div class="benefit-item">
                         <div style="font-size: 24px;">⭐</div>
-                        <p><strong>Special Events</strong><br>VIP access to sales & events</p>
+                        <p style="margin: 10px 0 0; font-weight: bold; color: #333;">Special Events</p>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">VIP access to sales & events</p>
                     </div>
                 </div>
             </div>
 
-            <div style="text-align: center; margin: 25px 0;">
-                <p><strong>Stay tuned for amazing deals and fashion insights!</strong></p>
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="font-size: 18px; font-weight: bold; color: #333;">Stay tuned for amazing deals and fashion insights!</p>
             </div>
-        </div>
-        
-        <div class="footer">
-            <p>Best regards,<br>The Jeans Club Team</p>
-            <p>📍 https://elijah787.github.io/jeans-club</p>
-            <p style="font-size: 10px; color: #999;">
-                <a href="https://elijah787.github.io/jeans-club#unsubscribe" style="color: #666;">Unsubscribe</a> | 
-                This is an automated message
-            </p>
+            
+            <div class="email-footer">
+                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">Best regards,<br>The Jeans Club Team</p>
+                <p style="margin: 5px 0; color: #666;">📍 https://elijah787.github.io/jeans-club</p>
+                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">
+                    <a href="https://elijah787.github.io/jeans-club#unsubscribe" style="color: #666; text-decoration: none;">Unsubscribe</a> | 
+                    This is an automated message
+                </p>
+            </div>
         </div>
     </div>
 </body>
@@ -920,45 +1584,101 @@ class GoogleAppsEmailService {
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeans Club Newsletter</title>
     <style>
-        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 25px; border-radius: 0 0 10px 10px; }
-        .card { background: white; padding: 25px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid #667eea; }
-        .footer { text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; }
-        .greeting { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        body { 
+            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
+            line-height: 1.6; 
+            color: #333333; 
+            background-color: #f9f9f9; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .email-container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .email-header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .email-header h1 { 
+            margin: 0; 
+            font-size: 28px; 
+            font-weight: bold; 
+        }
+        .email-header p { 
+            margin: 10px 0 0; 
+            opacity: 0.9; 
+            font-size: 16px; 
+        }
+        .email-content { 
+            padding: 40px 30px; 
+        }
+        .greeting { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 25px; 
+        }
+        .member-exclusive { 
+            background: #e7f3ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 25px 0; 
+            border-left: 4px solid #2196F3; 
+        }
+        .email-footer { 
+            text-align: center; 
+            margin-top: 30px; 
+            padding: 25px; 
+            color: #666; 
+            font-size: 14px; 
+            border-top: 1px solid #eee; 
+            background: #f8f9fa; 
+        }
+        @media (max-width: 600px) {
+            .email-content { padding: 25px 20px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>${extraData.subject || "Jeans Club Newsletter"}</h1>
-        <p>Latest Updates from Your Favorite Denim Destination</p>
-    </div>
-    
-    <div class="content">
-        <div class="card">
+    <div class="email-container">
+        <div class="email-header">
+            <h1>${extraData.subject || "Jeans Club Newsletter"}</h1>
+            <p>Latest Updates from Your Favorite Denim Destination</p>
+        </div>
+        
+        <div class="email-content">
             <div class="greeting">
-                <h2>Hello ${memberData.name || 'Valued Member'}! 👋</h2>
-                <p>Here's what's new at Jeans Club...</p>
+                <h2 style="color: #333; margin: 0 0 10px;">Hello ${memberData.name || 'Valued Member'}! 👋</h2>
+                <p style="margin: 0; color: #666;">Here's what's new at Jeans Club...</p>
             </div>
 
-            <div style="line-height: 1.8;">
+            <div style="line-height: 1.8; color: #555; font-size: 16px;">
                 ${extraData.message.replace(/\n/g, '<br>')}
             </div>
 
-            <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <h4>💎 Member Exclusive</h4>
-                <p>Remember to use your loyalty points for exclusive discounts on your next purchase!</p>
+            <div class="member-exclusive">
+                <h4 style="color: #2196F3; margin: 0 0 10px;">💎 Member Exclusive</h4>
+                <p style="margin: 0; color: #555;">Remember to use your loyalty points for exclusive discounts on your next purchase!</p>
             </div>
-        </div>
-        
-        <div class="footer">
-            <p>Thank you for being a Jeans Club member! 💙</p>
-            <p>📍 <a href="https://elijah787.github.io/jeans-club" style="color: #667eea;">Visit Our Website</a></p>
-            <p style="font-size: 10px; color: #999;">
-                <a href="https://elijah787.github.io/jeans-club#unsubscribe" style="color: #666;">Unsubscribe from newsletter</a> | 
-                Jeans Club - Premium Denim & Fashion
-            </p>
+            
+            <div class="email-footer">
+                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">Thank you for being a Jeans Club member! 💙</p>
+                <p style="margin: 5px 0; color: #666;">📍 <a href="https://elijah787.github.io/jeans-club" style="color: #667eea; text-decoration: none;">Visit Our Website</a></p>
+                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">
+                    <a href="https://elijah787.github.io/jeans-club#unsubscribe" style="color: #666; text-decoration: none;">Unsubscribe from newsletter</a> | 
+                    Jeans Club - Premium Denim & Fashion
+                </p>
+            </div>
         </div>
     </div>
 </body>
