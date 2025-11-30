@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jeans Club - Raised on Denim</title>
     <style>
+        /* ALL YOUR EXISTING CSS STYLES REMAIN EXACTLY THE SAME */
         /* RESET AND BASE STYLES */
         * {
             margin: 0;
@@ -493,18 +494,19 @@
 
         /* Chat Bot Styles */
         .chat-bot-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 350px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            max-height: 500px;
-        }
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    max-height: 400px;
+    border: 2px solid #667eea;
+}
 
         .chat-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -700,6 +702,75 @@
             align-items: center;
             justify-content: center;
             font-size: 24px;
+        }
+
+        /* NEW VOUCHER MANAGEMENT STYLES */
+        .voucher-management-section {
+            margin-top: 30px;
+        }
+
+        .voucher-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #28a745;
+        }
+
+        .voucher-item.used {
+            border-left-color: #6c757d;
+            opacity: 0.7;
+        }
+
+        .voucher-item.expired {
+            border-left-color: #dc3545;
+        }
+
+        .voucher-code {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin: 5px 0;
+        }
+
+        .voucher-qr {
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .voucher-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-used {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .status-expired {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .scan-voucher-section {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
         }
 
         @media (max-width: 768px) {
@@ -968,6 +1039,14 @@
                 <button class="btn" onclick="redeemPoints()" style="margin-top: 10px;">Generate Discount Voucher</button>
             </div>
 
+            <!-- NEW VOUCHER MANAGEMENT SECTION -->
+            <div class="info-card voucher-management-section">
+                <h3>My Discount Vouchers</h3>
+                <div id="vouchersList" class="activity-log">
+                    <div class="activity-item">Loading vouchers...</div>
+                </div>
+            </div>
+
             <div class="info-card">
                 <h3>Recent Activity</h3>
                 <div id="activityLog" class="activity-log">
@@ -983,6 +1062,7 @@
                 <button class="btn" onclick="showAdminPanel()">Refresh Members</button>
                 <button class="btn" onclick="showAnalyticsPanel()">View Analytics</button>
                 <button class="btn secondary" onclick="showDeleteMemberSection()">Delete Member</button>
+                <button class="btn" onclick="showVoucherManagementPanel()">Manage Vouchers</button>
             </div>
 
             <h2 class="section-title">Staff Admin Panel</h2>
@@ -1003,6 +1083,17 @@
                 </div>
                 <button class="btn" onclick="adminAddPurchase()">Add Purchase</button>
                 <div id="purchaseResult" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- NEW VOUCHER SCANNING SECTION -->
+            <div class="scan-voucher-section">
+                <h3>Scan & Redeem Voucher</h3>
+                <div class="form-group">
+                    <label for="voucherCodeInput">Voucher Code</label>
+                    <input type="text" id="voucherCodeInput" placeholder="Enter voucher code or scan QR code">
+                </div>
+                <button class="btn" onclick="redeemVoucherByCode()">Redeem Voucher</button>
+                <div id="voucherRedeemResult" style="margin-top: 10px;"></div>
             </div>
 
             <div class="info-card">
@@ -1060,6 +1151,30 @@
             </div>
         </div>
 
+        <!-- NEW Voucher Management Section -->
+        <div id="voucherManagementSection" class="card hidden">
+            <div class="nav-buttons">
+                <button class="btn secondary" onclick="showAdminPanel()">Back to Admin</button>
+                <button class="btn" onclick="refreshVouchers()">Refresh Vouchers</button>
+            </div>
+
+            <h2 class="section-title">Voucher Management</h2>
+            
+            <div class="info-card">
+                <h3>All Vouchers</h3>
+                <div id="allVouchersList" class="activity-log">
+                    <div class="activity-item">Loading all vouchers...</div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3>Voucher Statistics</h3>
+                <div id="voucherStats" style="margin-top: 10px;">
+                    Loading voucher statistics...
+                </div>
+            </div>
+        </div>
+
        <!-- QR Code Section -->
 <div class="card" style="text-align: center; margin-top: 20px;">
     <h3 style="color: #333; margin-bottom: 20px;">Share Jeans Club</h3>
@@ -1076,7 +1191,7 @@
     <div id="chatBotContainer" class="chat-bot-container hidden">
         <div class="chat-header">
             <h4 style="margin: 0;">Jeans Club Assistant</h4>
-            <button onclick="showChatBot()" style="background: none; border: none; color: white; cursor: pointer;">✕</button>
+            <button onclick="closeChatBot()" style="background: none; border: none; color: white; cursor: pointer; font-size: 18px; padding: 5px;">✕</button>
         </div>
         <div id="chatMessages" class="chat-messages">
             <div class="chat-message bot-message">Hello! I'm your Jeans Club assistant. How can I help you today?</div>
@@ -1088,6 +1203,171 @@
     </div>
 
     <script>
+        // VOUCHER SYSTEM IMPLEMENTATION
+        class VoucherSystem {
+            constructor() {
+                this.vouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
+                this.voucherActivity = JSON.parse(localStorage.getItem('jeansClubVoucherActivity') || '[]');
+            }
+
+            generateVoucherCode() {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                let code = '';
+                for (let i = 0; i < 8; i++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return 'JC-' + code;
+            }
+
+            generateQRCodeData(voucherCode) {
+                return JSON.stringify({
+                    code: voucherCode,
+                    timestamp: Date.now(),
+                    type: 'jeansclub_voucher'
+                });
+            }
+
+            createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
+                const voucherCode = this.generateVoucherCode();
+                const createdDate = new Date();
+                const expiryDate = new Date();
+                expiryDate.setDate(expiryDate.getDate() + expiryDays);
+
+                const voucher = {
+                    id: 'voucher_' + Date.now(),
+                    code: voucherCode,
+                    memberJCId: memberJCId,
+                    memberName: memberName,
+                    pointsUsed: pointsUsed,
+                    discountPercentage: discountPercentage,
+                    createdDate: createdDate.toISOString(),
+                    expiryDate: expiryDate.toISOString(),
+                    status: 'active', // active, used, expired
+                    usedDate: null,
+                    qrCodeData: this.generateQRCodeData(voucherCode)
+                };
+
+                this.vouchers.push(voucher);
+                this.saveVouchers();
+
+                // Log voucher creation
+                this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
+
+                return voucher;
+            }
+
+            getMemberVouchers(memberJCId) {
+                return this.vouchers.filter(v => v.memberJCId === memberJCId)
+                    .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            getAllVouchers() {
+                return this.vouchers.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            getVoucherByCode(code) {
+                return this.vouchers.find(v => v.code === code);
+            }
+
+            redeemVoucher(voucherCode, redeemedBy = 'system') {
+                const voucher = this.getVoucherByCode(voucherCode);
+                if (!voucher) {
+                    return { success: false, message: "Voucher not found" };
+                }
+
+                if (voucher.status === 'used') {
+                    return { success: false, message: "Voucher has already been used" };
+                }
+
+                if (voucher.status === 'expired') {
+                    return { success: false, message: "Voucher has expired" };
+                }
+
+                if (new Date() > new Date(voucher.expiryDate)) {
+                    voucher.status = 'expired';
+                    this.saveVouchers();
+                    return { success: false, message: "Voucher has expired" };
+                }
+
+                voucher.status = 'used';
+                voucher.usedDate = new Date().toISOString();
+                voucher.redeemedBy = redeemedBy;
+                this.saveVouchers();
+
+                // Log voucher redemption
+                this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
+
+                return { 
+                    success: true, 
+                    message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
+                    voucher: voucher
+                };
+            }
+
+            updateVoucherStatuses() {
+                const now = new Date();
+                let updated = false;
+
+                this.vouchers.forEach(voucher => {
+                    if (voucher.status === 'active' && new Date(voucher.expiryDate) < now) {
+                        voucher.status = 'expired';
+                        updated = true;
+                    }
+                });
+
+                if (updated) {
+                    this.saveVouchers();
+                }
+            }
+
+            getVoucherStats() {
+                this.updateVoucherStatuses();
+                
+                const total = this.vouchers.length;
+                const active = this.vouchers.filter(v => v.status === 'active').length;
+                const used = this.vouchers.filter(v => v.status === 'used').length;
+                const expired = this.vouchers.filter(v => v.status === 'expired').length;
+                
+                const totalDiscount = this.vouchers
+                    .filter(v => v.status === 'used')
+                    .reduce((sum, v) => sum + v.discountPercentage, 0);
+                
+                const avgDiscount = used > 0 ? (totalDiscount / used).toFixed(1) : 0;
+
+                return {
+                    total,
+                    active,
+                    used,
+                    expired,
+                    avgDiscount,
+                    redemptionRate: total > 0 ? ((used / total) * 100).toFixed(1) + '%' : '0%'
+                };
+            }
+
+            logVoucherActivity(voucherCode, action, memberJCId, description) {
+                const activity = {
+                    timestamp: new Date().toISOString(),
+                    voucherCode: voucherCode,
+                    action: action,
+                    memberJCId: memberJCId,
+                    description: description
+                };
+
+                this.voucherActivity.unshift(activity);
+                if (this.voucherActivity.length > 100) {
+                    this.voucherActivity = this.voucherActivity.slice(0, 100);
+                }
+                localStorage.setItem('jeansClubVoucherActivity', JSON.stringify(this.voucherActivity));
+            }
+
+            saveVouchers() {
+                localStorage.setItem('jeansClubVouchers', JSON.stringify(this.vouchers));
+            }
+        }
+
+        // Initialize voucher system
+        const voucherSystem = new VoucherSystem();
+
         // ALL YOUR EXISTING JAVASCRIPT CODE REMAINS EXACTLY THE SAME
         // AI Chat Bot Database
         const qaDatabase = {
@@ -1106,10 +1386,11 @@
             "referral program": "Share your code and both you and your friend win! You get 100 points, they get 20 points when they sign up with your code.",
             "referral benefits": "When you refer a friend: You earn 100 points immediately, your friend starts with 20 points instead of 10!",
             
-            // Discounts
-            "how to get discount": "Redeem your points for discount vouchers! Go to your dashboard, enter points to use, and we'll email you a discount voucher.",
-            "redeem points": "In your dashboard, use the 'Redeem Points' section. Minimum 10 points required. We'll send the discount voucher to your email instantly!",
-            "discount voucher": "Convert your points to % discounts. Higher tiers can get bigger discounts! Vouchers are emailed to you and can be used in-store.",
+            // Discounts & Vouchers
+            "how to get discount": "Redeem your points for discount vouchers! Go to your dashboard, enter points to use, and we'll email you a discount voucher with a unique code and QR code.",
+            "redeem points": "In your dashboard, use the 'Redeem Points' section. Minimum 10 points required. We'll send the discount voucher to your email instantly with a scannable QR code!",
+            "discount voucher": "Convert your points to % discounts. Higher tiers can get bigger discounts! Vouchers have unique codes, QR codes, and expire after 30 days for one-time use.",
+            "voucher expiration": "Discount vouchers are valid for 30 days from creation and can only be used once. After use or expiration, they cannot be reused.",
             
             // Account Issues
             "forgot password": "Click 'Forgot Password' on login, enter your JC ID, check your email for a reset code, then create a new password.",
@@ -1118,8 +1399,8 @@
             
             // General
             "what is jeans club": "Jeans Club is a loyalty program where you earn points for purchases, climb through tiers for better benefits, and get exclusive discounts!",
-            "how it works": "1. Sign up 2. Earn points with purchases 3. Move up tiers 4. Redeem points for discounts 5. Refer friends for bonus points!",
-            "benefits": "Earn points on purchases, get tier bonuses, redeem for discounts, refer friends for rewards, and receive exclusive member emails!"
+            "how it works": "1. Sign up 2. Earn points with purchases 3. Move up tiers 4. Redeem points for vouchers 5. Refer friends for bonus points!",
+            "benefits": "Earn points on purchases, get tier bonuses, redeem for vouchers with QR codes, refer friends for rewards, and receive exclusive member emails!"
         };
 
         function answerQuestion(question) {
@@ -2211,6 +2492,9 @@
             }
 
             buildDiscountEmail(memberData, extraData) {
+                const voucher = extraData.voucher;
+                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voucher.qrCodeData)}`;
+                
                 return `
         <!DOCTYPE html>
         <html>
@@ -2270,6 +2554,18 @@
                     text-align: center; 
                     margin: 25px 0; 
                 }
+                .voucher-code { 
+                    font-size: 24px; 
+                    font-weight: bold; 
+                    color: #e67e22; 
+                    letter-spacing: 2px; 
+                    margin: 15px 0; 
+                    font-family: 'Courier New', monospace; 
+                    background: white; 
+                    padding: 10px 20px; 
+                    border-radius: 5px; 
+                    display: inline-block; 
+                }
                 .email-card { 
                     background: #f8f9fa; 
                     padding: 25px; 
@@ -2300,8 +2596,13 @@
                     margin: 20px 0; 
                     border-left: 4px solid #ffc107; 
                 }
+                .qr-code { 
+                    text-align: center; 
+                    margin: 20px 0; 
+                }
                 @media (max-width: 600px) {
                     .email-content { padding: 25px 20px; }
+                    .voucher-code { font-size: 18px; }
                 }
             </style>
         </head>
@@ -2314,7 +2615,7 @@
                 
                 <div class="email-content">
                     <h2 style="color: #333; margin-top: 0;">Hello ${memberData.name},</h2>
-                    <p style="font-size: 16px; color: #555;">Great news! You've successfully converted your loyalty points into an exclusive discount voucher.</p>
+                    <p style="font-size: 16px; color: #555;">Great news! You've successfully converted your loyalty points into an exclusive discount voucher with a unique code and QR code.</p>
                     
                     <div class="discount-badge">
                         <div style="font-size: 64px; font-weight: bold; margin: 10px 0;">${extraData.discountPercentage}%</div>
@@ -2324,6 +2625,14 @@
 
                     <div class="voucher-details">
                         <h3 style="color: #333; margin-top: 0;">📋 Voucher Details</h3>
+                        
+                        <div class="voucher-code">${voucher.code}</div>
+                        
+                        <div class="qr-code">
+                            <img src="${qrCodeUrl}" alt="Voucher QR Code" style="border: 2px solid #ddd; border-radius: 10px; padding: 10px; background: white;">
+                            <p style="margin: 10px 0 0; color: #666; font-size: 14px;">Scan this QR code at checkout</p>
+                        </div>
+                        
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; margin: 20px 0;">
                             <div>
                                 <p style="margin: 0; font-weight: bold; color: #555;">Points Used:</p>
@@ -2334,8 +2643,8 @@
                                 <p style="margin: 5px 0 0; color: #333;">${extraData.discountPercentage}% off</p>
                             </div>
                             <div>
-                                <p style="margin: 0; font-weight: bold; color: #555;">Max Possible:</p>
-                                <p style="margin: 5px 0 0; color: #333;">${extraData.maxPossibleDiscount}% (for your tier)</p>
+                                <p style="margin: 0; font-weight: bold; color: #555;">Valid Until:</p>
+                                <p style="margin: 5px 0 0; color: #333;">${new Date(voucher.expiryDate).toLocaleDateString()}</p>
                             </div>
                             <div>
                                 <p style="margin: 0; font-weight: bold; color: #555;">Remaining Points:</p>
@@ -2346,13 +2655,14 @@
 
                     <div class="info-box">
                         <h4 style="color: #2196F3; margin: 0 0 10px;">💎 How to Redeem</h4>
-                        <p style="margin: 0; color: #555;">Simply present this email at checkout to apply your ${extraData.discountPercentage}% discount. Our staff will verify and apply your discount instantly!</p>
+                        <p style="margin: 0; color: #555;">Present this email with the QR code at checkout, or provide the voucher code: <strong>${voucher.code}</strong>. Our staff will scan and apply your ${extraData.discountPercentage}% discount instantly!</p>
                     </div>
 
                     <div class="notes-box">
                         <h4 style="color: #856404; margin: 0 0 10px;">⏰ Important Notes</h4>
                         <ul style="margin: 0; padding-left: 20px; color: #555;">
                             <li>This voucher is valid for one-time use only</li>
+                            <li>Voucher expires on ${new Date(voucher.expiryDate).toLocaleDateString()}</li>
                             <li>Cannot be combined with other promotions</li>
                             <li>Valid on full-priced items only</li>
                             <li>No cash value</li>
@@ -3997,13 +4307,25 @@
 
                 this.saveCurrentMember();
 
-                // Send discount voucher email
-                const emailResult = await this.emailService.sendDiscountEmail(member.email, member, discountCalc);
+                // Create voucher
+                const voucher = voucherSystem.createVoucher(
+                    member.jcId,
+                    member.name,
+                    discountCalc.pointsUsed,
+                    discountCalc.discountPercentage
+                );
+
+                // Send discount voucher email with voucher details
+                const emailResult = await this.emailService.sendDiscountEmail(member.email, member, {
+                    ...discountCalc,
+                    voucher: voucher
+                });
 
                 return {
                     success: true,
                     pointsUsed: discountCalc.pointsUsed,
                     discountPercentage: discountCalc.discountPercentage,
+                    voucher: voucher,
                     emailSent: emailResult.success
                 };
             }
@@ -4081,6 +4403,244 @@
 
         // Initialize the system
         const clubManager = new JeansClubManager();
+
+        // NEW VOUCHER MANAGEMENT FUNCTIONS
+        function showVoucherManagementPanel() {
+            if (!clubManager.isAdmin) {
+                showAdminLogin();
+                return;
+            }
+            
+            document.getElementById('signupSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('adminSection').classList.add('hidden');
+            document.getElementById('passwordResetSection').classList.add('hidden');
+            document.getElementById('analyticsSection').classList.add('hidden');
+            document.getElementById('deleteMemberSection').classList.add('hidden');
+            document.getElementById('voucherManagementSection').classList.remove('hidden');
+            
+            refreshVouchers();
+        }
+
+        function refreshVouchers() {
+            voucherSystem.updateVoucherStatuses();
+            displayAllVouchers();
+            displayVoucherStats();
+        }
+
+        function displayAllVouchers() {
+            const allVouchers = voucherSystem.getAllVouchers();
+            const container = document.getElementById('allVouchersList');
+            
+            if (allVouchers.length === 0) {
+                container.innerHTML = '<div class="activity-item">No vouchers have been created yet.</div>';
+                return;
+            }
+
+            let html = '';
+            allVouchers.forEach(voucher => {
+                const statusClass = voucher.status === 'active' ? 'status-active' : 
+                                  voucher.status === 'used' ? 'status-used' : 'status-expired';
+                
+                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(voucher.qrCodeData)}`;
+                
+                html += `
+                    <div class="voucher-item ${voucher.status}">
+                        <div style="display: flex; justify-content: between; align-items: start;">
+                            <div style="flex: 1;">
+                                <h4 style="margin: 0 0 5px;">${voucher.memberName} (${voucher.memberJCId})</h4>
+                                <p style="margin: 0 0 5px; font-size: 18px; font-weight: bold; color: #e67e22;">${voucher.discountPercentage}% Discount</p>
+                                <div class="voucher-code">${voucher.code}</div>
+                                <p style="margin: 5px 0; font-size: 12px; color: #666;">
+                                    Created: ${new Date(voucher.createdDate).toLocaleDateString()} | 
+                                    Expires: ${new Date(voucher.expiryDate).toLocaleDateString()}
+                                    ${voucher.usedDate ? ` | Used: ${new Date(voucher.usedDate).toLocaleDateString()}` : ''}
+                                </p>
+                                <span class="voucher-status ${statusClass}">${voucher.status.toUpperCase()}</span>
+                            </div>
+                            <div class="voucher-qr">
+                                <img src="${qrCodeUrl}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 5px; padding: 5px; background: white;">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function displayVoucherStats() {
+            const stats = voucherSystem.getVoucherStats();
+            const container = document.getElementById('voucherStats');
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #667eea;">${stats.total}</div>
+                        <div style="font-size: 12px; color: #666;">Total Vouchers</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #28a745;">${stats.active}</div>
+                        <div style="font-size: 12px; color: #666;">Active</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #6c757d;">${stats.used}</div>
+                        <div style="font-size: 12px; color: #666;">Used</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #dc3545;">${stats.expired}</div>
+                        <div style="font-size: 12px; color: #666;">Expired</div>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div style="text-align: center; padding: 15px; background: #e7f3ff; border-radius: 8px;">
+                        <div style="font-size: 20px; font-weight: bold; color: #2196F3;">${stats.avgDiscount}%</div>
+                        <div style="font-size: 12px; color: #666;">Avg Discount</div>
+                    </div>
+                    <div style="text-align: center; padding: 15px; background: #e7f3ff; border-radius: 8px;">
+                        <div style="font-size: 20px; font-weight: bold; color: #2196F3;">${stats.redemptionRate}</div>
+                        <div style="font-size: 12px; color: #666;">Redemption Rate</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function redeemVoucherByCode() {
+            const voucherCode = document.getElementById('voucherCodeInput').value.trim();
+            const result = document.getElementById('voucherRedeemResult');
+            
+            if (!voucherCode) {
+                result.innerHTML = '<span style="color: red;">Please enter a voucher code</span>';
+                return;
+            }
+
+            const redemptionResult = voucherSystem.redeemVoucher(voucherCode, 'staff');
+            
+            if (redemptionResult.success) {
+                result.innerHTML = `<span style="color: green;">${redemptionResult.message}</span>`;
+                document.getElementById('voucherCodeInput').value = '';
+                
+                // Refresh the display
+                setTimeout(() => {
+                    refreshVouchers();
+                    if (document.getElementById('vouchersList')) {
+                        displayMemberVouchers();
+                    }
+                }, 1000);
+            } else {
+                result.innerHTML = `<span style="color: red;">${redemptionResult.message}</span>`;
+            }
+        }
+
+        function displayMemberVouchers() {
+            if (!clubManager.currentMember) return;
+            
+            const memberVouchers = voucherSystem.getMemberVouchers(clubManager.currentMember.jcId);
+            const container = document.getElementById('vouchersList');
+            
+            if (memberVouchers.length === 0) {
+                container.innerHTML = '<div class="activity-item">You don\'t have any discount vouchers yet. Redeem your points to get vouchers!</div>';
+                return;
+            }
+
+            let html = '';
+            memberVouchers.forEach(voucher => {
+                const statusClass = voucher.status === 'active' ? 'status-active' : 
+                                  voucher.status === 'used' ? 'status-used' : 'status-expired';
+                
+                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(voucher.qrCodeData)}`;
+                
+                html += `
+                    <div class="voucher-item ${voucher.status}">
+                        <div style="display: flex; justify-content: between; align-items: start;">
+                            <div style="flex: 1;">
+                                <h4 style="margin: 0 0 5px;">${voucher.discountPercentage}% Discount Voucher</h4>
+                                <div class="voucher-code">${voucher.code}</div>
+                                <p style="margin: 5px 0; font-size: 12px; color: #666;">
+                                    Created: ${new Date(voucher.createdDate).toLocaleDateString()} | 
+                                    Expires: ${new Date(voucher.expiryDate).toLocaleDateString()}
+                                    ${voucher.usedDate ? ` | Used: ${new Date(voucher.usedDate).toLocaleDateString()}` : ''}
+                                </p>
+                                <span class="voucher-status ${statusClass}">${voucher.status.toUpperCase()}</span>
+                                ${voucher.status === 'active' ? `
+                                    <p style="margin: 10px 0 0; font-size: 12px; color: #666;">
+                                        Show this QR code or provide the voucher code at checkout
+                                    </p>
+                                ` : ''}
+                            </div>
+                            <div class="voucher-qr">
+                                <img src="${qrCodeUrl}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 5px; padding: 5px; background: white;">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // UPDATED: Update member card with member data - IMPROVED
+        function updateMemberCard(member) {
+            const memberCard = document.getElementById('memberCard');
+            const cardHolderName = document.getElementById('cardHolderName');
+            const cardNumber = document.getElementById('cardNumber');
+            const cardTier = document.getElementById('cardTier');
+            const cardDate = document.getElementById('cardDate');
+            
+            // Update card styling based on tier with realistic colors
+            memberCard.className = 'member-card ' + member.tier.toLowerCase();
+            
+            // Update card details
+            cardHolderName.textContent = member.name.toUpperCase();
+            cardTier.textContent = member.tier;
+            
+            // Format JC ID as card number with proper spacing and styling
+            const jcId = member.jcId;
+            // Format as JC XXXX XXXX XXXX (group in 4s)
+            const formattedNumber = jcId.replace(/(.{2})(.{4})(.{4})(.{4})/, '$1 $2 $3 $4');
+            cardNumber.innerHTML = formattedNumber.split('').map(char => {
+                return char === ' ' ? ' ' : `<span>${char}</span>`;
+            }).join('');
+            
+            // Set card creation date in MM/YY format
+            const joinedDate = new Date(member.joinedDate);
+            const month = String(joinedDate.getMonth() + 1).padStart(2, '0');
+            const year = String(joinedDate.getFullYear()).slice(-2);
+            cardDate.textContent = `${month}/${year}`;
+        }
+
+        // UPDATED updateDashboard function to include voucher display
+        async function updateDashboard(member) {
+            document.getElementById('memberJcId').textContent = member.jcId;
+            document.getElementById('memberName').textContent = member.name;
+            document.getElementById('memberEmail').textContent = member.email;
+            document.getElementById('memberLoginMethod').textContent = member.loginMethod === 'google' ? 'Google' : 'Email';
+            document.getElementById('memberTier').textContent = member.tier;
+            document.getElementById('memberTier').className = 'tier-' + member.tier.toLowerCase();
+            document.getElementById('memberPoints').textContent = member.points.toLocaleString();
+            document.getElementById('memberReferralCode').textContent = member.referralCode;
+            document.getElementById('totalSpent').textContent = member.totalSpent.toLocaleString() + ' UGX';
+            
+            // Update the member card
+            updateMemberCard(member);
+            
+            const referralStats = await clubManager.getReferralStats(member.id);
+            document.getElementById('referralStats').innerHTML = 'Referrals: ' + referralStats.totalReferrals + ' friends, Earned: ' + referralStats.totalPoints + ' points';
+            
+            // Update newsletter status
+            const newsletterStatus = await clubManager.getNewsletterStatus(member.email);
+            const newsletterButton = document.getElementById('newsletterToggle');
+            if (newsletterButton) {
+                newsletterButton.textContent = newsletterStatus ? 
+                    'Unsubscribe from Newsletter' : 
+                    'Subscribe to Newsletter';
+            }
+            
+            updateTierProgress(member);
+            updateActivityLog(member);
+            displayMemberVouchers(); // NEW: Display member's vouchers
+        }
 
         // Google Sign-In Functions
         function initializeGoogleSignIn() {
@@ -4256,6 +4816,7 @@
             document.getElementById('deleteMemberSection').classList.add('hidden');
             document.getElementById('passwordResetSection').classList.add('hidden');
             document.getElementById('analyticsSection').classList.add('hidden');
+            document.getElementById('voucherManagementSection').classList.add('hidden');
             await viewAllMembers();
         }
 
@@ -4267,68 +4828,9 @@
             document.getElementById('adminSection').classList.add('hidden');
             document.getElementById('passwordResetSection').classList.add('hidden');
             document.getElementById('analyticsSection').classList.add('hidden');
+            document.getElementById('voucherManagementSection').classList.add('hidden');
             
             updateDashboard(member);
-        }
-
-        // UPDATED FUNCTION: Update member card with member data - IMPROVED
-        function updateMemberCard(member) {
-            const memberCard = document.getElementById('memberCard');
-            const cardHolderName = document.getElementById('cardHolderName');
-            const cardNumber = document.getElementById('cardNumber');
-            const cardTier = document.getElementById('cardTier');
-            const cardDate = document.getElementById('cardDate');
-            
-            // Update card styling based on tier with realistic colors
-            memberCard.className = 'member-card ' + member.tier.toLowerCase();
-            
-            // Update card details
-            cardHolderName.textContent = member.name.toUpperCase();
-            cardTier.textContent = member.tier;
-            
-            // Format JC ID as card number with proper spacing and styling
-            const jcId = member.jcId;
-            // Format as JC XXXX XXXX XXXX (group in 4s)
-            const formattedNumber = jcId.replace(/(.{2})(.{4})(.{4})(.{4})/, '$1 $2 $3 $4');
-            cardNumber.innerHTML = formattedNumber.split('').map(char => {
-                return char === ' ' ? ' ' : `<span>${char}</span>`;
-            }).join('');
-            
-            // Set card creation date in MM/YY format
-            const joinedDate = new Date(member.joinedDate);
-            const month = String(joinedDate.getMonth() + 1).padStart(2, '0');
-            const year = String(joinedDate.getFullYear()).slice(-2);
-            cardDate.textContent = `${month}/${year}`;
-        }
-
-        async function updateDashboard(member) {
-            document.getElementById('memberJcId').textContent = member.jcId;
-            document.getElementById('memberName').textContent = member.name;
-            document.getElementById('memberEmail').textContent = member.email;
-            document.getElementById('memberLoginMethod').textContent = member.loginMethod === 'google' ? 'Google' : 'Email';
-            document.getElementById('memberTier').textContent = member.tier;
-            document.getElementById('memberTier').className = 'tier-' + member.tier.toLowerCase();
-            document.getElementById('memberPoints').textContent = member.points.toLocaleString();
-            document.getElementById('memberReferralCode').textContent = member.referralCode;
-            document.getElementById('totalSpent').textContent = member.totalSpent.toLocaleString() + ' UGX';
-            
-            // Update the member card
-            updateMemberCard(member);
-            
-            const referralStats = await clubManager.getReferralStats(member.id);
-            document.getElementById('referralStats').innerHTML = 'Referrals: ' + referralStats.totalReferrals + ' friends, Earned: ' + referralStats.totalPoints + ' points';
-            
-            // Update newsletter status
-            const newsletterStatus = await clubManager.getNewsletterStatus(member.email);
-            const newsletterButton = document.getElementById('newsletterToggle');
-            if (newsletterButton) {
-                newsletterButton.textContent = newsletterStatus ? 
-                    'Unsubscribe from Newsletter' : 
-                    'Subscribe to Newsletter';
-            }
-            
-            updateTierProgress(member);
-            updateActivityLog(member);
         }
 
         function updateTierProgress(member) {
@@ -4369,6 +4871,7 @@
             document.getElementById('adminSection').classList.add('hidden');
             document.getElementById('passwordResetSection').classList.add('hidden');
             document.getElementById('analyticsSection').classList.add('hidden');
+            document.getElementById('voucherManagementSection').classList.add('hidden');
         }
 
         function showSignupScreen() {
@@ -4378,6 +4881,7 @@
             document.getElementById('adminSection').classList.add('hidden');
             document.getElementById('passwordResetSection').classList.add('hidden');
             document.getElementById('analyticsSection').classList.add('hidden');
+            document.getElementById('voucherManagementSection').classList.add('hidden');
         }
 
         function showPasswordResetScreen() {
@@ -4387,6 +4891,7 @@
             document.getElementById('adminSection').classList.add('hidden');
             document.getElementById('passwordResetSection').classList.remove('hidden');
             document.getElementById('analyticsSection').classList.add('hidden');
+            document.getElementById('voucherManagementSection').classList.add('hidden');
             
             // Clear any previous messages
             document.getElementById('resetRequestResult').innerHTML = '';
@@ -4527,6 +5032,7 @@
             document.getElementById('adminSection').classList.add('hidden');
             document.getElementById('passwordResetSection').classList.add('hidden');
             document.getElementById('analyticsSection').classList.remove('hidden');
+            document.getElementById('voucherManagementSection').classList.add('hidden');
             
             await generateAnalyticsReport();
         }
@@ -4834,8 +5340,9 @@
             if (result.success) {
                 showDashboard(clubManager.currentMember);
                 let message = result.discountPercentage + '% discount voucher generated!\n\n';
+                message += 'Voucher Code: ' + result.voucher.code + '\n';
                 message += result.emailSent 
-                    ? 'Voucher email sent to your inbox!'
+                    ? 'Voucher email sent to your inbox with QR code!'
                     : 'Voucher details saved (check console for email content)';
                 
                 alert(message);
