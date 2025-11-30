@@ -492,26 +492,27 @@
             box-shadow: 0 0 5px rgba(255,255,255,0.3);
         }
 
-        /* Chat Bot Styles */
+        
+                /* Chat Bot Styles */
         .chat-bot-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 320px;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    max-height: 400px;
-    border: 2px solid #667eea;
-}
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 280px;
+            height: 350px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #667eea;
+        }
 
         .chat-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 15px;
+            padding: 12px;
             border-radius: 15px 15px 0 0;
             display: flex;
             justify-content: space-between;
@@ -520,17 +521,18 @@
 
         .chat-messages {
             flex: 1;
-            padding: 15px;
+            padding: 10px;
             overflow-y: auto;
-            max-height: 300px;
+            max-height: 220px;
         }
 
         .chat-message {
-            margin-bottom: 10px;
-            padding: 10px 15px;
-            border-radius: 18px;
-            max-width: 80%;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            max-width: 85%;
             word-wrap: break-word;
+            font-size: 13px;
         }
 
         .user-message {
@@ -548,18 +550,19 @@
         }
 
         .chat-input-container {
-            padding: 15px;
+            padding: 10px;
             border-top: 1px solid #eee;
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
 
         .chat-input {
             flex: 1;
-            padding: 10px;
+            padding: 8px;
             border: 1px solid #ddd;
-            border-radius: 20px;
+            border-radius: 15px;
             outline: none;
+            font-size: 13px;
         }
 
         .chat-send-btn {
@@ -567,12 +570,13 @@
             color: white;
             border: none;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 35px;
+            height: 35px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 14px;
         }
 
         /* Analytics Styles */
@@ -703,7 +707,6 @@
             justify-content: center;
             font-size: 24px;
         }
-
         /* NEW VOUCHER MANAGEMENT STYLES */
         .voucher-management-section {
             margin-top: 30px;
@@ -1116,21 +1119,22 @@
         </div>
 
         <!-- Analytics Section -->
-        <div id="analyticsSection" class="card hidden">
-            <div class="nav-buttons">
-                <button class="btn secondary" onclick="showAdminPanel()">Back to Admin</button>
-                <button class="btn" onclick="generateAnalyticsReport()">Refresh Analytics</button>
-            </div>
+<div id="analyticsSection" class="card hidden">
+    <div class="nav-buttons">
+        <button class="btn secondary" onclick="showAdminPanel()">Back to Admin</button>
+        <button class="btn" onclick="generateAnalyticsReport()">Refresh Analytics</button>
+        <button class="btn" onclick="showAnalyticsManagement()" style="background: #dc3545;">Manage Data</button>
+    </div>
 
-            <h2 class="section-title">📊 Advanced Analytics Dashboard</h2>
-            
-            <div id="analyticsContent">
-                <div style="text-align: center; padding: 40px; color: #666;">
-                    <h3>Loading Analytics...</h3>
-                    <p>Generating comprehensive business insights...</p>
-                </div>
-            </div>
+    <h2 class="section-title">📊 Advanced Analytics Dashboard</h2>
+    
+    <div id="analyticsContent">
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <h3>Loading Analytics...</h3>
+            <p>Generating comprehensive business insights...</p>
         </div>
+    </div>
+</div>
 
         <!-- Delete Member Section -->
         <div id="deleteMemberSection" class="card hidden">
@@ -1184,8 +1188,8 @@
     <p style="color: #666; margin-top: 15px;">Scan to share with friends</p>
 </div>
 
-    <!-- Chat Bot Toggle Button -->
-    <button class="chat-toggle" onclick="showChatBot()">💬</button>
+        <!-- Chat Bot Toggle Button -->
+    <button class="chat-toggle" onclick="toggleChatBot()">💬</button>
 
     <!-- Chat Bot Container -->
     <div id="chatBotContainer" class="chat-bot-container hidden">

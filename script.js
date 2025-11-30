@@ -316,6 +316,129 @@ class AnalyticsEngine {
         return referrers.sort((a, b) => b.referrals - a.referrals).slice(0, 5);
     }
 }
+
+// Analytics Data Management Functions
+function showAnalyticsManagement() {
+    if (!clubManager.isAdmin) {
+        showAdminLogin();
+        return;
+    }
+    
+    document.getElementById('analyticsContent').innerHTML = `
+        <div class="analytics-section">
+            <h3>🗑️ Analytics Data Management</h3>
+            <div class="info-card" style="border-left-color: #dc3545;">
+                <h4 style="color: #dc3545;">Clear Analytics Data</h4>
+                <p>Warning: These actions cannot be undone!</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
+                    <button class="btn" style="background: #dc3545;" onclick="clearEngagementMetrics()">
+                        Clear Engagement Metrics
+                    </button>
+                    <button class="btn" style="background: #dc3545;" onclick="clearPurchaseInsights()">
+                        Clear Purchase Insights
+                    </button>
+                    <button class="btn" style="background: #dc3545;" onclick="clearMonthlyTrends()">
+                        Clear Monthly Trends
+                    </button>
+                    <button class="btn" style="background: #dc3545;" onclick="clearAllAnalytics()">
+                        Clear ALL Analytics
+                    </button>
+                </div>
+                
+                <div id="analyticsManagementResult" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+    `;
+}
+
+function clearEngagementMetrics() {
+    if (!confirm('Clear all engagement metrics? This will remove login frequency, redemption rates, and referral data.')) return;
+    
+    const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
+    analyticsData.memberEngagement = {
+        loginFrequency: {},
+        pointsRedemptionRate: {},
+        tierProgressionSpeed: {},
+        referralEffectiveness: {}
+    };
+    
+    localStorage.setItem('jeansClubAnalytics', JSON.stringify(analyticsData));
+    document.getElementById('analyticsManagementResult').innerHTML = 
+        '<span style="color: green;">✅ Engagement metrics cleared successfully!</span>';
+    
+    setTimeout(() => {
+        generateAnalyticsReport();
+    }, 1500);
+}
+
+function clearPurchaseInsights() {
+    if (!confirm('Clear all purchase insights? This will remove spending patterns and transaction data.')) return;
+    
+    const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
+    analyticsData.purchasePatterns = {
+        averageSpend: {},
+        purchaseFrequency: {},
+        pointsAccumulationRate: {},
+        seasonalTrends: {}
+    };
+    
+    localStorage.setItem('jeansClubAnalytics', JSON.stringify(analyticsData));
+    document.getElementById('analyticsManagementResult').innerHTML = 
+        '<span style="color: green;">✅ Purchase insights cleared successfully!</span>';
+    
+    setTimeout(() => {
+        generateAnalyticsReport();
+    }, 1500);
+}
+
+function clearMonthlyTrends() {
+    if (!confirm('Clear monthly trends data?')) return;
+    
+    const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
+    if (analyticsData.purchasePatterns) {
+        analyticsData.purchasePatterns.seasonalTrends = {};
+    }
+    
+    localStorage.setItem('jeansClubAnalytics', JSON.stringify(analyticsData));
+    document.getElementById('analyticsManagementResult').innerHTML = 
+        '<span style="color: green;">✅ Monthly trends cleared successfully!</span>';
+    
+    setTimeout(() => {
+        generateAnalyticsReport();
+    }, 1500);
+}
+
+function clearAllAnalytics() {
+    if (!confirm('Clear ALL analytics data? This will reset everything to empty and cannot be undone!')) return;
+    
+    localStorage.setItem('jeansClubAnalytics', JSON.stringify({
+        memberEngagement: {
+            loginFrequency: {},
+            pointsRedemptionRate: {},
+            tierProgressionSpeed: {},
+            referralEffectiveness: {}
+        },
+        purchasePatterns: {
+            averageSpend: {},
+            purchaseFrequency: {},
+            pointsAccumulationRate: {},
+            seasonalTrends: {}
+        },
+        tierPerformance: {
+            tierDistribution: {},
+            retentionByTier: {},
+            spendingByTier: {}
+        }
+    }));
+    
+    document.getElementById('analyticsManagementResult').innerHTML = 
+        '<span style="color: green;">✅ ALL analytics data cleared successfully!</span>';
+    
+    setTimeout(() => {
+        generateAnalyticsReport();
+    }, 1500);
+}
 // SECURE VOUCHER SYSTEM IMPLEMENTATION
 class VoucherSystem {
     constructor() {
@@ -324,7 +447,7 @@ class VoucherSystem {
         this.encryptionKey = 'jeansclub_voucher_2024_secret';
     }
 
-    generateVoucherCode() {
+        generateVoucherCode() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let code = '';
         for (let i = 0; i < 10; i++) {
@@ -723,7 +846,7 @@ function displayVoucherStats() {
     `;
 }
 
-async function redeemVoucherByCode() {
+    async function redeemVoucherByCode() {
     const voucherCode = document.getElementById('voucherCodeInput').value.trim();
     const result = document.getElementById('voucherRedeemResult');
     
@@ -732,7 +855,7 @@ async function redeemVoucherByCode() {
         return;
     }
 
-    // Get salesperson name instead of staff ID
+    // Get salesperson name - REQUIRED
     const salespersonName = prompt("Please enter your name (salesperson):");
     if (!salespersonName || salespersonName.trim() === '') {
         result.innerHTML = '<span style="color: red;">Salesperson name is required to redeem voucher</span>';
@@ -774,7 +897,7 @@ async function redeemVoucherByCode() {
     } catch (error) {
         result.innerHTML = `<span style="color: red;">❌ Validation error: ${error.message}</span>`;
     }
-}
+}       
 
 function displayMemberVouchers() {
     if (!clubManager.currentMember) return;
@@ -3492,7 +3615,67 @@ class JeansClubManager {
         console.log('Reset all data - would need Supabase implementation');
     }
 }
+function showAnalyticsManagement() {
+    if (!clubManager.isAdmin) {
+        showAdminLogin();
+        return;
+    }
+    
+    const action = prompt(`Analytics Data Management:\n\n1 - Reset Analytics Data\n2 - Export Analytics Data\n3 - View Data Statistics\n\nEnter choice (1-3):`);
+    
+    switch(action) {
+        case '1':
+            if (confirm('WARNING: This will permanently delete all analytics data. Continue?')) {
+                localStorage.removeItem('jeansClubAnalytics');
+                clubManager.analytics = new AnalyticsEngine();
+                alert('Analytics data reset successfully!');
+                generateAnalyticsReport();
+            }
+            break;
+        case '2':
+            exportAnalyticsData();
+            break;
+        case '3':
+            showDataStatistics();
+            break;
+        default:
+            alert('Invalid choice or cancelled.');
+    }
+}
 
+function exportAnalyticsData() {
+    const analyticsData = localStorage.getItem('jeansClubAnalytics');
+    if (!analyticsData) {
+        alert('No analytics data to export.');
+        return;
+    }
+    
+    const blob = new Blob([analyticsData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `jeansclub-analytics-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    alert('Analytics data exported successfully!');
+}
+
+function showDataStatistics() {
+    const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
+    const stats = voucherSystem.getVoucherStats();
+    
+    let message = '📊 Data Statistics:\n\n';
+    message += `Analytics Records: ${Object.keys(analyticsData.memberEngagement?.loginFrequency || {}).length} members\n`;
+    message += `Total Vouchers: ${stats.total}\n`;
+    message += `Active Vouchers: ${stats.active}\n`;
+    message += `Used Vouchers: ${stats.used}\n`;
+    message += `Expired Vouchers: ${stats.expired}\n`;
+    message += `Redemption Rate: ${stats.redemptionRate}\n`;
+    
+    alert(message);
+}
 // Initialize the system
 const clubManager = new JeansClubManager();
 
@@ -3855,7 +4038,7 @@ async function sendNewsletter() {
 }
 
 // AI Chat Bot Functions
-function showChatBot() {
+function toggleChatBot() {
     const chatContainer = document.getElementById('chatBotContainer');
     const isHidden = chatContainer.classList.contains('hidden');
     
@@ -3871,12 +4054,10 @@ function showChatBot() {
     }
 }
 
-// Add separate close function for the X button
 function closeChatBot() {
     const chatContainer = document.getElementById('chatBotContainer');
     chatContainer.classList.add('hidden');
 }
-
 function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
