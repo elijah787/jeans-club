@@ -3617,37 +3617,47 @@ class JeansClubManager {
     }
 
     async redeemPoints(pointsToUse) {
-        if (!this.currentMember) return { success: false, message: "No member logged in" };
+    if (!this.currentMember) return { success: false, message: "No member logged in" };
 
-        const discountCalc = this.calculateDiscount(pointsToUse);
-        if (!discountCalc.success) return discountCalc;
+    const discountCalc = this.calculateDiscount(pointsToUse);
+    if (!discountCalc.success) return discountCalc;
 
-        const member = this.currentMember;
-        member.points -= discountCalc.pointsUsed;
-        member.tier = this.calculateTier(member.points);
-        
-        // Track analytics
-        this.analytics.trackRedemption(member.jcId, discountCalc.pointsUsed);
-        
-        await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
+    const member = this.currentMember;
+    member.points -= discountCalc.pointsUsed;
+    member.tier = this.calculateTier(member.points);
+    
+    // Track analytics
+    this.analytics.trackRedemption(member.jcId, discountCalc.pointsUsed);
+    
+    await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
 
-        // Save updated member to Supabase
-        if (!await this.db.saveMember(member)) {
-            return { success: false, message: "Failed to update member data" };
-        }
-
-        this.saveCurrentMember();
-
-        // Send discount voucher email
-        const emailResult = await this.emailService.sendDiscountEmail(member.email, member, discountCalc);
-
-        return {
-            success: true,
-            pointsUsed: discountCalc.pointsUsed,
-            discountPercentage: discountPercentage,
-            emailSent: emailResult.success
-        };
+    // Save updated member to Supabase
+    if (!await this.db.saveMember(member)) {
+        return { success: false, message: "Failed to update member data" };
     }
+
+    this.saveCurrentMember();
+
+    // Create the actual voucher
+    const voucher = voucherSystem.createVoucher(
+        member.jcId,
+        member.name,
+        discountCalc.pointsUsed,
+        parseFloat(discountCalc.discountPercentage),
+        30 // 30 days expiry
+    );
+
+    // Send discount voucher email
+    const emailResult = await this.emailService.sendDiscountEmail(member.email, member, discountCalc);
+
+    return {
+        success: true,
+        pointsUsed: discountCalc.pointsUsed,
+        discountPercentage: discountCalc.discountPercentage,  // ✅ FIXED
+        emailSent: emailResult.success,
+        voucher: voucher
+    };
+}
 
     async logActivity(memberId, message, points) {
         const allMembers = await this.db.getAllMembers();
