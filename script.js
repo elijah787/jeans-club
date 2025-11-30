@@ -4058,6 +4058,15 @@ function closeChatBot() {
     const chatContainer = document.getElementById('chatBotContainer');
     chatContainer.classList.add('hidden');
 }
+function toggleChatBot() {
+    const chatContainer = document.getElementById('chatBotContainer');
+    if (chatContainer.classList.contains('hidden')) {
+        chatContainer.classList.remove('hidden');
+        document.getElementById('chatMessages').innerHTML = '<div class="chat-message bot-message">Hello! I\'m your Jeans Club assistant. How can I help you today?</div>';
+    } else {
+        chatContainer.classList.add('hidden');
+    }
+}
 function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
