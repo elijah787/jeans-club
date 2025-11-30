@@ -1,8 +1,58 @@
+
 // Import Supabase
 const { createClient } = supabase;
 
-// AI Chat Bot Database - REMOVED
-// All AI chat bot related functions and database have been removed
+// AI Chat Bot Database
+const qaDatabase = {
+    // Points & Rewards
+    "how to earn points": "You earn points by making purchases at Jeans Club! Each UGX 750 spent = 1 base point, multiplied by your tier bonus. Plus, you get 10 welcome points when joining!",
+    "how do i earn points": "You earn points by making purchases at Jeans Club! Each UGX 750 spent = 1 base point, multiplied by your tier bonus. Plus, you get 10 welcome points when joining!",
+    "points system": "We have a tier-based points system: Pearl (1x), Bronze (1.1x), Silver (1.25x), Gold (1.4x), Platinum (1.6x). Every UGX 750 = 1 point, then multiplied by your tier multiplier.",
+    
+    // Tiers
+    "what are the tiers": "We have 5 exciting tiers: Pearl (starting), Bronze (7,500+ points), Silver (25,000+), Gold (100,000+), Platinum (500,000+). Each tier gives you better point multipliers and higher discount limits!",
+    "tiers": "We have 5 exciting tiers: Pearl (starting), Bronze (7,500+ points), Silver (25,000+), Gold (100,000+), Platinum (500,000+). Each tier gives you better point multipliers and higher discount limits!",
+    "how to move up tiers": "Earn more points through purchases and referrals! Tier thresholds: Bronze (7,500), Silver (25,000), Gold (100,000), Platinum (500,000 points).",
+    
+    // Referrals
+    "how to refer friends": "Share your unique referral code from your dashboard! When friends join using your code: THEY get 20 points (10 welcome + 10 bonus), YOU get 100 points!",
+    "referral program": "Share your code and both you and your friend win! You get 100 points, they get 20 points when they sign up with your code.",
+    "referral benefits": "When you refer a friend: You earn 100 points immediately, your friend starts with 20 points instead of 10!",
+    
+    // Discounts
+    "how to get discount": "Redeem your points for discount vouchers! Go to your dashboard, enter points to use, and we'll email you a discount voucher.",
+    "redeem points": "In your dashboard, use the 'Redeem Points' section. Minimum 10 points required. We'll send the discount voucher to your email instantly!",
+    "discount voucher": "Convert your points to % discounts. Higher tiers can get bigger discounts! Vouchers are emailed to you and can be used in-store.",
+    
+    // Account Issues
+    "forgot password": "Click 'Forgot Password' on login, enter your JC ID, check your email for a reset code, then create a new password.",
+    "reset password": "Click 'Forgot Password' on login, enter your JC ID, check your email for a reset code, then create a new password.",
+    "lost jc id": "Please contact support with your registered email address to recover your JC ID.",
+    
+    // General
+    "what is jeans club": "Jeans Club is a loyalty program where you earn points for purchases, climb through tiers for better benefits, and get exclusive discounts!",
+    "how it works": "1. Sign up 2. Earn points with purchases 3. Move up tiers 4. Redeem points for discounts 5. Refer friends for bonus points!",
+    "benefits": "Earn points on purchases, get tier bonuses, redeem for discounts, refer friends for rewards, and receive exclusive member emails!"
+};
+
+function answerQuestion(question) {
+    const lowerQ = question.toLowerCase().trim();
+    
+    // Exact match first
+    if (qaDatabase[lowerQ]) {
+        return qaDatabase[lowerQ];
+    }
+    
+    // Keyword matching
+    for (const [key, answer] of Object.entries(qaDatabase)) {
+        if (lowerQ.includes(key)) {
+            return answer;
+        }
+    }
+    
+    // Default response for unknown questions
+    return "I'm not sure about that specific question. Please contact our support team for personalized assistance!";
+}
 
 // Advanced Analytics System
 class AnalyticsEngine {
@@ -266,787 +316,6 @@ class AnalyticsEngine {
 
         return referrers.sort((a, b) => b.referrals - a.referrals).slice(0, 5);
     }
-}
-
-function generateAnalyticsReport() {
-    if (clubManager && clubManager.analytics) {
-        const report = clubManager.analytics.generateAnalyticsReport();
-        displayAnalyticsReport(report);
-    } else {
-        console.log('Analytics engine not available');
-    }
-}
-
-function displayAnalyticsReport(report) {
-    const analyticsContent = document.getElementById('analyticsContent');
-    if (!analyticsContent) return;
-    
-    let html = `
-        <div class="analytics-summary">
-            <h3>📊 Analytics Summary</h3>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h4>Total Members</h4>
-                    <div class="stat-number">${report.summary.totalMembers}</div>
-                </div>
-                <div class="stat-card">
-                    <h4>Total Points</h4>
-                    <div class="stat-number">${report.summary.totalPoints.toLocaleString()}</div>
-                </div>
-                <div class="stat-card">
-                    <h4>Total Spent</h4>
-                    <div class="stat-number">${report.summary.totalSpent.toLocaleString()} UGX</div>
-                </div>
-                <div class="stat-card">
-                    <h4>Avg Points/Member</h4>
-                    <div class="stat-number">${report.summary.averagePointsPerMember}</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="analytics-section">
-            <h3>👥 Tier Distribution</h3>
-            <div class="tier-distribution">
-    `;
-    
-    // Tier distribution
-    Object.entries(report.tierDistribution).forEach(([tier, count]) => {
-        const percentage = report.summary.totalMembers > 0 ? 
-            Math.round((count / report.summary.totalMembers) * 100) : 0;
-        html += `
-            <div class="tier-dist-item">
-                <span class="tier-name tier-${tier.toLowerCase()}">${tier}</span>
-                <div class="tier-bar">
-                    <div class="tier-fill" style="width: ${percentage}%"></div>
-                </div>
-                <span class="tier-count">${count} (${percentage}%)</span>
-            </div>
-        `;
-    });
-    
-    html += `
-            </div>
-        </div>
-        
-        <div class="analytics-section">
-            <h3>📈 Engagement Metrics</h3>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h4>Active Members</h4>
-                    <div class="stat-number">${report.engagement.activeMembers}</div>
-                </div>
-                <div class="stat-card">
-                    <h4>Avg Logins/Member</h4>
-                    <div class="stat-number">${report.engagement.averageLogins}</div>
-                </div>
-                <div class="stat-card">
-                    <h4>Points Redemption Rate</h4>
-                    <div class="stat-number">${report.engagement.redemptionRate}</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="analytics-section">
-            <h3>💰 Purchase Insights</h3>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h4>Avg Transaction</h4>
-                    <div class="stat-number">${report.purchases.averageTransaction.toLocaleString()} UGX</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="analytics-section">
-            <h3>🏆 Top Performers</h3>
-            <div class="top-performers">
-                <h4>Top 5 Spenders</h4>
-                <div class="performers-list">
-    `;
-    
-    report.topPerformers.topSpenders.forEach((spender, index) => {
-        html += `
-            <div class="performer-item">
-                <span class="rank">${index + 1}.</span>
-                <span class="name">${spender.name}</span>
-                <span class="jc-id">(${spender.jcId})</span>
-                <span class="tier tier-${spender.tier.toLowerCase()}">${spender.tier}</span>
-                <span class="amount">${spender.totalSpent.toLocaleString()} UGX</span>
-            </div>
-        `;
-    });
-    
-    html += `
-                </div>
-                
-                <h4>Top 5 Referrers</h4>
-                <div class="performers-list">
-    `;
-    
-    report.topPerformers.topReferrers.forEach((referrer, index) => {
-        html += `
-            <div class="performer-item">
-                <span class="rank">${index + 1}.</span>
-                <span class="jc-id">${referrer.jcId}</span>
-                <span class="referrals">${referrer.referrals} referrals</span>
-            </div>
-        `;
-    });
-    
-    html += `
-                </div>
-            </div>
-        </div>
-        
-        <div class="analytics-section">
-            <h3>📅 Monthly Trends (Last 6 Months)</h3>
-            <div class="monthly-trends">
-    `;
-    
-    report.purchases.monthlyTrends.forEach(trend => {
-        html += `
-            <div class="trend-item">
-                <span class="month">${trend.month}</span>
-                <span class="avg-spend">Avg: ${trend.average.toLocaleString()} UGX</span>
-                <span class="transactions">${trend.transactions} transactions</span>
-            </div>
-        `;
-    });
-    
-    html += `
-            </div>
-        </div>
-    `;
-    
-    analyticsContent.innerHTML = html;
-}
-
-// Analytics Data Management Functions
-function showAnalyticsManagement() {
-    if (!clubManager.isAdmin) {
-        showAdminLogin();
-        return;
-    }
-    
-    document.getElementById('analyticsContent').innerHTML = `
-        <div class="analytics-section">
-            <h3>🗑️ Analytics Data Management</h3>
-            <div class="info-card" style="border-left-color: #dc3545;">
-                <h4 style="color: #dc3545;">Clear Analytics Data</h4>
-                <p>Warning: These actions cannot be undone!</p>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
-                    <button class="btn" style="background: #dc3545;" onclick="clearEngagementMetrics()">
-                        Clear Engagement Metrics
-                    </button>
-                    <button class="btn" style="background: #dc3545;" onclick="clearPurchaseInsights()">
-                        Clear Purchase Insights
-                    </button>
-                    <button class="btn" style="background: #dc3545;" onclick="clearMonthlyTrends()">
-                        Clear Monthly Trends
-                    </button>
-                    <button class="btn" style="background: #dc3545;" onclick="clearAllAnalytics()">
-                        Clear ALL Analytics
-                    </button>
-                </div>
-                
-                <div id="analyticsManagementResult" style="margin-top: 15px;"></div>
-            </div>
-        </div>
-    `;
-}
-
-function clearEngagementMetrics() {
-    if (!confirm('Clear all engagement metrics? This will remove login frequency, redemption rates, and referral data.')) return;
-    
-    const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
-    analyticsData.memberEngagement = {
-        loginFrequency: {},
-        pointsRedemptionRate: {},
-        tierProgressionSpeed: {},
-        referralEffectiveness: {}
-    };
-    
-    localStorage.setItem('jeansClubAnalytics', JSON.stringify(analyticsData));
-    document.getElementById('analyticsManagementResult').innerHTML = 
-        '<span style="color: green;">✅ Engagement metrics cleared successfully!</span>';
-    
-    setTimeout(() => {
-        generateAnalyticsReport();
-    }, 1500);
-}
-
-function clearPurchaseInsights() {
-    if (!confirm('Clear all purchase insights? This will remove spending patterns and transaction data.')) return;
-    
-    const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
-    analyticsData.purchasePatterns = {
-        averageSpend: {},
-        purchaseFrequency: {},
-        pointsAccumulationRate: {},
-        seasonalTrends: {}
-    };
-    
-    localStorage.setItem('jeansClubAnalytics', JSON.stringify(analyticsData));
-    document.getElementById('analyticsManagementResult').innerHTML = 
-        '<span style="color: green;">✅ Purchase insights cleared successfully!</span>';
-    
-    setTimeout(() => {
-        generateAnalyticsReport();
-    }, 1500);
-}
-
-function clearMonthlyTrends() {
-    if (!confirm('Clear monthly trends data?')) return;
-    
-    const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
-    if (analyticsData.purchasePatterns) {
-        analyticsData.purchasePatterns.seasonalTrends = {};
-    }
-    
-    localStorage.setItem('jeansClubAnalytics', JSON.stringify(analyticsData));
-    document.getElementById('analyticsManagementResult').innerHTML = 
-        '<span style="color: green;">✅ Monthly trends cleared successfully!</span>';
-    
-    setTimeout(() => {
-        generateAnalyticsReport();
-    }, 1500);
-}
-
-function clearAllAnalytics() {
-    if (!confirm('Clear ALL analytics data? This will reset everything to empty and cannot be undone!')) return;
-    
-    localStorage.setItem('jeansClubAnalytics', JSON.stringify({
-        memberEngagement: {
-            loginFrequency: {},
-            pointsRedemptionRate: {},
-            tierProgressionSpeed: {},
-            referralEffectiveness: {}
-        },
-        purchasePatterns: {
-            averageSpend: {},
-            purchaseFrequency: {},
-            pointsAccumulationRate: {},
-            seasonalTrends: {}
-        },
-        tierPerformance: {
-            tierDistribution: {},
-            retentionByTier: {},
-            spendingByTier: {}
-        }
-    }));
-    
-    document.getElementById('analyticsManagementResult').innerHTML = 
-        '<span style="color: green;">✅ ALL analytics data cleared successfully!</span>';
-    
-    setTimeout(() => {
-        generateAnalyticsReport();
-    }, 1500);
-}
-
-// SECURE VOUCHER SYSTEM IMPLEMENTATION
-class VoucherSystem {
-    constructor() {
-        this.vouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
-        this.voucherActivity = JSON.parse(localStorage.getItem('jeansClubVoucherActivity') || '[]');
-        this.encryptionKey = 'jeansclub_voucher_2024_secret';
-    }
-
-    generateVoucherCode() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let code = '';
-        for (let i = 0; i < 10; i++) {
-            code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return 'JC' + code;
-    }
-
-    // Simple encryption for voucher data
-    encryptVoucherData(data) {
-        try {
-            const dataString = JSON.stringify(data);
-            let result = '';
-            for (let i = 0; i < dataString.length; i++) {
-                result += String.fromCharCode(dataString.charCodeAt(i) ^ this.encryptionKey.charCodeAt(i % this.encryptionKey.length));
-            }
-            return btoa(result);
-        } catch (error) {
-            console.error('Encryption error:', error);
-            return JSON.stringify(data);
-        }
-    }
-
-    decryptVoucherData(encryptedData) {
-        try {
-            const decoded = atob(encryptedData);
-            let result = '';
-            for (let i = 0; i < decoded.length; i++) {
-                result += String.fromCharCode(decoded.charCodeAt(i) ^ this.encryptionKey.charCodeAt(i % this.encryptionKey.length));
-            }
-            return JSON.parse(result);
-        } catch (error) {
-            console.error('Decryption error:', error);
-            return null;
-        }
-    }
-
-    generateQRCodeData(voucherCode, memberJCId, discountPercentage) {
-        const voucherData = {
-            code: voucherCode,
-            memberJCId: memberJCId,
-            discount: discountPercentage,
-            timestamp: Date.now(),
-            type: 'jeansclub_voucher',
-            version: '2.0'
-        };
-        
-        return this.encryptVoucherData(voucherData);
-    }
-
-    createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
-        const voucherCode = this.generateVoucherCode();
-        const createdDate = new Date();
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + expiryDays);
-
-        const voucher = {
-            id: 'voucher_' + Date.now(),
-            code: voucherCode,
-            memberJCId: memberJCId,
-            memberName: memberName,
-            pointsUsed: pointsUsed,
-            discountPercentage: discountPercentage,
-            createdDate: createdDate.toISOString(),
-            expiryDate: expiryDate.toISOString(),
-            status: 'active',
-            usedDate: null,
-            qrCodeData: this.generateQRCodeData(voucherCode, memberJCId, discountPercentage),
-            // Server-side validation fields
-            signature: this.generateSignature(voucherCode, memberJCId, discountPercentage),
-            validated: false
-        };
-
-        this.vouchers.push(voucher);
-        this.saveVouchers();
-
-        this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
-
-        return voucher;
-    }
-
-    generateSignature(voucherCode, memberJCId, discountPercentage) {
-        const data = voucherCode + memberJCId + discountPercentage + Date.now();
-        let hash = 0;
-        for (let i = 0; i < data.length; i++) {
-            const char = data.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        return Math.abs(hash).toString(36);
-    }
-
-    validateVoucherSignature(voucher) {
-        const expectedSignature = this.generateSignature(voucher.code, voucher.memberJCId, voucher.discountPercentage);
-        return voucher.signature === expectedSignature;
-    }
-
-    getMemberVouchers(memberJCId) {
-        return this.vouchers.filter(v => v.memberJCId === memberJCId)
-            .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-    }
-
-    getAllVouchers() {
-        return this.vouchers.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-    }
-
-    getVoucherByCode(code) {
-        return this.vouchers.find(v => v.code === code);
-    }
-
-    redeemVoucher(voucherCode, redeemedBy = 'system') {
-        const voucher = this.getVoucherByCode(voucherCode);
-        if (!voucher) {
-            return { success: false, message: "Voucher not found" };
-        }
-
-        // Server-side validation simulation
-        if (!this.validateVoucherSignature(voucher)) {
-            return { success: false, message: "Voucher validation failed" };
-        }
-
-        if (voucher.status === 'used') {
-            return { success: false, message: "Voucher has already been used" };
-        }
-
-        if (voucher.status === 'expired') {
-            return { success: false, message: "Voucher has expired" };
-        }
-
-        if (new Date() > new Date(voucher.expiryDate)) {
-            voucher.status = 'expired';
-            this.saveVouchers();
-            return { success: false, message: "Voucher has expired" };
-        }
-
-        voucher.status = 'used';
-        voucher.usedDate = new Date().toISOString();
-        voucher.redeemedBy = redeemedBy;
-        voucher.validated = true;
-        this.saveVouchers();
-
-        this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
-
-        return { 
-            success: true, 
-            message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
-            voucher: voucher
-        };
-    }
-
-    updateVoucherStatuses() {
-        const now = new Date();
-        let updated = false;
-
-        this.vouchers.forEach(voucher => {
-            if (voucher.status === 'active' && new Date(voucher.expiryDate) < now) {
-                voucher.status = 'expired';
-                updated = true;
-            }
-        });
-
-        if (updated) {
-            this.saveVouchers();
-        }
-    }
-
-    getVoucherStats() {
-        this.updateVoucherStatuses();
-        
-        const total = this.vouchers.length;
-        const active = this.vouchers.filter(v => v.status === 'active').length;
-        const used = this.vouchers.filter(v => v.status === 'used').length;
-        const expired = this.vouchers.filter(v => v.status === 'expired').length;
-        
-        const totalDiscount = this.vouchers
-            .filter(v => v.status === 'used')
-            .reduce((sum, v) => sum + v.discountPercentage, 0);
-        
-        const avgDiscount = used > 0 ? (totalDiscount / used).toFixed(1) : 0;
-
-        return {
-            total,
-            active,
-            used,
-            expired,
-            avgDiscount,
-            redemptionRate: total > 0 ? ((used / total) * 100).toFixed(1) + '%' : '0%'
-        };
-    }
-
-    logVoucherActivity(voucherCode, action, memberJCId, description) {
-        const activity = {
-            timestamp: new Date().toISOString(),
-            voucherCode: voucherCode,
-            action: action,
-            memberJCId: memberJCId,
-            description: description
-        };
-
-        this.voucherActivity.unshift(activity);
-        if (this.voucherActivity.length > 100) {
-            this.voucherActivity = this.voucherActivity.slice(0, 100);
-        }
-        localStorage.setItem('jeansClubVoucherActivity', JSON.stringify(this.voucherActivity));
-    }
-
-    saveVouchers() {
-        localStorage.setItem('jeansClubVouchers', JSON.stringify(this.vouchers));
-    }
-}
-
-// Initialize voucher system
-const voucherSystem = new VoucherSystem();
-
-// Server-Side Validation Simulation
-class ServerValidation {
-    constructor() {
-        this.apiEndpoint = 'https://uoyzsyxjrfygrsfzhlao.supabase.co/rest/v1/';
-        this.apiKey = 'sb_publishable__gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA';
-    }
-
-    async validateVoucherOnServer(voucherCode) {
-        try {
-            // Simulate server validation - in production, this would be a real API call
-            console.log('🔐 Validating voucher on server:', voucherCode);
-            
-            // For demo purposes, we'll simulate server validation
-            // In production, you would make a real API call to your backend
-            const response = await this.simulateServerValidation(voucherCode);
-            
-            return response;
-        } catch (error) {
-            console.error('Server validation error:', error);
-            return { valid: false, error: 'Server validation failed' };
-        }
-    }
-
-    async simulateServerValidation(voucherCode) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Get voucher from local storage (in production, this would be from your database)
-        const vouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
-        const voucher = vouchers.find(v => v.code === voucherCode);
-        
-        if (!voucher) {
-            return { valid: false, error: 'Voucher not found in database' };
-        }
-
-        if (voucher.status !== 'active') {
-            return { valid: false, error: `Voucher is ${voucher.status}` };
-        }
-
-        if (new Date(voucher.expiryDate) < new Date()) {
-            return { valid: false, error: 'Voucher has expired' };
-        }
-
-        // Additional server-side checks
-        if (!voucher.signature) {
-            return { valid: false, error: 'Invalid voucher signature' };
-        }
-
-        return { 
-            valid: true, 
-            voucher: voucher,
-            message: 'Voucher validated successfully'
-        };
-    }
-
-    async logVoucherRedemption(voucherCode, salespersonName, location = 'store') {
-        try {
-            console.log('📝 Logging voucher redemption:', voucherCode);
-            // In production, this would log to your database
-            const redemptionLog = JSON.parse(localStorage.getItem('voucherRedemptions') || '[]');
-            
-            redemptionLog.unshift({
-                voucherCode: voucherCode,
-                salespersonName: salespersonName,
-                location: location,
-                timestamp: new Date().toISOString()
-            });
-            
-            localStorage.setItem('voucherRedemptions', JSON.stringify(redemptionLog));
-            
-            return { success: true };
-        } catch (error) {
-            console.error('Redemption logging error:', error);
-            return { success: false, error: error.message };
-        }
-    }
-}
-
-// Initialize server validation
-const serverValidator = new ServerValidation();
-
-// NEW VOUCHER MANAGEMENT FUNCTIONS
-function showVoucherManagementPanel() {
-    if (!clubManager.isAdmin) {
-        showAdminLogin();
-        return;
-    }
-    
-    document.getElementById('signupSection').classList.add('hidden');
-    document.getElementById('loginSection').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-    document.getElementById('adminSection').classList.add('hidden');
-    document.getElementById('passwordResetSection').classList.add('hidden');
-    document.getElementById('analyticsSection').classList.add('hidden');
-    document.getElementById('deleteMemberSection').classList.add('hidden');
-    document.getElementById('voucherManagementSection').classList.remove('hidden');
-    
-    refreshVouchers();
-}
-
-function refreshVouchers() {
-    voucherSystem.updateVoucherStatuses();
-    displayAllVouchers();
-    displayVoucherStats();
-}
-
-function displayAllVouchers() {
-    const allVouchers = voucherSystem.getAllVouchers();
-    const container = document.getElementById('allVouchersList');
-    
-    if (allVouchers.length === 0) {
-        container.innerHTML = '<div class="activity-item">No vouchers have been created yet.</div>';
-        return;
-    }
-
-    let html = '';
-    allVouchers.forEach(voucher => {
-        const statusClass = voucher.status === 'active' ? 'status-active' : 
-                          voucher.status === 'used' ? 'status-used' : 'status-expired';
-        
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(voucher.qrCodeData)}`;
-        
-        html += `
-            <div class="voucher-item ${voucher.status}">
-                <div style="display: flex; justify-content: between; align-items: start;">
-                    <div style="flex: 1;">
-                        <h4 style="margin: 0 0 5px;">${voucher.memberName} (${voucher.memberJCId})</h4>
-                        <p style="margin: 0 0 5px; font-size: 18px; font-weight: bold; color: #e67e22;">${voucher.discountPercentage}% Discount</p>
-                        <div class="voucher-code">${voucher.code}</div>
-                        <p style="margin: 5px 0; font-size: 12px; color: #666;">
-                            Created: ${new Date(voucher.createdDate).toLocaleDateString()} | 
-                            Expires: ${new Date(voucher.expiryDate).toLocaleDateString()}
-                            ${voucher.usedDate ? ` | Used: ${new Date(voucher.usedDate).toLocaleDateString()}` : ''}
-                        </p>
-                        <span class="voucher-status ${statusClass}">${voucher.status.toUpperCase()}</span>
-                    </div>
-                    <div class="voucher-qr">
-                        <img src="${qrCodeUrl}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 5px; padding: 5px; background: white;">
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
-}
-
-function displayVoucherStats() {
-    const stats = voucherSystem.getVoucherStats();
-    const container = document.getElementById('voucherStats');
-    
-    container.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
-            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                <div style="font-size: 24px; font-weight: bold; color: #667eea;">${stats.total}</div>
-                <div style="font-size: 12px; color: #666;">Total Vouchers</div>
-            </div>
-            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                <div style="font-size: 24px; font-weight: bold; color: #28a745;">${stats.active}</div>
-                <div style="font-size: 12px; color: #666;">Active</div>
-            </div>
-            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                <div style="font-size: 24px; font-weight: bold; color: #6c757d;">${stats.used}</div>
-                <div style="font-size: 12px; color: #666;">Used</div>
-            </div>
-            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                <div style="font-size: 24px; font-weight: bold; color: #dc3545;">${stats.expired}</div>
-                <div style="font-size: 12px; color: #666;">Expired</div>
-            </div>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-            <div style="text-align: center; padding: 15px; background: #e7f3ff; border-radius: 8px;">
-                <div style="font-size: 20px; font-weight: bold; color: #2196F3;">${stats.avgDiscount}%</div>
-                <div style="font-size: 12px; color: #666;">Avg Discount</div>
-            </div>
-            <div style="text-align: center; padding: 15px; background: #e7f3ff; border-radius: 8px;">
-                <div style="font-size: 20px; font-weight: bold; color: #2196F3;">${stats.redemptionRate}</div>
-                <div style="font-size: 12px; color: #666;">Redemption Rate</div>
-            </div>
-        </div>
-    `;
-}
-
-async function redeemVoucherByCode() {
-    const voucherCode = document.getElementById('voucherCodeInput').value.trim();
-    const result = document.getElementById('voucherRedeemResult');
-    
-    if (!voucherCode) {
-        result.innerHTML = '<span style="color: red;">Please enter a voucher code</span>';
-        return;
-    }
-
-    // Get salesperson name - REQUIRED
-    const salespersonName = prompt("Please enter your name (salesperson):");
-    if (!salespersonName || salespersonName.trim() === '') {
-        result.innerHTML = '<span style="color: red;">Salesperson name is required to redeem voucher</span>';
-        return;
-    }
-
-    // Show loading
-    result.innerHTML = '<span style="color: blue;">🔐 Validating voucher with server...</span>';
-
-    try {
-        // Step 1: Server-side validation
-        const serverValidation = await serverValidator.validateVoucherOnServer(voucherCode);
-        
-        if (!serverValidation.valid) {
-            result.innerHTML = `<span style="color: red;">❌ Server validation failed: ${serverValidation.error}</span>`;
-            return;
-        }
-
-        // Step 2: Local redemption with salesperson name
-        const redemptionResult = voucherSystem.redeemVoucher(voucherCode, salespersonName.trim());
-        
-        if (redemptionResult.success) {
-            // Step 3: Log redemption on server with salesperson name
-            await serverValidator.logVoucherRedemption(voucherCode, salespersonName.trim(), 'main_store');
-            
-            result.innerHTML = `<span style="color: green;">✅ ${redemptionResult.message}<br>🔐 Redeemed by: ${salespersonName}<br>Server validated and logged</span>`;
-            document.getElementById('voucherCodeInput').value = '';
-            
-            // Refresh the display
-            setTimeout(() => {
-                refreshVouchers();
-                if (document.getElementById('vouchersList')) {
-                    displayMemberVouchers();
-                }
-            }, 1000);
-        } else {
-            result.innerHTML = `<span style="color: red;">❌ ${redemptionResult.message}</span>`;
-        }
-    } catch (error) {
-        result.innerHTML = `<span style="color: red;">❌ Validation error: ${error.message}</span>`;
-    }
-}       
-
-function displayMemberVouchers() {
-    if (!clubManager.currentMember) return;
-    
-    const memberVouchers = voucherSystem.getMemberVouchers(clubManager.currentMember.jcId);
-    const container = document.getElementById('vouchersList');
-    
-    if (memberVouchers.length === 0) {
-        container.innerHTML = '<div class="activity-item">You don\'t have any discount vouchers yet. Redeem your points to get vouchers!</div>';
-        return;
-    }
-
-    let html = '';
-    memberVouchers.forEach(voucher => {
-        const statusClass = voucher.status === 'active' ? 'status-active' : 
-                          voucher.status === 'used' ? 'status-used' : 'status-expired';
-        
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(voucher.qrCodeData)}`;
-        
-        html += `
-            <div class="voucher-item ${voucher.status}">
-                <div style="display: flex; justify-content: between; align-items: start;">
-                    <div style="flex: 1;">
-                        <h4 style="margin: 0 0 5px;">${voucher.discountPercentage}% Discount Voucher</h4>
-                        <div class="voucher-code">${voucher.code}</div>
-                        <p style="margin: 5px 0; font-size: 12px; color: #666;">
-                            Created: ${new Date(voucher.createdDate).toLocaleDateString()} | 
-                            Expires: ${new Date(voucher.expiryDate).toLocaleDateString()}
-                            ${voucher.usedDate ? ` | Used: ${new Date(voucher.usedDate).toLocaleDateString()}` : ''}
-                        </p>
-                        <span class="voucher-status ${statusClass}">${voucher.status.toUpperCase()}</span>
-                        ${voucher.status === 'active' ? `
-                            <p style="margin: 10px 0 0; font-size: 12px; color: #666;">
-                                Show this QR code or provide the voucher code at checkout
-                            </p>
-                        ` : ''}
-                    </div>
-                    <div class="voucher-qr">
-                        <img src="${qrCodeUrl}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 5px; padding: 5px; background: white;">
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
 }
 
 // Supabase Database Manager
@@ -1813,7 +1082,7 @@ class GoogleAppsEmailService {
                 <h3 style="color: #28a745; margin-top: 0;">📋 Purchase Details</h3>
                 <table>
                     <tr>
-                        <td style="font-weight: bold; color: 555; width: 40%;">Description:</td>
+                        <td style="font-weight: bold; color: #555; width: 40%;">Description:</td>
                         <td style="color: #333;">${extraData.description}</td>
                     </tr>
                     <tr>
@@ -3617,47 +2886,37 @@ class JeansClubManager {
     }
 
     async redeemPoints(pointsToUse) {
-    if (!this.currentMember) return { success: false, message: "No member logged in" };
+        if (!this.currentMember) return { success: false, message: "No member logged in" };
 
-    const discountCalc = this.calculateDiscount(pointsToUse);
-    if (!discountCalc.success) return discountCalc;
+        const discountCalc = this.calculateDiscount(pointsToUse);
+        if (!discountCalc.success) return discountCalc;
 
-    const member = this.currentMember;
-    member.points -= discountCalc.pointsUsed;
-    member.tier = this.calculateTier(member.points);
-    
-    // Track analytics
-    this.analytics.trackRedemption(member.jcId, discountCalc.pointsUsed);
-    
-    await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
+        const member = this.currentMember;
+        member.points -= discountCalc.pointsUsed;
+        member.tier = this.calculateTier(member.points);
+        
+        // Track analytics
+        this.analytics.trackRedemption(member.jcId, discountCalc.pointsUsed);
+        
+        await this.logActivity(member.id, discountCalc.pointsUsed + ' points for ' + discountCalc.discountPercentage + '% discount', -discountCalc.pointsUsed);
 
-    // Save updated member to Supabase
-    if (!await this.db.saveMember(member)) {
-        return { success: false, message: "Failed to update member data" };
+        // Save updated member to Supabase
+        if (!await this.db.saveMember(member)) {
+            return { success: false, message: "Failed to update member data" };
+        }
+
+        this.saveCurrentMember();
+
+        // Send discount voucher email
+        const emailResult = await this.emailService.sendDiscountEmail(member.email, member, discountCalc);
+
+        return {
+            success: true,
+            pointsUsed: discountCalc.pointsUsed,
+            discountPercentage: discountCalc.discountPercentage,
+            emailSent: emailResult.success
+        };
     }
-
-    this.saveCurrentMember();
-
-    // Create the actual voucher
-    const voucher = voucherSystem.createVoucher(
-        member.jcId,
-        member.name,
-        discountCalc.pointsUsed,
-        parseFloat(discountCalc.discountPercentage),
-        30 // 30 days expiry
-    );
-
-    // Send discount voucher email
-    const emailResult = await this.emailService.sendDiscountEmail(member.email, member, discountCalc);
-
-    return {
-        success: true,
-        pointsUsed: discountCalc.pointsUsed,
-        discountPercentage: discountCalc.discountPercentage,  // ✅ FIXED
-        emailSent: emailResult.success,
-        voucher: voucher
-    };
-}
 
     async logActivity(memberId, message, points) {
         const allMembers = await this.db.getAllMembers();
@@ -3728,40 +2987,6 @@ class JeansClubManager {
     async resetAllData() {
         console.log('Reset all data - would need Supabase implementation');
     }
-}
-
-function exportAnalyticsData() {
-    const analyticsData = localStorage.getItem('jeansClubAnalytics');
-    if (!analyticsData) {
-        alert('No analytics data to export.');
-        return;
-    }
-    
-    const blob = new Blob([analyticsData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `jeansclub-analytics-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    alert('Analytics data exported successfully!');
-}
-
-function showDataStatistics() {
-    const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
-    const stats = voucherSystem.getVoucherStats();
-    
-    let message = '📊 Data Statistics:\n\n';
-    message += `Analytics Records: ${Object.keys(analyticsData.memberEngagement?.loginFrequency || {}).length} members\n`;
-    message += `Total Vouchers: ${stats.total}\n`;
-    message += `Active Vouchers: ${stats.active}\n`;
-    message += `Used Vouchers: ${stats.used}\n`;
-    message += `Expired Vouchers: ${stats.expired}\n`;
-    message += `Redemption Rate: ${stats.redemptionRate}\n`;
-    
-    alert(message);
 }
 
 // Initialize the system
@@ -4122,6 +3347,47 @@ async function sendNewsletter() {
         document.getElementById('newsletterContent').value = '';
     } else {
         newsletterResult.innerHTML = '<span style="color: red;">' + result.message + '</span>';
+    }
+}
+
+// AI Chat Bot Functions
+function showChatBot() {
+    const chatContainer = document.getElementById('chatBotContainer');
+    if (chatContainer.classList.contains('hidden')) {
+        chatContainer.classList.remove('hidden');
+        document.getElementById('chatMessages').innerHTML = '<div class="chat-message bot-message">Hello! I\'m your Jeans Club assistant. How can I help you today?</div>';
+    } else {
+        chatContainer.classList.add('hidden');
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    const chatMessages = document.getElementById('chatMessages');
+    
+    // Add user message
+    chatMessages.innerHTML += `<div class="chat-message user-message">${message}</div>`;
+    
+    // Get bot response
+    const response = answerQuestion(message);
+    
+    // Add bot response after a short delay
+    setTimeout(() => {
+        chatMessages.innerHTML += `<div class="chat-message bot-message">${response}</div>`;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, 500);
+    
+    input.value = '';
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function handleChatKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendChatMessage();
     }
 }
 
