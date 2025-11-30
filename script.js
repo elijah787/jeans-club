@@ -1,57 +1,8 @@
 // Import Supabase
 const { createClient } = supabase;
 
-// AI Chat Bot Database
-const qaDatabase = {
-    // Points & Rewards
-    "how to earn points": "You earn points by making purchases at Jeans Club! Each UGX 750 spent = 1 base point, multiplied by your tier bonus. Plus, you get 10 welcome points when joining!",
-    "how do i earn points": "You earn points by making purchases at Jeans Club! Each UGX 750 spent = 1 base point, multiplied by your tier bonus. Plus, you get 10 welcome points when joining!",
-    "points system": "We have a tier-based points system: Pearl (1x), Bronze (1.1x), Silver (1.25x), Gold (1.4x), Platinum (1.6x). Every UGX 750 = 1 point, then multiplied by your tier multiplier.",
-    
-    // Tiers
-    "what are the tiers": "We have 5 exciting tiers: Pearl (starting), Bronze (7,500+ points), Silver (25,000+), Gold (100,000+), Platinum (500,000+). Each tier gives you better point multipliers and higher discount limits!",
-    "tiers": "We have 5 exciting tiers: Pearl (starting), Bronze (7,500+ points), Silver (25,000+), Gold (100,000+), Platinum (500,000+). Each tier gives you better point multipliers and higher discount limits!",
-    "how to move up tiers": "Earn more points through purchases and referrals! Tier thresholds: Bronze (7,500), Silver (25,000), Gold (100,000), Platinum (500,000 points).",
-    
-    // Referrals
-    "how to refer friends": "Share your unique referral code from your dashboard! When friends join using your code: THEY get 20 points (10 welcome + 10 bonus), YOU get 100 points!",
-    "referral program": "Share your code and both you and your friend win! You get 100 points, they get 20 points when they sign up with your code.",
-    "referral benefits": "When you refer a friend: You earn 100 points immediately, your friend starts with 20 points instead of 10!",
-    
-    // Discounts
-    "how to get discount": "Redeem your points for discount vouchers! Go to your dashboard, enter points to use, and we'll email you a discount voucher.",
-    "redeem points": "In your dashboard, use the 'Redeem Points' section. Minimum 10 points required. We'll send the discount voucher to your email instantly!",
-    "discount voucher": "Convert your points to % discounts. Higher tiers can get bigger discounts! Vouchers are emailed to you and can be used in-store.",
-    
-    // Account Issues
-    "forgot password": "Click 'Forgot Password' on login, enter your JC ID, check your email for a reset code, then create a new password.",
-    "reset password": "Click 'Forgot Password' on login, enter your JC ID, check your email for a reset code, then create a new password.",
-    "lost jc id": "Please contact support with your registered email address to recover your JC ID.",
-    
-    // General
-    "what is jeans club": "Jeans Club is a loyalty program where you earn points for purchases, climb through tiers for better benefits, and get exclusive discounts!",
-    "how it works": "1. Sign up 2. Earn points with purchases 3. Move up tiers 4. Redeem points for discounts 5. Refer friends for bonus points!",
-    "benefits": "Earn points on purchases, get tier bonuses, redeem for discounts, refer friends for rewards, and receive exclusive member emails!"
-};
-
-function answerQuestion(question) {
-    const lowerQ = question.toLowerCase().trim();
-    
-    // Exact match first
-    if (qaDatabase[lowerQ]) {
-        return qaDatabase[lowerQ];
-    }
-    
-    // Keyword matching
-    for (const [key, answer] of Object.entries(qaDatabase)) {
-        if (lowerQ.includes(key)) {
-            return answer;
-        }
-    }
-    
-    // Default response for unknown questions
-    return "I'm not sure about that specific question. Please contact our support team for personalized assistance!";
-}
+// AI Chat Bot Database - REMOVED
+// All AI chat bot related functions and database have been removed
 
 // Advanced Analytics System
 class AnalyticsEngine {
@@ -317,6 +268,158 @@ class AnalyticsEngine {
     }
 }
 
+function generateAnalyticsReport() {
+    if (clubManager && clubManager.analytics) {
+        const report = clubManager.analytics.generateAnalyticsReport();
+        displayAnalyticsReport(report);
+    } else {
+        console.log('Analytics engine not available');
+    }
+}
+
+function displayAnalyticsReport(report) {
+    const analyticsContent = document.getElementById('analyticsContent');
+    if (!analyticsContent) return;
+    
+    let html = `
+        <div class="analytics-summary">
+            <h3>📊 Analytics Summary</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Total Members</h4>
+                    <div class="stat-number">${report.summary.totalMembers}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Points</h4>
+                    <div class="stat-number">${report.summary.totalPoints.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Spent</h4>
+                    <div class="stat-number">${report.summary.totalSpent.toLocaleString()} UGX</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Avg Points/Member</h4>
+                    <div class="stat-number">${report.summary.averagePointsPerMember}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>👥 Tier Distribution</h3>
+            <div class="tier-distribution">
+    `;
+    
+    // Tier distribution
+    Object.entries(report.tierDistribution).forEach(([tier, count]) => {
+        const percentage = report.summary.totalMembers > 0 ? 
+            Math.round((count / report.summary.totalMembers) * 100) : 0;
+        html += `
+            <div class="tier-dist-item">
+                <span class="tier-name tier-${tier.toLowerCase()}">${tier}</span>
+                <div class="tier-bar">
+                    <div class="tier-fill" style="width: ${percentage}%"></div>
+                </div>
+                <span class="tier-count">${count} (${percentage}%)</span>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>📈 Engagement Metrics</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Active Members</h4>
+                    <div class="stat-number">${report.engagement.activeMembers}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Avg Logins/Member</h4>
+                    <div class="stat-number">${report.engagement.averageLogins}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Points Redemption Rate</h4>
+                    <div class="stat-number">${report.engagement.redemptionRate}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>💰 Purchase Insights</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>Avg Transaction</h4>
+                    <div class="stat-number">${report.purchases.averageTransaction.toLocaleString()} UGX</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>🏆 Top Performers</h3>
+            <div class="top-performers">
+                <h4>Top 5 Spenders</h4>
+                <div class="performers-list">
+    `;
+    
+    report.topPerformers.topSpenders.forEach((spender, index) => {
+        html += `
+            <div class="performer-item">
+                <span class="rank">${index + 1}.</span>
+                <span class="name">${spender.name}</span>
+                <span class="jc-id">(${spender.jcId})</span>
+                <span class="tier tier-${spender.tier.toLowerCase()}">${spender.tier}</span>
+                <span class="amount">${spender.totalSpent.toLocaleString()} UGX</span>
+            </div>
+        `;
+    });
+    
+    html += `
+                </div>
+                
+                <h4>Top 5 Referrers</h4>
+                <div class="performers-list">
+    `;
+    
+    report.topPerformers.topReferrers.forEach((referrer, index) => {
+        html += `
+            <div class="performer-item">
+                <span class="rank">${index + 1}.</span>
+                <span class="jc-id">${referrer.jcId}</span>
+                <span class="referrals">${referrer.referrals} referrals</span>
+            </div>
+        `;
+    });
+    
+    html += `
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section">
+            <h3>📅 Monthly Trends (Last 6 Months)</h3>
+            <div class="monthly-trends">
+    `;
+    
+    report.purchases.monthlyTrends.forEach(trend => {
+        html += `
+            <div class="trend-item">
+                <span class="month">${trend.month}</span>
+                <span class="avg-spend">Avg: ${trend.average.toLocaleString()} UGX</span>
+                <span class="transactions">${trend.transactions} transactions</span>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    analyticsContent.innerHTML = html;
+}
+
 // Analytics Data Management Functions
 function showAnalyticsManagement() {
     if (!clubManager.isAdmin) {
@@ -439,6 +542,7 @@ function clearAllAnalytics() {
         generateAnalyticsReport();
     }, 1500);
 }
+
 // SECURE VOUCHER SYSTEM IMPLEMENTATION
 class VoucherSystem {
     constructor() {
@@ -447,7 +551,7 @@ class VoucherSystem {
         this.encryptionKey = 'jeansclub_voucher_2024_secret';
     }
 
-        generateVoucherCode() {
+    generateVoucherCode() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let code = '';
         for (let i = 0; i < 10; i++) {
@@ -717,7 +821,7 @@ class ServerValidation {
         };
     }
 
-        async logVoucherRedemption(voucherCode, salespersonName, location = 'store') {
+    async logVoucherRedemption(voucherCode, salespersonName, location = 'store') {
         try {
             console.log('📝 Logging voucher redemption:', voucherCode);
             // In production, this would log to your database
@@ -728,7 +832,6 @@ class ServerValidation {
                 salespersonName: salespersonName,
                 location: location,
                 timestamp: new Date().toISOString()
-                // IP address tracking removed
             });
             
             localStorage.setItem('voucherRedemptions', JSON.stringify(redemptionLog));
@@ -739,11 +842,11 @@ class ServerValidation {
             return { success: false, error: error.message };
         }
     }
-} // <-- This closing brace was missing
-
+}
 
 // Initialize server validation
 const serverValidator = new ServerValidation();
+
 // NEW VOUCHER MANAGEMENT FUNCTIONS
 function showVoucherManagementPanel() {
     if (!clubManager.isAdmin) {
@@ -846,7 +949,7 @@ function displayVoucherStats() {
     `;
 }
 
-    async function redeemVoucherByCode() {
+async function redeemVoucherByCode() {
     const voucherCode = document.getElementById('voucherCodeInput').value.trim();
     const result = document.getElementById('voucherRedeemResult');
     
@@ -945,6 +1048,7 @@ function displayMemberVouchers() {
     
     container.innerHTML = html;
 }
+
 // Supabase Database Manager
 class SupabaseDB {
     constructor() {
@@ -1709,7 +1813,7 @@ class GoogleAppsEmailService {
                 <h3 style="color: #28a745; margin-top: 0;">📋 Purchase Details</h3>
                 <table>
                     <tr>
-                        <td style="font-weight: bold; color: #555; width: 40%;">Description:</td>
+                        <td style="font-weight: bold; color: 555; width: 40%;">Description:</td>
                         <td style="color: #333;">${extraData.description}</td>
                     </tr>
                     <tr>
@@ -3540,7 +3644,7 @@ class JeansClubManager {
         return {
             success: true,
             pointsUsed: discountCalc.pointsUsed,
-            discountPercentage: discountCalc.discountPercentage,
+            discountPercentage: discountPercentage,
             emailSent: emailResult.success
         };
     }
@@ -3615,33 +3719,6 @@ class JeansClubManager {
         console.log('Reset all data - would need Supabase implementation');
     }
 }
-function showAnalyticsManagement() {
-    if (!clubManager.isAdmin) {
-        showAdminLogin();
-        return;
-    }
-    
-    const action = prompt(`Analytics Data Management:\n\n1 - Reset Analytics Data\n2 - Export Analytics Data\n3 - View Data Statistics\n\nEnter choice (1-3):`);
-    
-    switch(action) {
-        case '1':
-            if (confirm('WARNING: This will permanently delete all analytics data. Continue?')) {
-                localStorage.removeItem('jeansClubAnalytics');
-                clubManager.analytics = new AnalyticsEngine();
-                alert('Analytics data reset successfully!');
-                generateAnalyticsReport();
-            }
-            break;
-        case '2':
-            exportAnalyticsData();
-            break;
-        case '3':
-            showDataStatistics();
-            break;
-        default:
-            alert('Invalid choice or cancelled.');
-    }
-}
 
 function exportAnalyticsData() {
     const analyticsData = localStorage.getItem('jeansClubAnalytics');
@@ -3676,6 +3753,7 @@ function showDataStatistics() {
     
     alert(message);
 }
+
 // Initialize the system
 const clubManager = new JeansClubManager();
 
@@ -4034,66 +4112,6 @@ async function sendNewsletter() {
         document.getElementById('newsletterContent').value = '';
     } else {
         newsletterResult.innerHTML = '<span style="color: red;">' + result.message + '</span>';
-    }
-}
-
-// AI Chat Bot Functions
-function toggleChatBot() {
-    const chatContainer = document.getElementById('chatBotContainer');
-    const isHidden = chatContainer.classList.contains('hidden');
-    
-    // Close all chat containers first
-    document.querySelectorAll('.chat-bot-container').forEach(container => {
-        container.classList.add('hidden');
-    });
-    
-    // Toggle current container
-    if (isHidden) {
-        chatContainer.classList.remove('hidden');
-        document.getElementById('chatMessages').innerHTML = '<div class="chat-message bot-message">Hello! I\'m your Jeans Club assistant. How can I help you today?</div>';
-    }
-}
-
-function closeChatBot() {
-    const chatContainer = document.getElementById('chatBotContainer');
-    chatContainer.classList.add('hidden');
-}
-function toggleChatBot() {
-    const chatContainer = document.getElementById('chatBotContainer');
-    if (chatContainer.classList.contains('hidden')) {
-        chatContainer.classList.remove('hidden');
-        document.getElementById('chatMessages').innerHTML = '<div class="chat-message bot-message">Hello! I\'m your Jeans Club assistant. How can I help you today?</div>';
-    } else {
-        chatContainer.classList.add('hidden');
-    }
-}
-function sendChatMessage() {
-    const input = document.getElementById('chatInput');
-    const message = input.value.trim();
-    
-    if (!message) return;
-    
-    const chatMessages = document.getElementById('chatMessages');
-    
-    // Add user message
-    chatMessages.innerHTML += `<div class="chat-message user-message">${message}</div>`;
-    
-    // Get bot response
-    const response = answerQuestion(message);
-    
-    // Add bot response after a short delay
-    setTimeout(() => {
-        chatMessages.innerHTML += `<div class="chat-message bot-message">${response}</div>`;
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }, 500);
-    
-    input.value = '';
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-function handleChatKeyPress(event) {
-    if (event.key === 'Enter') {
-        sendChatMessage();
     }
 }
 
