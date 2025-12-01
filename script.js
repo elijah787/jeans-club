@@ -5254,9 +5254,570 @@ document.addEventListener('DOMContentLoaded', function() {
     
     setTimeout(initializeGoogleSignIn, 1000);
     
-    if (clubManager.currentMember) {
+    
+     if (clubManager.currentMember) {
         showDashboard(clubManager.currentMember);
     } else {
         showLoginScreen();
     }
+    // ============================================
+// POINTS PAYMENT DASHBOARD FUNCTIONS
+// ============================================
+
+async function showPointsPaymentDashboard() {
+    if (!clubManager.currentMember) {
+        alert('Please login first to use points payment');
+        showLoginScreen();
+        return;
+    }
+    
+    hideAllSections();
+    document.getElementById('pointsPaymentDashboard').classList.remove('hidden');
+    await loadPointsPaymentDashboard();
+}
+
+async function loadPointsPaymentDashboard() {
+    if (!clubManager.currentMember) return;
+    
+    const member = clubManager.currentMember;
+    
+    // Update points balance
+    document.getElementById('pointsBalanceDisplay').textContent = member.points.toLocaleString();
+    
+    // Load tier limits
+    const tierLimits = pointsPaymentSystem.getSpendingLimits(member.tier);
+    const tierLimitsDisplay = document.getElementById('tierLimitsDisplay');
+    
+    tierLimitsDisplay.innerHTML = `
+        <div class="limit-card">
+            <h4>Per Transaction Limit</h4>
+            <p>${tierLimits.perTransaction.toLocaleString()} UGX</p>
+        </div>
+        <div class="limit-card">
+            <h4>Daily Limit</h4>
+            <p>${tierLimits.daily.toLocaleString()} UGX</p>
+        </div>
+        <div class="limit-card">
+            <h4>Monthly Limit</h4>
+            <p>${tierLimits.monthly.toLocaleString()} UGX</p>
+        </div>
+    `;
+}
+
+function calculatePointsNeeded() {
+    const billAmount = parseFloat(document.getElementById('billAmount').value);
+    const description = document.getElementById('billDescription').value.trim();
+    
+    if (!billAmount || billAmount <= 0) {
+        document.getElementById('pointsCalculationResult').innerHTML = 
+            '<span style="color: red;">Please enter a valid bill amount</span>';
+        return;
+    }
+    
+    if (!description) {
+        document.getElementById('pointsCalculationResult').innerHTML = 
+            '<span style="color: red;">Please enter a description</span>';
+        return;
+    }
+    
+    if (!clubManager.currentMember) {
+        document.getElementById('pointsCalculationResult').innerHTML = 
+            '<span style="color: red;">Please login first</span>';
+        return;
+    }
+    
+    const member = clubManager.currentMember;
+    const pointsNeeded = pointsPaymentSystem.calculatePointsNeeded(billAmount, member.tier);
+    
+    // Check if member has enough points
+    if (member.points < pointsNeeded) {
+        document.getElementById('pointsCalculationResult').innerHTML = `
+            <div style="color: #721c24; background: #f8d7da; padding: 15px; border-radius: 8px;">
+                <strong>Insufficient Points!</strong><br>
+                Need ${pointsNeeded.toLocaleString()} points, but you only have ${member.points.toLocaleString()} points.<br>
+                You need ${(pointsNeeded - member.points).toLocaleString()} more points to pay this bill.
+            </div>
+        `;
+        document.getElementById('paymentActions').style.display = 'none';
+        return;
+    }
+    
+    // Validate spending limits
+    const limitCheck = pointsPaymentSystem.checkSpendingLimits(member.jcId, billAmount, member.tier);
+    
+    if (!limitCheck.valid) {
+        document.getElementById('pointsCalculationResult').innerHTML = `
+            <div style="color: #721c24; background: #f8d7da; padding: 15px; border-radius: 8px;">
+                <strong>Spending Limits Exceeded!</strong><br>
+                ${limitCheck.errors.join('<br>')}<br>
+                Daily remaining: ${limitCheck.remainingDaily.toLocaleString()} UGX<br>
+                Monthly remaining: ${limitCheck.remainingMonthly.toLocaleString()} UGX
+            </div>
+        `;
+        document.getElementById('paymentActions').style.display = 'none';
+        return;
+    }
+    
+    // Show calculation result
+    document.getElementById('pointsCalculationResult').innerHTML = `
+        <div style="color: #155724; background: #d4edda; padding: 15px; border-radius: 8px;">
+            <strong>Points Calculation:</strong><br>
+            Bill Amount: <strong>${billAmount.toLocaleString()} UGX</strong><br>
+            Points Needed: <strong>${pointsNeeded.toLocaleString()} points</strong><br>
+            Point Value: 1 point = ${pointsPaymentSystem.pointSpendingValues[member.tier]} UGX<br>
+            Remaining Points: ${(member.points - pointsNeeded).toLocaleString()} points<br><br>
+            <em>✅ You have enough points and are within your spending limits!</em>
+        </div>
+    `;
+    
+    // Store calculation data for QR generation
+    document.getElementById('paymentActions').dataset.pointsNeeded = pointsNeeded;
+    document.getElementById('paymentActions').dataset.billAmount = billAmount;
+    document.getElementById('paymentActions').dataset.description = description;
+    
+    // Show payment actions
+    document.getElementById('paymentActions').style.display = 'block';
+}
+
+function generatePaymentQR() {
+    const pointsNeeded = parseInt(document.getElementById('paymentActions').dataset.pointsNeeded);
+    const billAmount = parseInt(document.getElementById('paymentActions').dataset.billAmount);
+    const description = document.getElementById('paymentActions').dataset.description;
+    
+    if (!clubManager.currentMember) {
+        alert('Please login first');
+        return;
+    }
+    
+    const member = clubManager.currentMember;
+    
+    // Validate the payment
+    const validation = pointsPaymentSystem.validatePointsPayment(member.jcId, pointsNeeded, description);
+    
+    if (!validation.valid) {
+        document.getElementById('validationResult').innerHTML = `
+            <div class="validation-error">❌ ${validation.error}</div>
+        `;
+        document.getElementById('validationResult').classList.remove('hidden');
+        return;
+    }
+    
+    // Generate QR code data
+    const qrData = pointsPaymentSystem.generateQRCodeData(validation);
+    
+    // Display QR code
+    const qrCodeContainer = document.getElementById('qrCodeContainer');
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+    
+    qrCodeContainer.innerHTML = `
+        <img src="${qrCodeUrl}" alt="Payment QR Code" style="width: 200px; height: 200px;">
+    `;
+    
+    // Show QR code section
+    document.getElementById('qrCodeDisplay').classList.remove('hidden');
+    
+    // Start expiry timer
+    startQRExpiryTimer();
+}
+
+function startQRExpiryTimer() {
+    let timeLeft = 5 * 60; // 5 minutes in seconds
+    const timerElement = document.getElementById('expiryTimer');
+    
+    const timer = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        
+        timerElement.textContent = `Expires in ${minutes}:${seconds.toString().padStart(2, '0')} minutes`;
+        
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            timerElement.textContent = 'QR Code Expired!';
+            timerElement.style.color = '#dc3545';
+            document.getElementById('qrCodeContainer').innerHTML = '<p style="color: #dc3545;">❌ QR Code has expired. Please generate a new one.</p>';
+        }
+        
+        timeLeft--;
+    }, 1000);
+}
+
+async function createDiscountVoucher() {
+    const pointsNeeded = parseInt(document.getElementById('paymentActions').dataset.pointsNeeded);
+    
+    if (!clubManager.currentMember || pointsNeeded <= 0) {
+        alert('Invalid request');
+        return;
+    }
+    
+    // Use the existing voucher system to create a voucher
+    const result = await clubManager.redeemPoints(pointsNeeded);
+    
+    if (result.success) {
+        alert(`🎫 ${result.discountPercentage}% discount voucher created!\n\nYou can find it in your dashboard under "My Discount Vouchers".`);
+        
+        // Refresh the display
+        if (document.getElementById('vouchersList')) {
+            displayMemberVouchers();
+        }
+        
+        // Refresh points balance
+        loadPointsPaymentDashboard();
+    } else {
+        alert('Error: ' + result.message);
+    }
+}
+
+// ============================================
+// SALESPERSON TERMINAL FUNCTIONS
+// ============================================
+
+async function showSalespersonTerminal() {
+    if (!clubManager.isAdmin) {
+        showAdminLogin();
+        return;
+    }
+    
+    hideAllSections();
+    document.getElementById('salespersonTerminal').classList.remove('hidden');
+}
+
+let qrScanner = null;
+
+function startQRScanner() {
+    const scannerContainer = document.getElementById('scannerContainer');
+    const scannerArea = document.getElementById('scannerArea');
+    
+    scannerArea.style.display = 'none';
+    scannerContainer.style.display = 'block';
+    
+    // Create QR scanner
+    qrScanner = new Html5Qrcode("scannerContainer");
+    
+    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+        console.log("QR Code scanned:", decodedText);
+        
+        // Stop scanner
+        qrScanner.stop().then(() => {
+            qrScanner.clear();
+            scannerContainer.style.display = 'none';
+            scannerArea.style.display = 'block';
+            
+            // Process scanned QR code
+            processScannedQRCode(decodedText);
+        });
+    };
+    
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+    
+    qrScanner.start(
+        { facingMode: "environment" },
+        config,
+        qrCodeSuccessCallback
+    ).catch(err => {
+        console.error("QR Scanner error:", err);
+        alert("Failed to start QR scanner: " + err);
+        scannerArea.style.display = 'block';
+        scannerContainer.style.display = 'none';
+    });
+}
+
+async function processScannedQRCode(qrData) {
+    try {
+        const paymentDetails = document.getElementById('paymentDetails');
+        paymentDetails.classList.remove('hidden');
+        
+        // Decode QR data
+        const decodedData = JSON.parse(atob(qrData));
+        
+        // Get member info
+        const member = await clubManager.db.getMemberByJCId(decodedData.memberJCId);
+        if (!member) {
+            alert("Member not found!");
+            return;
+        }
+        
+        // Calculate UGX value
+        const ugxAmount = decodedData.pointsToUse * pointsPaymentSystem.pointSpendingValues[member.tier];
+        
+        // Update UI with payment details
+        document.getElementById('qrMemberName').textContent = member.name;
+        document.getElementById('qrMemberJCId').textContent = member.jcId;
+        document.getElementById('qrPointsToUse').textContent = decodedData.pointsToUse.toLocaleString() + ' points';
+        document.getElementById('qrUGXValue').textContent = ugxAmount.toLocaleString() + ' UGX';
+        document.getElementById('qrDescription').textContent = decodedData.description || 'No description';
+        
+        // Store data for confirmation
+        document.getElementById('confirmPaymentBtn').dataset.qrData = qrData;
+        
+    } catch (error) {
+        console.error("Error processing QR code:", error);
+        alert("Invalid QR code! Please try again.");
+    }
+}
+
+async function confirmPointsPayment() {
+    const qrData = document.getElementById('confirmPaymentBtn').dataset.qrData;
+    const salespersonName = document.getElementById('salespersonName').value.trim();
+    
+    if (!salespersonName) {
+        alert("Please enter your name (salesperson)");
+        return;
+    }
+    
+    if (!qrData) {
+        alert("No QR code data to process");
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('confirmPaymentBtn').textContent = 'Processing...';
+    document.getElementById('confirmPaymentBtn').disabled = true;
+    
+    // Process the payment
+    const result = await pointsPaymentSystem.processScannedQR(qrData, salespersonName);
+    
+    if (result.success) {
+        alert(`✅ Payment Successful!\n\n${result.message}`);
+        
+        // Clear form
+        document.getElementById('salespersonName').value = '';
+        document.getElementById('paymentDetails').classList.add('hidden');
+        document.getElementById('scannerArea').style.display = 'block';
+        
+        // Refresh if on admin panel
+        if (document.getElementById('adminContent')) {
+            viewAllMembers();
+        }
+    } else {
+        alert(`❌ Payment Failed!\n\n${result.message}`);
+    }
+    
+    // Reset button
+    document.getElementById('confirmPaymentBtn').textContent = 'Confirm Points Payment';
+    document.getElementById('confirmPaymentBtn').disabled = false;
+}
+
+// Manual entry functions
+async function lookUpMember() {
+    const jcId = document.getElementById('manualJCId').value.trim();
+    
+    if (!jcId) {
+        alert("Please enter a JC ID");
+        return;
+    }
+    
+    const member = await clubManager.db.getMemberByJCId(jcId);
+    if (!member) {
+        alert("Member not found!");
+        return;
+    }
+    
+    // Show member info
+    document.getElementById('manualMemberName').textContent = member.name;
+    document.getElementById('manualMemberTier').textContent = member.tier;
+    document.getElementById('manualMemberPoints').textContent = member.points.toLocaleString() + ' points';
+    
+    document.getElementById('manualMemberInfo').style.display = 'block';
+    document.getElementById('processPaymentBtn').disabled = false;
+}
+
+function calculateManualPoints() {
+    const amountUGX = parseFloat(document.getElementById('manualAmountUGX').value);
+    
+    if (!amountUGX || amountUGX <= 0) {
+        alert("Please enter a valid amount");
+        return;
+    }
+    
+    const jcId = document.getElementById('manualJCId').value.trim();
+    const memberTier = document.getElementById('manualMemberTier').textContent;
+    
+    if (!memberTier || memberTier === '-') {
+        alert("Please look up member first");
+        return;
+    }
+    
+    const pointsNeeded = pointsPaymentSystem.calculatePointsNeeded(amountUGX, memberTier);
+    
+    // Update UI
+    document.getElementById('manualPointsNeeded').textContent = pointsNeeded.toLocaleString() + ' points';
+    document.getElementById('manualUGXValue').textContent = amountUGX.toLocaleString() + ' UGX';
+    
+    document.getElementById('manualPointsCalculation').style.display = 'block';
+}
+
+async function processManualPayment() {
+    const jcId = document.getElementById('manualJCId').value.trim();
+    const amountUGX = parseFloat(document.getElementById('manualAmountUGX').value);
+    const description = document.getElementById('manualDescription').value.trim();
+    const salespersonName = document.getElementById('manualSalespersonName').value.trim();
+    
+    if (!jcId || !amountUGX || !description || !salespersonName) {
+        alert("Please fill all fields");
+        return;
+    }
+    
+    if (amountUGX <= 0) {
+        alert("Please enter a valid amount");
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('processPaymentBtn').textContent = 'Processing...';
+    document.getElementById('processPaymentBtn').disabled = true;
+    
+    // Process the payment
+    const result = await pointsPaymentSystem.processPointsPayment(
+        jcId, 
+        amountUGX, 
+        description, 
+        salespersonName
+    );
+    
+    if (result.success) {
+        alert(`✅ Payment Successful!\n\n${result.message}`);
+        
+        // Clear form
+        document.getElementById('manualJCId').value = '';
+        document.getElementById('manualAmountUGX').value = '';
+        document.getElementById('manualDescription').value = '';
+        document.getElementById('manualSalespersonName').value = '';
+        document.getElementById('manualMemberInfo').style.display = 'none';
+        document.getElementById('manualPointsCalculation').style.display = 'none';
+        
+        // Refresh if on admin panel
+        if (document.getElementById('adminContent')) {
+            viewAllMembers();
+        }
+    } else {
+        alert(`❌ Payment Failed!\n\n${result.message}`);
+    }
+    
+    // Reset button
+    document.getElementById('processPaymentBtn').textContent = 'Process Payment';
+    document.getElementById('processPaymentBtn').disabled = false;
+}
+
+// ============================================
+// UTILITY FUNCTIONS FOR HTML
+// ============================================
+
+function hideAllSections() {
+    const sections = [
+        'signupSection',
+        'loginSection',
+        'passwordResetSection',
+        'dashboardSection',
+        'pointsPaymentDashboard',
+        'adminSection',
+        'deleteMemberSection',
+        'voucherManagementSection',
+        'salespersonTerminal'
+    ];
+    
+    sections.forEach(sectionId => {
+        const element = document.getElementById(sectionId);
+        if (element) {
+            element.classList.add('hidden');
+        }
+    });
+}
+
+// Make sure all the functions are available globally
+window.showPointsPaymentDashboard = showPointsPaymentDashboard;
+window.showSalespersonTerminal = showSalespersonTerminal;
+window.showVoucherManagementPanel = showVoucherManagementPanel;
+window.showAdminPanel = showAdminPanel;
+window.showDashboardSection = showDashboardSection;
+window.showDeleteMemberSection = showDeleteMemberSection;
+window.refreshVouchers = refreshVouchers;
+window.loadAllVouchers = loadAllVouchers;
+// Add this function - it shows the dashboard section
+function showDashboardSection() {
+    if (!clubManager.currentMember) {
+        showLoginScreen();
+        return;
+    }
+    
+    hideAllSections();
+    document.getElementById('dashboardSection').classList.remove('hidden');
+    
+    // Load dashboard data
+    loadDashboardData();
+}
+
+// Also add this function to load dashboard data
+async function loadDashboardData() {
+    if (!clubManager.currentMember) return;
+    
+    // Refresh member data from database
+    const updatedMember = await clubManager.db.getMemberByJCId(clubManager.currentMember.jcId);
+    if (updatedMember) {
+        clubManager.currentMember = updatedMember;
+        clubManager.saveCurrentMember();
+    }
+    
+    // Update the dashboard display
+    updateDashboard(clubManager.currentMember);
+    
+    // Update member card
+    updateMemberCard(clubManager.currentMember);
+    
+    // Load vouchers
+    displayMemberVouchers();
+}
+
+// Add this function to update the member card
+function updateMemberCard(member) {
+    const card = document.getElementById('memberCard');
+    if (!card) return;
+    
+    // Set tier class
+    card.className = 'member-card ' + member.tier.toLowerCase();
+    
+    // Update card information
+    document.getElementById('cardNumber').textContent = formatCardNumber(member.jcId);
+    document.getElementById('cardHolderName').textContent = member.name;
+    document.getElementById('cardTier').textContent = member.tier;
+    document.getElementById('cardDate').textContent = formatCardDate(member.joinedDate);
+    
+    // Update dashboard fields
+    document.getElementById('memberJcId').textContent = member.jcId;
+    document.getElementById('memberName').textContent = member.name;
+    document.getElementById('memberEmail').textContent = member.email;
+    document.getElementById('memberLoginMethod').textContent = member.loginMethod === 'google' ? 'Google' : 'Email';
+    document.getElementById('memberTier').textContent = member.tier;
+    document.getElementById('memberPoints').textContent = member.points.toLocaleString();
+    document.getElementById('memberReferralCode').textContent = member.referralCode;
+    document.getElementById('totalSpent').textContent = member.totalSpent.toLocaleString() + ' UGX';
+}
+
+// Helper functions for card formatting
+function formatCardNumber(jcId) {
+    // Convert JC ID to card-like format: JC12 3456 7890 ABCD
+    const numbers = jcId.replace('JC', '').split('');
+    let formatted = 'JC';
+    for (let i = 0; i < Math.min(numbers.length, 12); i++) {
+        if (i > 0 && i % 4 === 0) formatted += ' ';
+        formatted += numbers[i] || Math.floor(Math.random() * 10);
+    }
+    return formatted.padEnd(19, '0');
+}
+
+function formatCardDate(dateString) {
+    const date = new Date(dateString);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = (date.getFullYear() + 5).toString().slice(-2); // Expires 5 years after joining
+    return month + '/' + year;
+}
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if user is already logged in
+    if (clubManager.currentMember) {
+        showDashboardSection();
+    }
+    
+    console.log('✅ All functions loaded successfully!');
+    console.log('Available functions:', Object.keys(window).filter(key => typeof window[key] === 'function'));
+});
 });
