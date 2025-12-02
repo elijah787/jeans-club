@@ -1,672 +1,327 @@
 // Import Supabase
 const { createClient } = supabase;
 
-
-// ============================================
-// NEW: PointsOnlyPaymentSystem Class
-// ============================================
-class PointsOnlyPaymentSystem {
+// QR Code Redemption System Implementation
+class QRRedemptionSystem {
     constructor() {
-        // Point value system (when SPENDING points)
-        this.pointSpendingValues = {
-            PEARL: 300,
-            BRONZE: 350,
-            SILVER: 425,
-            RUBY: 500,
-            GOLD: 600,
-            SAPPHIRE: 725,
-            PLATINUM: 875
+        this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
+        this.encryptionKey = 'jeansclub_qr_2024_secret';
+        this.tierRules = {
+            BRONZE: { months: 2, percentage: 0.12, multiplier: 1.0 },
+            RUBY: { months: 3, percentage: 0.16, multiplier: 1.3 },
+            GOLD: { months: 5, percentage: 0.25, multiplier: 1.4 },
+            SAPPHIRE: { months: 4, percentage: 0.25, lifetimeBonus: 0.05, multiplier: 1.5 },
+            PLATINUM: { multiplier: 1.6 }, // Can choose any option
+            PEARL: { multiplier: 1.0 } // No pay-with-points
         };
-
-        // Earning rate (fixed for all tiers)
-        this.earningRate = 750; // Spend UGX 750 cash = Get 1 point
-
-        // Spending limits
-        this.spendingLimits = {
-            PEARL: { perTransaction: 30000, daily: 60000, monthly: 150000 },
-            BRONZE: { perTransaction: 60000, daily: 120000, monthly: 300000 },
-            SILVER: { perTransaction: 120000, daily: 240000, monthly: 600000 },
-            RUBY: { perTransaction: 210000, daily: 420000, monthly: 1050000 },
-            GOLD: { perTransaction: 300000, daily: 600000, monthly: 1500000 },
-            SAPPHIRE: { perTransaction: 450000, daily: 900000, monthly: 2250000 },
-            PLATINUM: { perTransaction: 750000, daily: 1500000, monthly: 3750000 }
+        this.discountVoucherLimits = {
+            PEARL: { min: 1000, max: 5000 },
+            BRONZE: { min: 2000, max: 10000 },
+            SILVER: { min: 3000, max: 15000 },
+            RUBY: { min: 4000, max: 20000 },
+            GOLD: { min: 5000, max: 25000 },
+            SAPPHIRE: { min: 6000, max: 30000 },
+            PLATINUM: { min: 10000, max: 50000 }
         };
-
-        // Track spending per member
-        this.dailySpending = {};
-        this.monthlySpending = {};
-
-        this.init();
     }
 
-    init() {
-        // Load spending data from localStorage
-        const savedDaily = localStorage.getItem('pointsDailySpending');
-        const savedMonthly = localStorage.getItem('pointsMonthlySpending');
+    // Calculate spending history for specified months
+    calculateSpendingHistory(member, months) {
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - months);
         
-        if (savedDaily) this.dailySpending = JSON.parse(savedDaily);
-        if (savedMonthly) this.monthlySpending = JSON.parse(savedMonthly);
-    }
-
-    saveSpendingData() {
-        localStorage.setItem('pointsDailySpending', JSON.stringify(this.dailySpending));
-        localStorage.setItem('pointsMonthlySpending', JSON.stringify(this.monthlySpending));
-    }
-
-    // ======================
-    // CRITICAL FIXES IMPLEMENTED:
-    // ======================
-    // 1. Fixed maxPurchaseLimit - returns correct values (30,000 for Pearl, not 50,000)
-    // 2. Added business margin calculation
-    // 3. Fixed points calculation using pointSpendingValues[tier], not earning rate
-    // 4. Added salesperson tracking
-
-    calculatePointsNeeded(ugxAmount, tier) {
-        const pointValue = this.pointSpendingValues[tier];
-        return Math.ceil(ugxAmount / pointValue);
-    }
-
-    calculateBusinessMargin(pointsNeeded, tier) {
-        // Business cost: points were earned at 750 UGX per point
-        const costToBusiness = pointsNeeded * 750;
-        // Revenue: actual value of goods/service
-        const revenue = pointsNeeded * this.pointSpendingValues[tier];
-        const profit = revenue - costToBusiness;
-        const marginPercentage = (profit / revenue) * 100;
-
-        return {
-            costToBusiness,
-            revenue,
-            profit,
-            marginPercentage: marginPercentage.toFixed(2),
-            businessGains: profit > 0,
-            customerGains: profit < 0
-        };
-    }
-
-    getSpendingLimits(tier) {
-        return this.spendingLimits[tier] || this.spendingLimits.PEARL;
-    }
-
-    // Check if transaction is within limits
-    checkSpendingLimits(memberJCId, ugxAmount, tier) {
-        const limits = this.getSpendingLimits(tier);
-        const today = new Date().toISOString().split('T')[0];
-        const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
-
-        // Initialize member records if not exist
-        if (!this.dailySpending[memberJCId]) this.dailySpending[memberJCId] = {};
-        if (!this.monthlySpending[memberJCId]) this.monthlySpending[memberJCId] = {};
-
-        // Get current spending
-        const currentDaily = this.dailySpending[memberJCId][today] || 0;
-        const currentMonthly = this.monthlySpending[memberJCId][currentMonth] || 0;
-
-        // Check limits
-        const errors = [];
-        if (ugxAmount > limits.perTransaction) {
-            errors.push(`Per transaction limit exceeded: UGX ${ugxAmount.toLocaleString()} > UGX ${limits.perTransaction.toLocaleString()}`);
-        }
-        if (currentDaily + ugxAmount > limits.daily) {
-            errors.push(`Daily limit exceeded: UGX ${(currentDaily + ugxAmount).toLocaleString()} > UGX ${limits.daily.toLocaleString()}`);
-        }
-        if (currentMonthly + ugxAmount > limits.monthly) {
-            errors.push(`Monthly limit exceeded: UGX ${(currentMonthly + ugxAmount).toLocaleString()} > UGX ${limits.monthly.toLocaleString()}`);
-        }
-
-        return {
-            valid: errors.length === 0,
-            errors,
-            currentDaily,
-            currentMonthly,
-            remainingDaily: limits.daily - currentDaily,
-            remainingMonthly: limits.monthly - currentMonthly
-        };
-    }
-
-    // Update spending records
-    updateSpendingRecords(memberJCId, ugxAmount) {
-        const today = new Date().toISOString().split('T')[0];
-        const currentMonth = new Date().toISOString().substring(0, 7);
-
-        if (!this.dailySpending[memberJCId]) this.dailySpending[memberJCId] = {};
-        if (!this.monthlySpending[memberJCId]) this.monthlySpending[memberJCId] = {};
-
-        // Update daily spending
-        this.dailySpending[memberJCId][today] = (this.dailySpending[memberJCId][today] || 0) + ugxAmount;
+        let totalSpent = 0;
+        member.purchaseHistory.forEach(purchase => {
+            const purchaseDate = new Date(purchase.date);
+            if (purchaseDate >= cutoffDate) {
+                totalSpent += purchase.amount;
+            }
+        });
         
-        // Update monthly spending
-        this.monthlySpending[memberJCId][currentMonth] = (this.monthlySpending[memberJCId][currentMonth] || 0) + ugxAmount;
-
-        this.saveSpendingData();
+        return totalSpent;
     }
 
-    // ======================
-    // For CUSTOMER (Mobile QR Code)
-    // ======================
+    // Calculate lifetime spending
+    calculateLifetimeSpending(member) {
+        return member.totalSpent;
+    }
 
-    async validatePointsPayment(memberJCId, pointsToUse, description) {
-        try {
-            // Get member from Supabase
-            const member = await clubManager.db.getMemberByJCId(memberJCId);
-            if (!member) {
-                return { valid: false, error: "Member not found" };
-            }
-
-            // Check if member has enough points
-            if (member.points < pointsToUse) {
-                return { 
-                    valid: false, 
-                    error: `Insufficient points. You have ${member.points} points, need ${pointsToUse}` 
-                };
-            }
-
-            // Calculate UGX amount
-            const ugxAmount = pointsToUse * this.pointSpendingValues[member.tier];
+    // Calculate all available redemption options
+    calculateRedemptionOptions(member, purchaseAmount) {
+        const tier = member.tier;
+        const options = [];
+        
+        // For Platinum members, they can choose from all 4 other tier options
+        const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
+        
+        // Pearl members don't get pay-with-points options
+        if (tier === 'PEARL') {
+            return this.getDiscountVoucherOptions(member, purchaseAmount);
+        }
+        
+        eligibleTiers.forEach(tierType => {
+            const rule = this.tierRules[tierType];
+            if (!rule) return;
             
-            // Check spending limits
-            const limitCheck = this.checkSpendingLimits(memberJCId, ugxAmount, member.tier);
-            if (!limitCheck.valid) {
-                return { valid: false, error: limitCheck.errors.join(", ") };
+            if (tierType === 'SAPPHIRE') {
+                const monthsSpending = this.calculateSpendingHistory(member, rule.months);
+                const lifetimeSpending = this.calculateLifetimeSpending(member);
+                const baseAmount = monthsSpending * rule.percentage;
+                const bonusAmount = lifetimeSpending * rule.lifetimeBonus;
+                const totalRedemption = baseAmount + bonusAmount;
+                const pointsEquivalent = Math.floor(totalRedemption * rule.multiplier);
+                
+                if (totalRedemption > 0) {
+                    options.push({
+                        type: 'points_redemption',
+                        tier: tierType,
+                        description: `${(rule.percentage * 100)}% of last ${rule.months} months + ${(rule.lifetimeBonus * 100)}% lifetime bonus`,
+                        monthsSpending: monthsSpending,
+                        baseAmount: baseAmount,
+                        bonusAmount: bonusAmount,
+                        totalAmount: totalRedemption,
+                        maxRedemption: Math.min(totalRedemption, purchaseAmount),
+                        pointsEquivalent: pointsEquivalent,
+                        pointsValue: rule.multiplier + 'x'
+                    });
+                }
+            } else {
+                const monthsSpending = this.calculateSpendingHistory(member, rule.months);
+                const totalRedemption = monthsSpending * rule.percentage;
+                const pointsEquivalent = Math.floor(totalRedemption * rule.multiplier);
+                
+                if (totalRedemption > 0) {
+                    options.push({
+                        type: 'points_redemption',
+                        tier: tierType,
+                        description: `${(rule.percentage * 100)}% of last ${rule.months} months spending`,
+                        monthsSpending: monthsSpending,
+                        totalAmount: totalRedemption,
+                        maxRedemption: Math.min(totalRedemption, purchaseAmount),
+                        pointsEquivalent: pointsEquivalent,
+                        pointsValue: rule.multiplier + 'x'
+                    });
+                }
             }
-
-            // Calculate business margin
-            const margin = this.calculateBusinessMargin(pointsToUse, member.tier);
-
-            return {
-                valid: true,
-                member: {
-                    jcId: member.jcId,
-                    name: member.name,
-                    email: member.email,
-                    tier: member.tier,
-                    currentPoints: member.points
-                },
-                transaction: {
-                    pointsToUse,
-                    ugxAmount,
-                    description,
-                    pointValue: this.pointSpendingValues[member.tier],
-                    pointsNeeded: this.calculatePointsNeeded(ugxAmount, member.tier)
-                },
-                limits: limitCheck,
-                businessMargin: margin,
-                timestamp: new Date().toISOString(),
-                transactionId: 'pts_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
-            };
-
-        } catch (error) {
-            console.error('Validation error:', error);
-            return { valid: false, error: "Validation failed: " + error.message };
-        }
+        });
+        
+        // Add discount voucher options
+        const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount);
+        options.push(...voucherOptions);
+        
+        return options.sort((a, b) => b.maxRedemption - a.maxRedemption);
     }
 
-    generateQRCodeData(validationResult) {
+    // Get discount voucher options based on tier
+    getDiscountVoucherOptions(member, purchaseAmount) {
+        const tier = member.tier;
+        const limits = this.discountVoucherLimits[tier] || this.discountVoucherLimits.PEARL;
+        
+        const options = [];
+        
+        // Fixed discount amounts within tier limits
+        const discountAmounts = [1000, 2000, 3000, 5000, 10000, 15000, 20000, 25000, 30000, 50000];
+        
+        discountAmounts.forEach(amount => {
+            if (amount >= limits.min && amount <= limits.max && amount <= purchaseAmount) {
+                const discountPercentage = ((amount / purchaseAmount) * 100).toFixed(1);
+                if (discountPercentage <= 100) {
+                    options.push({
+                        type: 'discount_voucher',
+                        tier: tier,
+                        description: `${amount.toLocaleString()} UGX Discount Voucher`,
+                        discountAmount: amount,
+                        discountPercentage: discountPercentage,
+                        applicableAmount: purchaseAmount,
+                        pointsRequired: Math.floor(amount / 100) // 1 point per 100 UGX
+                    });
+                }
+            }
+        });
+        
+        return options;
+    }
+
+    // Generate QR code data for redemption
+    generateQRCodeData(redemptionData) {
         const qrData = {
-            type: 'jeansclub_points_payment',
-            version: '2.0',
-            transactionId: validationResult.transactionId,
-            memberJCId: validationResult.member.jcId,
-            pointsToUse: validationResult.transaction.pointsToUse,
-            description: validationResult.transaction.description,
-            timestamp: validationResult.timestamp,
-            signature: this.generateSignature(validationResult)
+            type: 'jeansclub_redemption',
+            version: '1.0',
+            memberJCId: redemptionData.memberJCId,
+            redemptionId: redemptionData.redemptionId,
+            selectedOption: redemptionData.selectedOption,
+            purchaseAmount: redemptionData.purchaseAmount,
+            timestamp: Date.now(),
+            signature: this.generateSignature(redemptionData)
         };
-
-        // Simple encryption for QR data
-        return btoa(JSON.stringify(qrData));
+        
+        return this.encryptData(qrData);
     }
 
+    // Generate signature for validation
     generateSignature(data) {
-        const str = data.transactionId + data.member.jcId + data.transaction.pointsToUse + data.timestamp;
+        const dataString = data.memberJCId + data.redemptionId + data.selectedOption.type + Date.now();
         let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
+        for (let i = 0; i < dataString.length; i++) {
+            const char = dataString.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
             hash = hash & hash;
         }
         return Math.abs(hash).toString(36);
     }
 
-    // ======================
-    // For SALESPERSON (Terminal)
-    // ======================
-
-    async processPointsPayment(memberJCId, ugxAmount, description, salespersonName) {
+    // Simple encryption
+    encryptData(data) {
         try {
-            // Get member from Supabase
-            const member = await clubManager.db.getMemberByJCId(memberJCId);
-            if (!member) {
-                return { success: false, message: "Member not found" };
+            const dataString = JSON.stringify(data);
+            let result = '';
+            for (let i = 0; i < dataString.length; i++) {
+                result += String.fromCharCode(dataString.charCodeAt(i) ^ this.encryptionKey.charCodeAt(i % this.encryptionKey.length));
             }
-
-            // Calculate points needed
-            const pointsNeeded = this.calculatePointsNeeded(ugxAmount, member.tier);
-            
-            // Check if member has enough points
-            if (member.points < pointsNeeded) {
-                return { 
-                    success: false, 
-                    message: `Insufficient points. Need ${pointsNeeded} points, but only have ${member.points}` 
-                };
-            }
-
-            // Check spending limits
-            const limitCheck = this.checkSpendingLimits(memberJCId, ugxAmount, member.tier);
-            if (!limitCheck.valid) {
-                return { success: false, message: limitCheck.errors.join(", ") };
-            }
-
-            // Calculate business margin
-            const margin = this.calculateBusinessMargin(pointsNeeded, member.tier);
-
-            // Update member points
-            const oldPoints = member.points;
-            member.points -= pointsNeeded;
-            member.tier = clubManager.calculateTier(member.points);
-
-            // Add to purchase history
-            member.purchaseHistory.push({
-                date: new Date().toISOString(),
-                amount: 0, // No cash spent, only points
-                pointsUsed: pointsNeeded,
-                description: description,
-                ugxValue: ugxAmount,
-                salesperson: salespersonName,
-                transactionType: 'points_payment'
-            });
-
-            // Log activity
-            await clubManager.logActivity(member.id, 
-                `Points payment: ${pointsNeeded} points for ${description} (UGX ${ugxAmount.toLocaleString()}) - Processed by: ${salespersonName}`, 
-                -pointsNeeded);
-
-            // Update spending records
-            this.updateSpendingRecords(memberJCId, ugxAmount);
-
-            // Save updated member to Supabase
-            await clubManager.db.saveMember(member);
-
-            // If this is the current member, update dashboard
-            if (clubManager.currentMember && clubManager.currentMember.jcId === memberJCId) {
-                clubManager.currentMember = member;
-                clubManager.saveCurrentMember();
-            }
-
-            // Send email receipt
-            await this.sendPointsPaymentEmail(member, {
-                pointsUsed: pointsNeeded,
-                ugxAmount: ugxAmount,
-                description: description,
-                salespersonName: salespersonName,
-                newPoints: member.points,
-                pointValue: this.pointSpendingValues[member.tier],
-                businessMargin: margin
-            });
-
-            return {
-                success: true,
-                message: `Payment successful! ${pointsNeeded} points used for UGX ${ugxAmount.toLocaleString()}`,
-                transaction: {
-                    pointsUsed: pointsNeeded,
-                    ugxAmount: ugxAmount,
-                    newPoints: member.points,
-                    tier: member.tier,
-                    salesperson: salespersonName,
-                    businessMargin: margin
-                }
-            };
-
+            return btoa(result);
         } catch (error) {
-            console.error('Payment processing error:', error);
-            return { success: false, message: "Payment failed: " + error.message };
+            console.error('Encryption error:', error);
+            return JSON.stringify(data);
         }
     }
 
-    async processScannedQR(qrData, salespersonName) {
+    // Simple decryption
+    decryptData(encryptedData) {
         try {
-            // Decode QR data
-            const decodedData = JSON.parse(atob(qrData));
-            
-            // Verify signature
-            const expectedSignature = this.generateSignature({
-                transactionId: decodedData.transactionId,
-                member: { jcId: decodedData.memberJCId },
-                transaction: { pointsToUse: decodedData.pointsToUse },
-                timestamp: decodedData.timestamp
-            });
-
-            if (decodedData.signature !== expectedSignature) {
-                return { success: false, message: "Invalid QR code signature" };
+            const decoded = atob(encryptedData);
+            let result = '';
+            for (let i = 0; i < decoded.length; i++) {
+                result += String.fromCharCode(decoded.charCodeAt(i) ^ this.encryptionKey.charCodeAt(i % this.encryptionKey.length));
             }
-
-            // Validate the payment
-            const validation = await this.validatePointsPayment(
-                decodedData.memberJCId, 
-                decodedData.pointsToUse, 
-                decodedData.description
-            );
-
-            if (!validation.valid) {
-                return { success: false, message: validation.error };
-            }
-
-            // Calculate UGX amount
-            const ugxAmount = decodedData.pointsToUse * this.pointSpendingValues[validation.member.tier];
-
-            // Process the payment with salesperson name
-            return await this.processPointsPayment(
-                decodedData.memberJCId, 
-                ugxAmount, 
-                decodedData.description, 
-                salespersonName
-            );
-
+            return JSON.parse(result);
         } catch (error) {
-            console.error('QR processing error:', error);
-            return { success: false, message: "Invalid QR code data" };
+            console.error('Decryption error:', error);
+            return null;
         }
     }
 
-    // ======================
-    // Email Service for Points Payments
-    // ======================
-
-    async sendPointsPaymentEmail(member, paymentData) {
-        const emailService = new GoogleAppsEmailService();
+    // Create redemption record
+    createRedemption(member, selectedOption, purchaseAmount) {
+        const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
         
-        const emailData = {
-            type: 'points_payment',
-            memberData: {
-                name: member.name,
-                jcId: member.jcId,
-                tier: member.tier,
-                points: member.points
-            },
-            extraData: {
-                pointsUsed: paymentData.pointsUsed,
-                ugxAmount: paymentData.ugxAmount,
-                description: paymentData.description,
-                salespersonName: paymentData.salespersonName,
-                newPoints: paymentData.newPoints,
-                pointValue: paymentData.pointValue,
-                businessMargin: paymentData.businessMargin
-            }
+        const redemptionData = {
+            redemptionId: redemptionId,
+            memberJCId: member.jcId,
+            memberName: member.name,
+            memberTier: member.tier,
+            purchaseAmount: purchaseAmount,
+            selectedOption: selectedOption,
+            createdDate: new Date().toISOString(),
+            status: 'pending',
+            redeemedBy: null,
+            redeemedDate: null,
+            qrCodeData: null
         };
 
-        // Build email content
-        const subject = `🎫 Points Payment Confirmation - ${paymentData.description}`;
-        const content = this.buildPointsPaymentEmail(member, paymentData);
+        // Generate QR code data
+        redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
 
-        try {
-            const result = await emailService.sendEmailToGoogleScript(
-                member.email, 
-                'points_payment', 
-                emailData.memberData, 
-                emailData.extraData
-            );
-            
-            if (!result.success) {
-                // Fallback: Use direct email building
-                this.savePointsPaymentEmailToLog(member.email, subject, content);
-            }
-            
-            return result;
-        } catch (error) {
-            console.error('Email sending error:', error);
-            this.savePointsPaymentEmailToLog(member.email, subject, content);
-            return { success: false, fallback: true };
-        }
+        this.redemptions.push(redemptionData);
+        this.saveRedemptions();
+
+        return redemptionData;
     }
 
-    buildPointsPaymentEmail(member, paymentData) {
-        return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Points Payment Confirmation - Jeans Club</title>
-    <style>
-        body { 
-            font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif; 
-            line-height: 1.6; 
-            color: #333333; 
-            background-color: #f9f9f9; 
-            margin: 0; 
-            padding: 0; 
+    // Process redemption by scanning QR code
+    processRedemption(qrCodeData, salespersonName) {
+        // Validate salesperson name
+        if (!salespersonName || salespersonName.trim() === '') {
+            return { success: false, message: "Salesperson name is required" };
         }
-        .email-container { 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: white; 
-            border-radius: 10px; 
-            overflow: hidden; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+
+        // Decrypt and validate QR code data
+        const redemptionData = this.decryptData(qrCodeData);
+        if (!redemptionData) {
+            return { success: false, message: "Invalid QR code data" };
         }
-        .email-header { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            color: white; 
-            padding: 40px 30px; 
-            text-align: center; 
+
+        // Find redemption record
+        const redemption = this.redemptions.find(r => r.redemptionId === redemptionData.redemptionId);
+        if (!redemption) {
+            return { success: false, message: "Redemption not found" };
         }
-        .email-header h1 { 
-            margin: 0; 
-            font-size: 28px; 
-            font-weight: bold; 
+
+        // Validate signature
+        const expectedSignature = this.generateSignature(redemption);
+        if (redemption.qrCodeData !== this.generateQRCodeData(redemption)) {
+            return { success: false, message: "QR code validation failed" };
         }
-        .email-header p { 
-            margin: 10px 0 0; 
-            opacity: 0.9; 
-            font-size: 16px; 
+
+        // Check status
+        if (redemption.status === 'completed') {
+            return { success: false, message: "Redemption has already been completed" };
         }
-        .email-content { 
-            padding: 40px 30px; 
+
+        if (redemption.status === 'expired') {
+            return { success: false, message: "Redemption has expired" };
         }
-        .transaction-summary { 
-            background: #f8f9fa; 
-            padding: 30px; 
-            border-radius: 8px; 
-            margin: 25px 0; 
-            border-left: 4px solid #667eea; 
-        }
-        .business-margin { 
-            background: ${paymentData.businessMargin.businessGains ? '#d4edda' : '#fff3cd'}; 
-            color: ${paymentData.businessMargin.businessGains ? '#155724' : '#856404'}; 
-            padding: 20px; 
-            border-radius: 8px; 
-            margin: 20px 0; 
-            border: 1px solid ${paymentData.businessMargin.businessGains ? '#c3e6cb' : '#ffeaa7'}; 
-        }
-        .points-used { 
-            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-            color: white; 
-            padding: 30px; 
-            border-radius: 10px; 
-            text-align: center; 
-            margin: 25px 0; 
-        }
-        .email-footer { 
-            text-align: center; 
-            margin-top: 30px; 
-            padding: 25px; 
-            color: #666; 
-            font-size: 14px; 
-            border-top: 1px solid #eee; 
-            background: #f8f9fa; 
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-        }
-        td { 
-            padding: 12px 8px; 
-            border-bottom: 1px solid #e0e0e0; 
-        }
-        @media (max-width: 600px) {
-            .email-content { padding: 25px 20px; }
-        }
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="email-header">
-            <h1>🎫 Points Payment Confirmed</h1>
-            <p>Your Points Have Been Successfully Redeemed</p>
-        </div>
+
+        // Mark as completed
+        redemption.status = 'completed';
+        redemption.redeemedBy = salespersonName.trim();
+        redemption.redeemedDate = new Date().toISOString();
+        this.saveRedemptions();
+
+        return {
+            success: true,
+            message: `Redemption completed successfully by ${salespersonName}`,
+            redemption: redemption
+        };
+    }
+
+    // Get member's redemption history
+    getMemberRedemptions(memberJCId) {
+        return this.redemptions
+            .filter(r => r.memberJCId === memberJCId)
+            .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+    }
+
+    // Get all redemptions (for admin)
+    getAllRedemptions() {
+        return this.redemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+    }
+
+    // Save redemptions to localStorage
+    saveRedemptions() {
+        localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.redemptions));
+    }
+
+    // Get redemption statistics
+    getRedemptionStats() {
+        const total = this.redemptions.length;
+        const pending = this.redemptions.filter(r => r.status === 'pending').length;
+        const completed = this.redemptions.filter(r => r.status === 'completed').length;
+        const expired = this.redemptions.filter(r => r.status === 'expired').length;
         
-        <div class="email-content">
-            <h2 style="color: #333; margin-top: 0;">Hello ${member.name},</h2>
-            <p style="font-size: 16px; color: #555;">Your points payment has been processed successfully. Here are the details:</p>
-            
-            <div class="points-used">
-                <h3 style="margin: 0 0 10px; font-size: 24px;">${paymentData.pointsUsed.toLocaleString()} Points Used</h3>
-                <div style="font-size: 32px; font-weight: bold; margin: 10px 0;">UGX ${paymentData.ugxAmount.toLocaleString()}</div>
-                <p style="margin: 10px 0 0; opacity: 0.9; font-size: 16px;">Value redeemed</p>
-            </div>
-
-            <div class="transaction-summary">
-                <h3 style="color: #667eea; margin-top: 0;">📋 Transaction Details</h3>
-                <table>
-                    <tr>
-                        <td style="font-weight: bold; color: #555; width: 40%;">Description:</td>
-                        <td style="color: #333;">${paymentData.description}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold; color: #555;">Points Used:</td>
-                        <td style="color: #333;">${paymentData.pointsUsed.toLocaleString()} points</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold; color: #555;">Point Value:</td>
-                        <td style="color: #333;">1 point = UGX ${paymentData.pointValue} (${member.tier} tier)</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold; color: #555;">UGX Amount:</td>
-                        <td style="color: #333; font-weight: bold;">UGX ${paymentData.ugxAmount.toLocaleString()}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold; color: #555;">New Points Balance:</td>
-                        <td style="color: #333; font-weight: bold;">${paymentData.newPoints.toLocaleString()} points</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold; color: #555;">Processed By:</td>
-                        <td style="color: #333;">${paymentData.salespersonName}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold; color: #555;">Transaction Date:</td>
-                        <td style="color: #333;">${new Date().toLocaleString()}</td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="business-margin">
-                <h4 style="margin: 0 0 10px; color: inherit;">💰 Business Margin Analysis</h4>
-                <table style="color: inherit;">
-                    <tr>
-                        <td style="font-weight: bold;">Cost to Business:</td>
-                        <td>UGX ${paymentData.businessMargin.costToBusiness.toLocaleString()}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">Revenue Value:</td>
-                        <td>UGX ${paymentData.businessMargin.revenue.toLocaleString()}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">${paymentData.businessMargin.businessGains ? 'Profit' : 'Loss'}:</td>
-                        <td style="font-weight: bold;">UGX ${Math.abs(paymentData.businessMargin.profit).toLocaleString()}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: bold;">Margin:</td>
-                        <td style="font-weight: bold;">${paymentData.businessMargin.marginPercentage}% ${paymentData.businessMargin.businessGains ? '🔼' : '🔽'}</td>
-                    </tr>
-                </table>
-                <p style="margin: 10px 0 0; font-size: 14px;">
-                    ${paymentData.businessMargin.businessGains ? 
-                        '✅ Business gains on this transaction' : 
-                        '✅ Customer gets better value on this transaction'}
-                </p>
-            </div>
-            
-            <div class="email-footer">
-                <p style="margin: 0 0 10px; color: #333; font-weight: bold;">Thank you for choosing Jeans Club Points Payment!</p>
-                <p style="margin: 5px 0; color: #666;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
-                <p style="margin: 15px 0 0; font-size: 12px; color: #999;">This is an automated message. Please do not reply to this email.</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`;
-    }
-
-    savePointsPaymentEmailToLog(email, subject, content) {
-        try {
-            const emailLog = JSON.parse(localStorage.getItem('pointsPaymentEmails') || '[]');
-            emailLog.unshift({
-                email: email,
-                subject: subject,
-                content: content,
-                timestamp: new Date().toISOString(),
-                sent: false
-            });
-            
-            if (emailLog.length > 50) emailLog.length = 50;
-            
-            localStorage.setItem('pointsPaymentEmails', JSON.stringify(emailLog));
-            
-            console.log('📧 Points payment email saved to log (check localStorage: pointsPaymentEmails)');
-            console.log('Subject:', subject);
-            console.log('Content preview:', content.substring(0, 200) + '...');
-            
-        } catch (error) {
-            console.error('Could not save email to storage:', error);
-        }
-    }
-
-    // ======================
-    // Integration with JeansClubManager
-    // ======================
-
-    // Reset daily/monthly spending at appropriate intervals
-    cleanupOldRecords() {
-        const today = new Date().toISOString().split('T')[0];
-        const currentMonth = new Date().toISOString().substring(0, 7);
-        
-        // Remove daily records older than 2 days
-        Object.keys(this.dailySpending).forEach(memberJCId => {
-            Object.keys(this.dailySpending[memberJCId]).forEach(date => {
-                if (date < today) {
-                    delete this.dailySpending[memberJCId][date];
+        const totalValue = this.redemptions
+            .filter(r => r.status === 'completed')
+            .reduce((sum, r) => {
+                if (r.selectedOption.type === 'points_redemption') {
+                    return sum + (r.selectedOption.maxRedemption || 0);
+                } else if (r.selectedOption.type === 'discount_voucher') {
+                    return sum + (r.selectedOption.discountAmount || 0);
                 }
-            });
-        });
-
-        // Remove monthly records older than current month
-        Object.keys(this.monthlySpending).forEach(memberJCId => {
-            Object.keys(this.monthlySpending[memberJCId]).forEach(month => {
-                if (month < currentMonth) {
-                    delete this.monthlySpending[memberJCId][month];
-                }
-            });
-        });
-
-        this.saveSpendingData();
-    }
-
-    // Get member spending summary
-    getMemberSpendingSummary(memberJCId) {
-        const today = new Date().toISOString().split('T')[0];
-        const currentMonth = new Date().toISOString().substring(0, 7);
+                return sum;
+            }, 0);
         
-        const daily = this.dailySpending[memberJCId]?.[today] || 0;
-        const monthly = this.monthlySpending[memberJCId]?.[currentMonth] || 0;
-        
-        return { daily, monthly };
+        return {
+            total,
+            pending,
+            completed,
+            expired,
+            totalValue,
+            completionRate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%'
+        };
     }
 }
 
-// Initialize PointsOnlyPaymentSystem
-const pointsPaymentSystem = new PointsOnlyPaymentSystem();
-// AI Chat Bot Database - REMOVED
-// All AI chat bot related functions and database have been removed
+// Initialize QR redemption system
+const qrRedemptionSystem = new QRRedemptionSystem();
 
 // Advanced Analytics System
 class AnalyticsEngine {
@@ -1539,6 +1194,7 @@ function showVoucherManagementPanel() {
     document.getElementById('analyticsSection').classList.add('hidden');
     document.getElementById('deleteMemberSection').classList.add('hidden');
     document.getElementById('voucherManagementSection').classList.remove('hidden');
+    document.getElementById('qrRedemptionSection').classList.add('hidden');
     
     refreshVouchers();
 }
@@ -1717,6 +1373,467 @@ function displayMemberVouchers() {
                     </div>
                     <div class="voucher-qr">
                         <img src="${qrCodeUrl}" alt="QR Code" style="border: 1px solid #ddd; border-radius: 5px; padding: 5px; background: white;">
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// QR REDEMPTION UI FUNCTIONS
+function showQRRedemptionPanel() {
+    if (!clubManager.currentMember) {
+        alert("Please login first");
+        showLoginScreen();
+        return;
+    }
+    
+    document.getElementById('signupSection').classList.add('hidden');
+    document.getElementById('loginSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('adminSection').classList.add('hidden');
+    document.getElementById('passwordResetSection').classList.add('hidden');
+    document.getElementById('analyticsSection').classList.add('hidden');
+    document.getElementById('deleteMemberSection').classList.add('hidden');
+    document.getElementById('voucherManagementSection').classList.add('hidden');
+    document.getElementById('qrRedemptionSection').classList.remove('hidden');
+    
+    // Reset the form
+    document.getElementById('purchaseAmount').value = '';
+    document.getElementById('redemptionOptions').innerHTML = '';
+    document.getElementById('selectedOptionDetails').innerHTML = '';
+    document.getElementById('qrCodeContainer').innerHTML = '';
+    document.getElementById('redemptionResult').innerHTML = '';
+}
+
+function calculateRedemptionOptions() {
+    const purchaseAmount = parseInt(document.getElementById('purchaseAmount').value) || 0;
+    
+    if (purchaseAmount <= 0) {
+        document.getElementById('redemptionOptions').innerHTML = 
+            '<div class="info-card"><p>Please enter a valid purchase amount</p></div>';
+        return;
+    }
+    
+    if (!clubManager.currentMember) {
+        alert("Please login first");
+        return;
+    }
+    
+    const member = clubManager.currentMember;
+    const options = qrRedemptionSystem.calculateRedemptionOptions(member, purchaseAmount);
+    
+    if (options.length === 0) {
+        document.getElementById('redemptionOptions').innerHTML = 
+            '<div class="info-card"><p>No redemption options available for your current tier and spending history.</p></div>';
+        return;
+    }
+    
+    let html = '<h3>Available Redemption Options:</h3>';
+    
+    options.forEach((option, index) => {
+        html += `
+            <div class="redemption-option" onclick="selectRedemptionOption(${index})" id="option-${index}">
+                <div class="option-header">
+                    <h4>${option.type === 'points_redemption' ? '💰 Points Redemption' : '🎫 Discount Voucher'}</h4>
+                    <span class="option-tier tier-${option.tier.toLowerCase()}">${option.tier}</span>
+                </div>
+                <p><strong>${option.description}</strong></p>
+                ${option.type === 'points_redemption' ? `
+                    <p>Max Redemption: ${option.maxRedemption.toLocaleString()} UGX</p>
+                    <p>Points Equivalent: ${option.pointsEquivalent.toLocaleString()} points (${option.pointsValue})</p>
+                ` : `
+                    <p>Discount Amount: ${option.discountAmount.toLocaleString()} UGX</p>
+                    <p>Discount Percentage: ${option.discountPercentage}%</p>
+                    <p>Points Required: ${option.pointsRequired.toLocaleString()}</p>
+                `}
+            </div>
+        `;
+    });
+    
+    document.getElementById('redemptionOptions').innerHTML = html;
+    document.getElementById('selectedOptionDetails').innerHTML = '';
+    document.getElementById('qrCodeContainer').innerHTML = '';
+}
+
+function selectRedemptionOption(index) {
+    const purchaseAmount = parseInt(document.getElementById('purchaseAmount').value) || 0;
+    const member = clubManager.currentMember;
+    const options = qrRedemptionSystem.calculateRedemptionOptions(member, purchaseAmount);
+    
+    if (!options[index]) return;
+    
+    const option = options[index];
+    
+    // Remove selection from all options
+    document.querySelectorAll('.redemption-option').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    // Add selection to chosen option
+    document.getElementById(`option-${index}`).classList.add('selected');
+    
+    let detailsHtml = `
+        <h3>Selected Option:</h3>
+        <div class="selected-option-details">
+            <div class="option-header">
+                <h4>${option.type === 'points_redemption' ? '💰 Points Redemption' : '🎫 Discount Voucher'}</h4>
+                <span class="option-tier tier-${option.tier.toLowerCase()}">${option.tier}</span>
+            </div>
+            <p><strong>${option.description}</strong></p>
+            ${option.type === 'points_redemption' ? `
+                <p>Max Redemption Amount: <strong>${option.maxRedemption.toLocaleString()} UGX</strong></p>
+                <p>Points Equivalent: ${option.pointsEquivalent.toLocaleString()} points</p>
+                <p>Points Value: ${option.pointsValue}</p>
+            ` : `
+                <p>Discount Amount: <strong>${option.discountAmount.toLocaleString()} UGX</strong></p>
+                <p>Discount Percentage: ${option.discountPercentage}%</p>
+                <p>Points Required: ${option.pointsRequired.toLocaleString()}</p>
+            `}
+            <p>Applicable to Purchase: ${purchaseAmount.toLocaleString()} UGX</p>
+        </div>
+        <button class="btn" onclick="generateQRCode(${index})" style="width: 100%; margin-top: 20px;">
+            Generate QR Code
+        </button>
+    `;
+    
+    document.getElementById('selectedOptionDetails').innerHTML = detailsHtml;
+}
+
+function generateQRCode(optionIndex) {
+    const purchaseAmount = parseInt(document.getElementById('purchaseAmount').value) || 0;
+    const member = clubManager.currentMember;
+    const options = qrRedemptionSystem.calculateRedemptionOptions(member, purchaseAmount);
+    
+    if (!options[optionIndex]) return;
+    
+    const selectedOption = options[optionIndex];
+    
+    // Create redemption record
+    const redemption = qrRedemptionSystem.createRedemption(member, selectedOption, purchaseAmount);
+    
+    // Generate QR code
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(redemption.qrCodeData)}`;
+    
+    const qrHtml = `
+        <h3>Redemption QR Code:</h3>
+        <div class="qr-code-container">
+            <img src="${qrCodeUrl}" alt="Redemption QR Code" style="border: 1px solid #ddd; border-radius: 10px; padding: 10px; background: white; margin: 10px 0;">
+            <div class="qr-details">
+                <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
+                <p><strong>Member:</strong> ${member.name} (${member.jcId})</p>
+                <p><strong>Tier:</strong> ${member.tier}</p>
+                <p><strong>Purchase Amount:</strong> ${purchaseAmount.toLocaleString()} UGX</p>
+                <p><strong>Option:</strong> ${selectedOption.description}</p>
+                <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+            </div>
+            <button class="btn" onclick="printQRCode()" style="margin-top: 10px;">
+                🖨️ Print QR Code
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('qrCodeContainer').innerHTML = qrHtml;
+    document.getElementById('redemptionResult').innerHTML = 
+        '<div class="success-message">QR Code generated successfully! Show this to the salesperson.</div>';
+}
+
+function printQRCode() {
+    window.print();
+}
+
+// Salesperson redemption interface
+function showSalespersonRedemption() {
+    document.getElementById('signupSection').classList.add('hidden');
+    document.getElementById('loginSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('adminSection').classList.add('hidden');
+    document.getElementById('passwordResetSection').classList.add('hidden');
+    document.getElementById('analyticsSection').classList.add('hidden');
+    document.getElementById('deleteMemberSection').classList.add('hidden');
+    document.getElementById('voucherManagementSection').classList.add('hidden');
+    document.getElementById('qrRedemptionSection').classList.add('hidden');
+    document.getElementById('salespersonRedemptionSection').classList.remove('hidden');
+    
+    document.getElementById('scanResult').innerHTML = '';
+    document.getElementById('redemptionDetails').innerHTML = '';
+    document.getElementById('salespersonName').value = '';
+}
+
+function scanQRCode() {
+    // In a real app, this would use a camera scanner
+    // For demo purposes, we'll prompt for QR code data
+    const qrData = prompt("Enter or paste QR code data from the member's phone:");
+    
+    if (!qrData) return;
+    
+    document.getElementById('scanResult').innerHTML = 
+        '<div class="info-message">QR Code scanned. Processing...</div>';
+    
+    // Simulate processing delay
+    setTimeout(() => {
+        processScannedQRCode(qrData);
+    }, 1000);
+}
+
+function processScannedQRCode(qrData) {
+    try {
+        const redemptionData = qrRedemptionSystem.decryptData(qrData);
+        
+        if (!redemptionData) {
+            document.getElementById('scanResult').innerHTML = 
+                '<div class="error-message">Invalid QR code data. Please try again.</div>';
+            return;
+        }
+        
+        // Find the redemption record
+        const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+        const redemption = allRedemptions.find(r => r.redemptionId === redemptionData.redemptionId);
+        
+        if (!redemption) {
+            document.getElementById('scanResult').innerHTML = 
+                '<div class="error-message">Redemption not found. Please check the QR code.</div>';
+            return;
+        }
+        
+        let detailsHtml = `
+            <h3>Redemption Details:</h3>
+            <div class="redemption-details-card">
+                <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
+                <p><strong>Member:</strong> ${redemption.memberName} (${redemption.memberJCId})</p>
+                <p><strong>Tier:</strong> ${redemption.memberTier}</p>
+                <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
+                <p><strong>Redemption Option:</strong> ${redemption.selectedOption.description}</p>
+                <p><strong>Status:</strong> <span class="status-${redemption.status}">${redemption.status.toUpperCase()}</span></p>
+                <p><strong>Created:</strong> ${new Date(redemption.createdDate).toLocaleString()}</p>
+            </div>
+        `;
+        
+        if (redemption.status === 'pending') {
+            detailsHtml += `
+                <div class="salesperson-form" style="margin-top: 20px;">
+                    <h4>Complete Redemption:</h4>
+                    <input type="text" id="salespersonName" placeholder="Enter your name (salesperson)" required>
+                    <button class="btn" onclick="completeRedemption('${redemption.redemptionId}')" style="width: 100%; margin-top: 10px;">
+                        Complete Redemption
+                    </button>
+                </div>
+            `;
+        }
+        
+        document.getElementById('redemptionDetails').innerHTML = detailsHtml;
+        document.getElementById('scanResult').innerHTML = 
+            '<div class="success-message">QR Code validated successfully!</div>';
+        
+    } catch (error) {
+        console.error('Error processing QR code:', error);
+        document.getElementById('scanResult').innerHTML = 
+            '<div class="error-message">Error processing QR code. Please try again.</div>';
+    }
+}
+
+function completeRedemption(redemptionId) {
+    const salespersonName = document.getElementById('salespersonName').value.trim();
+    
+    if (!salespersonName) {
+        alert("Please enter your name (salesperson)");
+        return;
+    }
+    
+    // Find redemption and get QR code data
+    const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+    const redemption = allRedemptions.find(r => r.redemptionId === redemptionId);
+    
+    if (!redemption) {
+        document.getElementById('scanResult').innerHTML = 
+            '<div class="error-message">Redemption not found.</div>';
+        return;
+    }
+    
+    // Process redemption
+    const result = qrRedemptionSystem.processRedemption(redemption.qrCodeData, salespersonName);
+    
+    if (result.success) {
+        document.getElementById('redemptionDetails').innerHTML = `
+            <div class="success-card">
+                <h3>✅ Redemption Completed!</h3>
+                <p><strong>Processed by:</strong> ${salespersonName}</p>
+                <p><strong>Member:</strong> ${redemption.memberName}</p>
+                <p><strong>Redemption Value:</strong> 
+                    ${result.redemption.selectedOption.type === 'points_redemption' ? 
+                        result.redemption.selectedOption.maxRedemption.toLocaleString() + ' UGX' : 
+                        result.redemption.selectedOption.discountAmount.toLocaleString() + ' UGX discount'}
+                </p>
+                <p><strong>Completed at:</strong> ${new Date().toLocaleString()}</p>
+                <button class="btn" onclick="printReceipt('${redemptionId}')" style="margin-top: 15px;">
+                    🖨️ Print Receipt
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('scanResult').innerHTML = 
+            '<div class="success-message">Redemption processed successfully!</div>';
+    } else {
+        document.getElementById('scanResult').innerHTML = 
+            `<div class="error-message">${result.message}</div>`;
+    }
+}
+
+function printReceipt(redemptionId) {
+    const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+    const redemption = allRedemptions.find(r => r.redemptionId === redemptionId);
+    
+    if (!redemption) return;
+    
+    const receiptWindow = window.open('', '_blank');
+    receiptWindow.document.write(`
+        <html>
+        <head>
+            <title>Jeans Club Redemption Receipt</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                .receipt { max-width: 400px; margin: 0 auto; }
+                .header { text-align: center; margin-bottom: 20px; }
+                .details { margin: 20px 0; }
+                .footer { margin-top: 30px; text-align: center; font-size: 12px; }
+            </style>
+        </head>
+        <body>
+            <div class="receipt">
+                <div class="header">
+                    <h2>Jeans Club</h2>
+                    <h3>Redemption Receipt</h3>
+                </div>
+                <div class="details">
+                    <p><strong>Receipt ID:</strong> ${redemption.redemptionId}</p>
+                    <p><strong>Date:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}</p>
+                    <p><strong>Member:</strong> ${redemption.memberName} (${redemption.memberJCId})</p>
+                    <p><strong>Tier:</strong> ${redemption.memberTier}</p>
+                    <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
+                    <p><strong>Redemption Type:</strong> ${redemption.selectedOption.type === 'points_redemption' ? 'Points Redemption' : 'Discount Voucher'}</p>
+                    <p><strong>Value:</strong> 
+                        ${redemption.selectedOption.type === 'points_redemption' ? 
+                            redemption.selectedOption.maxRedemption.toLocaleString() + ' UGX' : 
+                            redemption.selectedOption.discountAmount.toLocaleString() + ' UGX discount'}
+                    </p>
+                    <p><strong>Processed by:</strong> ${redemption.redeemedBy}</p>
+                </div>
+                <div class="footer">
+                    <p>Thank you for choosing Jeans Club!</p>
+                    <p>📍 https://elijah787.github.io/jeans-club</p>
+                </div>
+            </div>
+            <script>
+                window.onload = function() {
+                    window.print();
+                    setTimeout(function() {
+                        window.close();
+                    }, 1000);
+                }
+            </script>
+        </body>
+        </html>
+    `);
+    receiptWindow.document.close();
+}
+
+// QR Redemption Management (Admin)
+function showQRRedemptionManagement() {
+    if (!clubManager.isAdmin) {
+        showAdminLogin();
+        return;
+    }
+    
+    document.getElementById('signupSection').classList.add('hidden');
+    document.getElementById('loginSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    document.getElementById('adminSection').classList.add('hidden');
+    document.getElementById('passwordResetSection').classList.add('hidden');
+    document.getElementById('analyticsSection').classList.add('hidden');
+    document.getElementById('deleteMemberSection').classList.add('hidden');
+    document.getElementById('voucherManagementSection').classList.add('hidden');
+    document.getElementById('qrRedemptionSection').classList.add('hidden');
+    document.getElementById('qrRedemptionManagementSection').classList.remove('hidden');
+    
+    displayQRRedemptionStats();
+    displayAllRedemptions();
+}
+
+function displayQRRedemptionStats() {
+    const stats = qrRedemptionSystem.getRedemptionStats();
+    const container = document.getElementById('qrRedemptionStats');
+    
+    container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="font-size: 24px; font-weight: bold; color: #667eea;">${stats.total}</div>
+                <div style="font-size: 12px; color: #666;">Total Redemptions</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="font-size: 24px; font-weight: bold; color: #28a745;">${stats.completed}</div>
+                <div style="font-size: 12px; color: #666;">Completed</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="font-size: 24px; font-weight: bold; color: #ffc107;">${stats.pending}</div>
+                <div style="font-size: 12px; color: #666;">Pending</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="font-size: 24px; font-weight: bold; color: #dc3545;">${stats.expired}</div>
+                <div style="font-size: 12px; color: #666;">Expired</div>
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div style="text-align: center; padding: 15px; background: #e7f3ff; border-radius: 8px;">
+                <div style="font-size: 20px; font-weight: bold; color: #2196F3;">${stats.totalValue.toLocaleString()} UGX</div>
+                <div style="font-size: 12px; color: #666;">Total Value</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #e7f3ff; border-radius: 8px;">
+                <div style="font-size: 20px; font-weight: bold; color: #2196F3;">${stats.completionRate}</div>
+                <div style="font-size: 12px; color: #666;">Completion Rate</div>
+            </div>
+        </div>
+    `;
+}
+
+function displayAllRedemptions() {
+    const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+    const container = document.getElementById('allRedemptionsList');
+    
+    if (allRedemptions.length === 0) {
+        container.innerHTML = '<div class="activity-item">No redemptions have been created yet.</div>';
+        return;
+    }
+
+    let html = '';
+    allRedemptions.forEach(redemption => {
+        const statusClass = redemption.status === 'completed' ? 'status-active' : 
+                          redemption.status === 'pending' ? 'status-used' : 'status-expired';
+        
+        html += `
+            <div class="redemption-item ${redemption.status}">
+                <div style="display: flex; justify-content: between; align-items: start;">
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 5px;">${redemption.memberName} (${redemption.memberJCId})</h4>
+                        <p style="margin: 0 0 5px; font-size: 16px; font-weight: bold; color: #e67e22;">
+                            ${redemption.selectedOption.type === 'points_redemption' ? 
+                                '💰 Points Redemption' : 
+                                '🎫 Discount Voucher'} - 
+                            ${redemption.selectedOption.type === 'points_redemption' ? 
+                                redemption.selectedOption.maxRedemption.toLocaleString() + ' UGX' : 
+                                redemption.selectedOption.discountAmount.toLocaleString() + ' UGX'}
+                        </p>
+                        <div class="redemption-id">${redemption.redemptionId}</div>
+                        <p style="margin: 5px 0; font-size: 12px; color: #666;">
+                            Created: ${new Date(redemption.createdDate).toLocaleDateString()} | 
+                            Purchase Amount: ${redemption.purchaseAmount.toLocaleString()} UGX
+                            ${redemption.redeemedDate ? ` | Redeemed: ${new Date(redemption.redeemedDate).toLocaleDateString()} by ${redemption.redeemedBy || 'unknown'}` : ''}
+                        </p>
+                        <p style="margin: 5px 0; font-size: 12px; color: #666;">
+                            ${redemption.selectedOption.description}
+                        </p>
+                        <span class="redemption-status ${statusClass}">${redemption.status.toUpperCase()}</span>
                     </div>
                 </div>
             </div>
@@ -4439,6 +4556,7 @@ function exportAnalyticsData() {
 function showDataStatistics() {
     const analyticsData = JSON.parse(localStorage.getItem('jeansClubAnalytics') || '{}');
     const stats = voucherSystem.getVoucherStats();
+    const qrStats = qrRedemptionSystem.getRedemptionStats();
     
     let message = '📊 Data Statistics:\n\n';
     message += `Analytics Records: ${Object.keys(analyticsData.memberEngagement?.loginFrequency || {}).length} members\n`;
@@ -4446,7 +4564,12 @@ function showDataStatistics() {
     message += `Active Vouchers: ${stats.active}\n`;
     message += `Used Vouchers: ${stats.used}\n`;
     message += `Expired Vouchers: ${stats.expired}\n`;
-    message += `Redemption Rate: ${stats.redemptionRate}\n`;
+    message += `Voucher Redemption Rate: ${stats.redemptionRate}\n\n`;
+    message += `QR Redemptions: ${qrStats.total}\n`;
+    message += `Completed Redemptions: ${qrStats.completed}\n`;
+    message += `Pending Redemptions: ${qrStats.pending}\n`;
+    message += `Redemption Value: ${qrStats.totalValue.toLocaleString()} UGX\n`;
+    message += `Redemption Completion Rate: ${qrStats.completionRate}`;
     
     alert(message);
 }
@@ -4639,6 +4762,7 @@ function showDashboard(member) {
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.add('hidden');
     document.getElementById('analyticsSection').classList.add('hidden');
+    document.getElementById('qrRedemptionSection').classList.add('hidden');
     
     updateDashboard(member);
 }
@@ -4708,6 +4832,7 @@ function showLoginScreen() {
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.add('hidden');
     document.getElementById('analyticsSection').classList.add('hidden');
+    document.getElementById('qrRedemptionSection').classList.add('hidden');
 }
 
 function showSignupScreen() {
@@ -4717,6 +4842,7 @@ function showSignupScreen() {
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.add('hidden');
     document.getElementById('analyticsSection').classList.add('hidden');
+    document.getElementById('qrRedemptionSection').classList.add('hidden');
 }
 
 function showPasswordResetScreen() {
@@ -4726,6 +4852,7 @@ function showPasswordResetScreen() {
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.remove('hidden');
     document.getElementById('analyticsSection').classList.add('hidden');
+    document.getElementById('qrRedemptionSection').classList.add('hidden');
     
     // Clear any previous messages
     document.getElementById('resetRequestResult').innerHTML = '';
@@ -4825,6 +4952,7 @@ async function showAnalyticsPanel() {
     document.getElementById('adminSection').classList.add('hidden');
     document.getElementById('passwordResetSection').classList.add('hidden');
     document.getElementById('analyticsSection').classList.remove('hidden');
+    document.getElementById('qrRedemptionSection').classList.add('hidden');
     
     await generateAnalyticsReport();
 }
@@ -5254,570 +5382,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     setTimeout(initializeGoogleSignIn, 1000);
     
-    
-     if (clubManager.currentMember) {
+    if (clubManager.currentMember) {
         showDashboard(clubManager.currentMember);
     } else {
         showLoginScreen();
     }
-    // ============================================
-// POINTS PAYMENT DASHBOARD FUNCTIONS
-// ============================================
-
-async function showPointsPaymentDashboard() {
-    if (!clubManager.currentMember) {
-        alert('Please login first to use points payment');
-        showLoginScreen();
-        return;
-    }
-    
-    hideAllSections();
-    document.getElementById('pointsPaymentDashboard').classList.remove('hidden');
-    await loadPointsPaymentDashboard();
-}
-
-async function loadPointsPaymentDashboard() {
-    if (!clubManager.currentMember) return;
-    
-    const member = clubManager.currentMember;
-    
-    // Update points balance
-    document.getElementById('pointsBalanceDisplay').textContent = member.points.toLocaleString();
-    
-    // Load tier limits
-    const tierLimits = pointsPaymentSystem.getSpendingLimits(member.tier);
-    const tierLimitsDisplay = document.getElementById('tierLimitsDisplay');
-    
-    tierLimitsDisplay.innerHTML = `
-        <div class="limit-card">
-            <h4>Per Transaction Limit</h4>
-            <p>${tierLimits.perTransaction.toLocaleString()} UGX</p>
-        </div>
-        <div class="limit-card">
-            <h4>Daily Limit</h4>
-            <p>${tierLimits.daily.toLocaleString()} UGX</p>
-        </div>
-        <div class="limit-card">
-            <h4>Monthly Limit</h4>
-            <p>${tierLimits.monthly.toLocaleString()} UGX</p>
-        </div>
-    `;
-}
-
-function calculatePointsNeeded() {
-    const billAmount = parseFloat(document.getElementById('billAmount').value);
-    const description = document.getElementById('billDescription').value.trim();
-    
-    if (!billAmount || billAmount <= 0) {
-        document.getElementById('pointsCalculationResult').innerHTML = 
-            '<span style="color: red;">Please enter a valid bill amount</span>';
-        return;
-    }
-    
-    if (!description) {
-        document.getElementById('pointsCalculationResult').innerHTML = 
-            '<span style="color: red;">Please enter a description</span>';
-        return;
-    }
-    
-    if (!clubManager.currentMember) {
-        document.getElementById('pointsCalculationResult').innerHTML = 
-            '<span style="color: red;">Please login first</span>';
-        return;
-    }
-    
-    const member = clubManager.currentMember;
-    const pointsNeeded = pointsPaymentSystem.calculatePointsNeeded(billAmount, member.tier);
-    
-    // Check if member has enough points
-    if (member.points < pointsNeeded) {
-        document.getElementById('pointsCalculationResult').innerHTML = `
-            <div style="color: #721c24; background: #f8d7da; padding: 15px; border-radius: 8px;">
-                <strong>Insufficient Points!</strong><br>
-                Need ${pointsNeeded.toLocaleString()} points, but you only have ${member.points.toLocaleString()} points.<br>
-                You need ${(pointsNeeded - member.points).toLocaleString()} more points to pay this bill.
-            </div>
-        `;
-        document.getElementById('paymentActions').style.display = 'none';
-        return;
-    }
-    
-    // Validate spending limits
-    const limitCheck = pointsPaymentSystem.checkSpendingLimits(member.jcId, billAmount, member.tier);
-    
-    if (!limitCheck.valid) {
-        document.getElementById('pointsCalculationResult').innerHTML = `
-            <div style="color: #721c24; background: #f8d7da; padding: 15px; border-radius: 8px;">
-                <strong>Spending Limits Exceeded!</strong><br>
-                ${limitCheck.errors.join('<br>')}<br>
-                Daily remaining: ${limitCheck.remainingDaily.toLocaleString()} UGX<br>
-                Monthly remaining: ${limitCheck.remainingMonthly.toLocaleString()} UGX
-            </div>
-        `;
-        document.getElementById('paymentActions').style.display = 'none';
-        return;
-    }
-    
-    // Show calculation result
-    document.getElementById('pointsCalculationResult').innerHTML = `
-        <div style="color: #155724; background: #d4edda; padding: 15px; border-radius: 8px;">
-            <strong>Points Calculation:</strong><br>
-            Bill Amount: <strong>${billAmount.toLocaleString()} UGX</strong><br>
-            Points Needed: <strong>${pointsNeeded.toLocaleString()} points</strong><br>
-            Point Value: 1 point = ${pointsPaymentSystem.pointSpendingValues[member.tier]} UGX<br>
-            Remaining Points: ${(member.points - pointsNeeded).toLocaleString()} points<br><br>
-            <em>✅ You have enough points and are within your spending limits!</em>
-        </div>
-    `;
-    
-    // Store calculation data for QR generation
-    document.getElementById('paymentActions').dataset.pointsNeeded = pointsNeeded;
-    document.getElementById('paymentActions').dataset.billAmount = billAmount;
-    document.getElementById('paymentActions').dataset.description = description;
-    
-    // Show payment actions
-    document.getElementById('paymentActions').style.display = 'block';
-}
-
-function generatePaymentQR() {
-    const pointsNeeded = parseInt(document.getElementById('paymentActions').dataset.pointsNeeded);
-    const billAmount = parseInt(document.getElementById('paymentActions').dataset.billAmount);
-    const description = document.getElementById('paymentActions').dataset.description;
-    
-    if (!clubManager.currentMember) {
-        alert('Please login first');
-        return;
-    }
-    
-    const member = clubManager.currentMember;
-    
-    // Validate the payment
-    const validation = pointsPaymentSystem.validatePointsPayment(member.jcId, pointsNeeded, description);
-    
-    if (!validation.valid) {
-        document.getElementById('validationResult').innerHTML = `
-            <div class="validation-error">❌ ${validation.error}</div>
-        `;
-        document.getElementById('validationResult').classList.remove('hidden');
-        return;
-    }
-    
-    // Generate QR code data
-    const qrData = pointsPaymentSystem.generateQRCodeData(validation);
-    
-    // Display QR code
-    const qrCodeContainer = document.getElementById('qrCodeContainer');
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
-    
-    qrCodeContainer.innerHTML = `
-        <img src="${qrCodeUrl}" alt="Payment QR Code" style="width: 200px; height: 200px;">
-    `;
-    
-    // Show QR code section
-    document.getElementById('qrCodeDisplay').classList.remove('hidden');
-    
-    // Start expiry timer
-    startQRExpiryTimer();
-}
-
-function startQRExpiryTimer() {
-    let timeLeft = 5 * 60; // 5 minutes in seconds
-    const timerElement = document.getElementById('expiryTimer');
-    
-    const timer = setInterval(() => {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        
-        timerElement.textContent = `Expires in ${minutes}:${seconds.toString().padStart(2, '0')} minutes`;
-        
-        if (timeLeft <= 0) {
-            clearInterval(timer);
-            timerElement.textContent = 'QR Code Expired!';
-            timerElement.style.color = '#dc3545';
-            document.getElementById('qrCodeContainer').innerHTML = '<p style="color: #dc3545;">❌ QR Code has expired. Please generate a new one.</p>';
-        }
-        
-        timeLeft--;
-    }, 1000);
-}
-
-async function createDiscountVoucher() {
-    const pointsNeeded = parseInt(document.getElementById('paymentActions').dataset.pointsNeeded);
-    
-    if (!clubManager.currentMember || pointsNeeded <= 0) {
-        alert('Invalid request');
-        return;
-    }
-    
-    // Use the existing voucher system to create a voucher
-    const result = await clubManager.redeemPoints(pointsNeeded);
-    
-    if (result.success) {
-        alert(`🎫 ${result.discountPercentage}% discount voucher created!\n\nYou can find it in your dashboard under "My Discount Vouchers".`);
-        
-        // Refresh the display
-        if (document.getElementById('vouchersList')) {
-            displayMemberVouchers();
-        }
-        
-        // Refresh points balance
-        loadPointsPaymentDashboard();
-    } else {
-        alert('Error: ' + result.message);
-    }
-}
-
-// ============================================
-// SALESPERSON TERMINAL FUNCTIONS
-// ============================================
-
-async function showSalespersonTerminal() {
-    if (!clubManager.isAdmin) {
-        showAdminLogin();
-        return;
-    }
-    
-    hideAllSections();
-    document.getElementById('salespersonTerminal').classList.remove('hidden');
-}
-
-let qrScanner = null;
-
-function startQRScanner() {
-    const scannerContainer = document.getElementById('scannerContainer');
-    const scannerArea = document.getElementById('scannerArea');
-    
-    scannerArea.style.display = 'none';
-    scannerContainer.style.display = 'block';
-    
-    // Create QR scanner
-    qrScanner = new Html5Qrcode("scannerContainer");
-    
-    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-        console.log("QR Code scanned:", decodedText);
-        
-        // Stop scanner
-        qrScanner.stop().then(() => {
-            qrScanner.clear();
-            scannerContainer.style.display = 'none';
-            scannerArea.style.display = 'block';
-            
-            // Process scanned QR code
-            processScannedQRCode(decodedText);
-        });
-    };
-    
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-    
-    qrScanner.start(
-        { facingMode: "environment" },
-        config,
-        qrCodeSuccessCallback
-    ).catch(err => {
-        console.error("QR Scanner error:", err);
-        alert("Failed to start QR scanner: " + err);
-        scannerArea.style.display = 'block';
-        scannerContainer.style.display = 'none';
-    });
-}
-
-async function processScannedQRCode(qrData) {
-    try {
-        const paymentDetails = document.getElementById('paymentDetails');
-        paymentDetails.classList.remove('hidden');
-        
-        // Decode QR data
-        const decodedData = JSON.parse(atob(qrData));
-        
-        // Get member info
-        const member = await clubManager.db.getMemberByJCId(decodedData.memberJCId);
-        if (!member) {
-            alert("Member not found!");
-            return;
-        }
-        
-        // Calculate UGX value
-        const ugxAmount = decodedData.pointsToUse * pointsPaymentSystem.pointSpendingValues[member.tier];
-        
-        // Update UI with payment details
-        document.getElementById('qrMemberName').textContent = member.name;
-        document.getElementById('qrMemberJCId').textContent = member.jcId;
-        document.getElementById('qrPointsToUse').textContent = decodedData.pointsToUse.toLocaleString() + ' points';
-        document.getElementById('qrUGXValue').textContent = ugxAmount.toLocaleString() + ' UGX';
-        document.getElementById('qrDescription').textContent = decodedData.description || 'No description';
-        
-        // Store data for confirmation
-        document.getElementById('confirmPaymentBtn').dataset.qrData = qrData;
-        
-    } catch (error) {
-        console.error("Error processing QR code:", error);
-        alert("Invalid QR code! Please try again.");
-    }
-}
-
-async function confirmPointsPayment() {
-    const qrData = document.getElementById('confirmPaymentBtn').dataset.qrData;
-    const salespersonName = document.getElementById('salespersonName').value.trim();
-    
-    if (!salespersonName) {
-        alert("Please enter your name (salesperson)");
-        return;
-    }
-    
-    if (!qrData) {
-        alert("No QR code data to process");
-        return;
-    }
-    
-    // Show loading
-    document.getElementById('confirmPaymentBtn').textContent = 'Processing...';
-    document.getElementById('confirmPaymentBtn').disabled = true;
-    
-    // Process the payment
-    const result = await pointsPaymentSystem.processScannedQR(qrData, salespersonName);
-    
-    if (result.success) {
-        alert(`✅ Payment Successful!\n\n${result.message}`);
-        
-        // Clear form
-        document.getElementById('salespersonName').value = '';
-        document.getElementById('paymentDetails').classList.add('hidden');
-        document.getElementById('scannerArea').style.display = 'block';
-        
-        // Refresh if on admin panel
-        if (document.getElementById('adminContent')) {
-            viewAllMembers();
-        }
-    } else {
-        alert(`❌ Payment Failed!\n\n${result.message}`);
-    }
-    
-    // Reset button
-    document.getElementById('confirmPaymentBtn').textContent = 'Confirm Points Payment';
-    document.getElementById('confirmPaymentBtn').disabled = false;
-}
-
-// Manual entry functions
-async function lookUpMember() {
-    const jcId = document.getElementById('manualJCId').value.trim();
-    
-    if (!jcId) {
-        alert("Please enter a JC ID");
-        return;
-    }
-    
-    const member = await clubManager.db.getMemberByJCId(jcId);
-    if (!member) {
-        alert("Member not found!");
-        return;
-    }
-    
-    // Show member info
-    document.getElementById('manualMemberName').textContent = member.name;
-    document.getElementById('manualMemberTier').textContent = member.tier;
-    document.getElementById('manualMemberPoints').textContent = member.points.toLocaleString() + ' points';
-    
-    document.getElementById('manualMemberInfo').style.display = 'block';
-    document.getElementById('processPaymentBtn').disabled = false;
-}
-
-function calculateManualPoints() {
-    const amountUGX = parseFloat(document.getElementById('manualAmountUGX').value);
-    
-    if (!amountUGX || amountUGX <= 0) {
-        alert("Please enter a valid amount");
-        return;
-    }
-    
-    const jcId = document.getElementById('manualJCId').value.trim();
-    const memberTier = document.getElementById('manualMemberTier').textContent;
-    
-    if (!memberTier || memberTier === '-') {
-        alert("Please look up member first");
-        return;
-    }
-    
-    const pointsNeeded = pointsPaymentSystem.calculatePointsNeeded(amountUGX, memberTier);
-    
-    // Update UI
-    document.getElementById('manualPointsNeeded').textContent = pointsNeeded.toLocaleString() + ' points';
-    document.getElementById('manualUGXValue').textContent = amountUGX.toLocaleString() + ' UGX';
-    
-    document.getElementById('manualPointsCalculation').style.display = 'block';
-}
-
-async function processManualPayment() {
-    const jcId = document.getElementById('manualJCId').value.trim();
-    const amountUGX = parseFloat(document.getElementById('manualAmountUGX').value);
-    const description = document.getElementById('manualDescription').value.trim();
-    const salespersonName = document.getElementById('manualSalespersonName').value.trim();
-    
-    if (!jcId || !amountUGX || !description || !salespersonName) {
-        alert("Please fill all fields");
-        return;
-    }
-    
-    if (amountUGX <= 0) {
-        alert("Please enter a valid amount");
-        return;
-    }
-    
-    // Show loading
-    document.getElementById('processPaymentBtn').textContent = 'Processing...';
-    document.getElementById('processPaymentBtn').disabled = true;
-    
-    // Process the payment
-    const result = await pointsPaymentSystem.processPointsPayment(
-        jcId, 
-        amountUGX, 
-        description, 
-        salespersonName
-    );
-    
-    if (result.success) {
-        alert(`✅ Payment Successful!\n\n${result.message}`);
-        
-        // Clear form
-        document.getElementById('manualJCId').value = '';
-        document.getElementById('manualAmountUGX').value = '';
-        document.getElementById('manualDescription').value = '';
-        document.getElementById('manualSalespersonName').value = '';
-        document.getElementById('manualMemberInfo').style.display = 'none';
-        document.getElementById('manualPointsCalculation').style.display = 'none';
-        
-        // Refresh if on admin panel
-        if (document.getElementById('adminContent')) {
-            viewAllMembers();
-        }
-    } else {
-        alert(`❌ Payment Failed!\n\n${result.message}`);
-    }
-    
-    // Reset button
-    document.getElementById('processPaymentBtn').textContent = 'Process Payment';
-    document.getElementById('processPaymentBtn').disabled = false;
-}
-
-// ============================================
-// UTILITY FUNCTIONS FOR HTML
-// ============================================
-
-function hideAllSections() {
-    const sections = [
-        'signupSection',
-        'loginSection',
-        'passwordResetSection',
-        'dashboardSection',
-        'pointsPaymentDashboard',
-        'adminSection',
-        'deleteMemberSection',
-        'voucherManagementSection',
-        'salespersonTerminal'
-    ];
-    
-    sections.forEach(sectionId => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-            element.classList.add('hidden');
-        }
-    });
-}
-
-// Make sure all the functions are available globally
-window.showPointsPaymentDashboard = showPointsPaymentDashboard;
-window.showSalespersonTerminal = showSalespersonTerminal;
-window.showVoucherManagementPanel = showVoucherManagementPanel;
-window.showAdminPanel = showAdminPanel;
-window.showDashboardSection = showDashboardSection;
-window.showDeleteMemberSection = showDeleteMemberSection;
-window.refreshVouchers = refreshVouchers;
-window.loadAllVouchers = loadAllVouchers;
-// Add this function - it shows the dashboard section
-function showDashboardSection() {
-    if (!clubManager.currentMember) {
-        showLoginScreen();
-        return;
-    }
-    
-    hideAllSections();
-    document.getElementById('dashboardSection').classList.remove('hidden');
-    
-    // Load dashboard data
-    loadDashboardData();
-}
-
-// Also add this function to load dashboard data
-async function loadDashboardData() {
-    if (!clubManager.currentMember) return;
-    
-    // Refresh member data from database
-    const updatedMember = await clubManager.db.getMemberByJCId(clubManager.currentMember.jcId);
-    if (updatedMember) {
-        clubManager.currentMember = updatedMember;
-        clubManager.saveCurrentMember();
-    }
-    
-    // Update the dashboard display
-    updateDashboard(clubManager.currentMember);
-    
-    // Update member card
-    updateMemberCard(clubManager.currentMember);
-    
-    // Load vouchers
-    displayMemberVouchers();
-}
-
-// Add this function to update the member card
-function updateMemberCard(member) {
-    const card = document.getElementById('memberCard');
-    if (!card) return;
-    
-    // Set tier class
-    card.className = 'member-card ' + member.tier.toLowerCase();
-    
-    // Update card information
-    document.getElementById('cardNumber').textContent = formatCardNumber(member.jcId);
-    document.getElementById('cardHolderName').textContent = member.name;
-    document.getElementById('cardTier').textContent = member.tier;
-    document.getElementById('cardDate').textContent = formatCardDate(member.joinedDate);
-    
-    // Update dashboard fields
-    document.getElementById('memberJcId').textContent = member.jcId;
-    document.getElementById('memberName').textContent = member.name;
-    document.getElementById('memberEmail').textContent = member.email;
-    document.getElementById('memberLoginMethod').textContent = member.loginMethod === 'google' ? 'Google' : 'Email';
-    document.getElementById('memberTier').textContent = member.tier;
-    document.getElementById('memberPoints').textContent = member.points.toLocaleString();
-    document.getElementById('memberReferralCode').textContent = member.referralCode;
-    document.getElementById('totalSpent').textContent = member.totalSpent.toLocaleString() + ' UGX';
-}
-
-// Helper functions for card formatting
-function formatCardNumber(jcId) {
-    // Convert JC ID to card-like format: JC12 3456 7890 ABCD
-    const numbers = jcId.replace('JC', '').split('');
-    let formatted = 'JC';
-    for (let i = 0; i < Math.min(numbers.length, 12); i++) {
-        if (i > 0 && i % 4 === 0) formatted += ' ';
-        formatted += numbers[i] || Math.floor(Math.random() * 10);
-    }
-    return formatted.padEnd(19, '0');
-}
-
-function formatCardDate(dateString) {
-    const date = new Date(dateString);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = (date.getFullYear() + 5).toString().slice(-2); // Expires 5 years after joining
-    return month + '/' + year;
-}
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if user is already logged in
-    if (clubManager.currentMember) {
-        showDashboardSection();
-    }
-    
-    console.log('✅ All functions loaded successfully!');
-    console.log('Available functions:', Object.keys(window).filter(key => typeof window[key] === 'function'));
-});
 });
