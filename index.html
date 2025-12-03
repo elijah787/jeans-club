@@ -3316,23 +3316,116 @@
             constructor() {
                 this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
                 this.encryptionKey = 'jeansclub_qr_2024_secret';
-                this.tierRules = {
-                    BRONZE: { months: 2, percentage: 0.12, multiplier: 1.0 },
-                    RUBY: { months: 3, percentage: 0.16, multiplier: 1.3 },
-                    GOLD: { months: 5, percentage: 0.25, multiplier: 1.4 },
-                    SAPPHIRE: { months: 4, percentage: 0.25, lifetimeBonus: 0.05, multiplier: 1.5 },
-                    PLATINUM: { multiplier: 1.6 }, // Can choose any option
-                    PEARL: { multiplier: 1.0 } // No pay-with-points
-                };
-                this.discountVoucherLimits = {
-                    PEARL: { min: 1000, max: 5000 },
-                    BRONZE: { min: 2000, max: 10000 },
-                    SILVER: { min: 3000, max: 15000 },
-                    RUBY: { min: 4000, max: 20000 },
-                    GOLD: { min: 5000, max: 25000 },
-                    SAPPHIRE: { min: 6000, max: 30000 },
-                    PLATINUM: { min: 10000, max: 50000 }
-                };
+                // UPDATED tierRules in index.html:
+this.tierRules = {
+    PEARL: { 
+        payWithPoints: false,
+        discountVoucherOnly: true,
+        description: "Basic membership - use points for discount vouchers only"
+    },
+    BRONZE: { 
+        months: 2, 
+        percentage: 0.08,
+        multiplier: 1.0,
+        minSpendingThreshold: 300000,
+        maxRedemptionCap: 50000,
+        description: "Redeem 8% of your last 2 months spending as points",
+        pointsPer100UGX: 100
+    },
+    SILVER: { 
+        months: 3, 
+        percentage: 0.10,
+        multiplier: 1.1,
+        minSpendingThreshold: 500000,
+        maxRedemptionCap: 100000,
+        description: "Redeem 10% of your last 3 months spending as points",
+        pointsPer100UGX: 90
+    },
+    RUBY: { 
+        months: 4, 
+        percentage: 0.12,
+        multiplier: 1.3,
+        minSpendingThreshold: 1000000,
+        maxRedemptionCap: 200000,
+        description: "Redeem 12% of your last 4 months spending as points",
+        pointsPer100UGX: 80
+    },
+    GOLD: { 
+        months: 5, 
+        percentage: 0.15,
+        multiplier: 1.4,
+        minSpendingThreshold: 2000000,
+        maxRedemptionCap: 300000,
+        description: "Redeem 15% of your last 5 months spending as points",
+        pointsPer100UGX: 70
+    },
+    SAPPHIRE: { 
+        months: 6, 
+        percentage: 0.18,
+        lifetimeBonus: 0.02,
+        multiplier: 1.5,
+        minSpendingThreshold: 4000000,
+        maxRedemptionCap: 500000,
+        description: "Redeem 18% of last 6 months + 2% lifetime bonus as points",
+        pointsPer100UGX: 60
+    },
+    PLATINUM: { 
+        months: 12, 
+        percentage: 0.25,
+        lifetimeBonus: 0.05,
+        multiplier: 1.6,
+        minSpendingThreshold: 8000000,
+        maxRedemptionCap: 1000000,
+        canChooseAny: true,
+        description: "Redeem 25% of last 12 months + 5% lifetime bonus as points",
+        pointsPer100UGX: 50
+    }
+};
+                // UPDATED discountVoucherLimits:
+this.discountVoucherLimits = {
+    PEARL: { 
+        min: 1000, 
+        max: 5000, 
+        maxPercentage: 5,
+        pointsPerDiscount: 100
+    },
+    BRONZE: { 
+        min: 2000, 
+        max: 10000, 
+        maxPercentage: 8,
+        pointsPerDiscount: 100
+    },
+    SILVER: { 
+        min: 3000, 
+        max: 15000, 
+        maxPercentage: 10,
+        pointsPerDiscount: 100
+    },
+    RUBY: { 
+        min: 5000, 
+        max: 25000, 
+        maxPercentage: 12,
+        pointsPerDiscount: 100
+    },
+    GOLD: { 
+        min: 10000, 
+        max: 50000, 
+        maxPercentage: 15,
+        pointsPerDiscount: 100
+    },
+    SAPPHIRE: { 
+        min: 20000, 
+        max: 100000, 
+        maxPercentage: 18,
+        pointsPerDiscount: 100
+    },
+    PLATINUM: { 
+        min: 50000, 
+        max: 250000, 
+        maxPercentage: 25,
+        pointsPerDiscount: 100
+    }
+};
             }
 
             // Calculate spending history for specified months
@@ -3359,70 +3452,65 @@
             }
 
             // Calculate all available redemption options
-            calculateRedemptionOptions(member, purchaseAmount) {
-                const tier = member.tier;
-                const options = [];
-                
-                // For Platinum members, they can choose from all 4 other tier options
-                const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
-                
-                // Pearl members don't get pay-with-points options
-                if (tier === 'PEARL') {
-                    return this.getDiscountVoucherOptions(member, purchaseAmount);
-                }
-                
-                eligibleTiers.forEach(tierType => {
-                    const rule = this.tierRules[tierType];
-                    if (!rule) return;
-                    
-                    if (tierType === 'SAPPHIRE') {
-                        const monthsSpending = this.calculateSpendingHistory(member, rule.months);
-                        const lifetimeSpending = this.calculateLifetimeSpending(member);
-                        const baseAmount = monthsSpending * rule.percentage;
-                        const bonusAmount = lifetimeSpending * (rule.lifetimeBonus || 0);
-                        const totalRedemption = baseAmount + bonusAmount;
-                        const pointsEquivalent = Math.floor(totalRedemption * rule.multiplier);
-                        
-                        if (totalRedemption > 0) {
-                            options.push({
-                                type: 'points_redemption',
-                                tier: tierType,
-                                description: `${(rule.percentage * 100)}% of last ${rule.months} months + ${(rule.lifetimeBonus * 100)}% lifetime bonus`,
-                                monthsSpending: monthsSpending,
-                                baseAmount: baseAmount,
-                                bonusAmount: bonusAmount,
-                                totalAmount: totalRedemption,
-                                maxRedemption: Math.min(totalRedemption, purchaseAmount),
-                                pointsEquivalent: pointsEquivalent,
-                                pointsValue: rule.multiplier + 'x'
-                            });
-                        }
-                    } else if (rule.months) {
-                        const monthsSpending = this.calculateSpendingHistory(member, rule.months);
-                        const totalRedemption = monthsSpending * rule.percentage;
-                        const pointsEquivalent = Math.floor(totalRedemption * rule.multiplier);
-                        
-                        if (totalRedemption > 0) {
-                            options.push({
-                                type: 'points_redemption',
-                                tier: tierType,
-                                description: `${(rule.percentage * 100)}% of last ${rule.months} months spending`,
-                                monthsSpending: monthsSpending,
-                                totalAmount: totalRedemption,
-                                maxRedemption: Math.min(totalRedemption, purchaseAmount),
-                                pointsEquivalent: pointsEquivalent,
-                                pointsValue: rule.multiplier + 'x'
-                            });
-                        }
-                    }
-                });
-                
-                // Add discount voucher options
-                const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount);
-                options.push(...voucherOptions);
-                
-                return options.sort((a, b) => (b.maxRedemption || 0) - (a.maxRedemption || 0));
-            }
+      // REPLACE the existing calculateRedemptionOptions method:
+calculateRedemptionOptions(member, purchaseAmount) {
+    const tier = member.tier;
+    const options = [];
+    
+    // Pearl members don't get pay-with-points options
+    if (tier === 'PEARL') {
+        return this.getDiscountVoucherOptions(member, purchaseAmount);
+    }
+    
+    // For Platinum members, they can choose from all other tier options
+    const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
+    
+    eligibleTiers.forEach(tierType => {
+        const rule = this.tierRules[tierType];
+        if (!rule || !rule.months) return;
+        
+        // Check if member meets minimum spending threshold
+        const monthsSpending = this.calculateSpendingHistory(member, rule.months);
+        
+        if (monthsSpending < rule.minSpendingThreshold) {
+            // Don't show option if threshold not met
+            return;
+        }
+        
+        let totalRedemption = monthsSpending * rule.percentage;
+        
+        // Add lifetime bonus for Sapphire/Platinum
+        if (rule.lifetimeBonus) {
+            const lifetimeSpending = this.calculateLifetimeSpending(member);
+            totalRedemption += lifetimeSpending * rule.lifetimeBonus;
+        }
+        
+        // Apply cap
+        totalRedemption = Math.min(totalRedemption, rule.maxRedemptionCap);
+        
+        if (totalRedemption > 0) {
+            const pointsEquivalent = Math.floor(totalRedemption / 100 * rule.pointsPer100UGX);
+            
+            options.push({
+                type: 'points_redemption',
+                tier: tierType,
+                description: rule.description,
+                monthsSpending: monthsSpending,
+                totalAmount: totalRedemption,
+                maxRedemption: Math.min(totalRedemption, purchaseAmount),
+                pointsEquivalent: pointsEquivalent,
+                pointsValue: rule.pointsPer100UGX + ' points per 100 UGX',
+                eligibility: `Spent ${monthsSpending.toLocaleString()} UGX in last ${rule.months} months`
+            });
+        }
+    });
+    
+    // Add discount voucher options
+    const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount);
+    options.push(...voucherOptions);
+    
+    return options.sort((a, b) => (b.maxRedemption || 0) - (a.maxRedemption || 0));
+}
 
             // Get discount voucher options based on tier
             getDiscountVoucherOptions(member, purchaseAmount) {
@@ -3636,69 +3724,81 @@
         const qrRedemptionSystem = new QRRedemptionSystem();
 
         // Jeans Club Configuration - UPDATED for 7 tiers
-        const jeansClubConfig = {
-            pointValue: 750,
-            redemptionRate: 0.005,
-            
-            tiers: {
-                PEARL: { 
-                    minPoints: 0, 
-                    maxPoints: 7499,
-                    multiplier: 1.0, 
-                    name: "Pearl", 
-                    color: "#FFF8DC",
-                    discountRate: 0.10
-                },
-                BRONZE: { 
-                    minPoints: 7500,    
-                    maxPoints: 24999,
-                    multiplier: 1.10, 
-                    name: "Bronze", 
-                    color: "#B76E79",
-                    discountRate: 0.15
-                },
-                SILVER: { 
-                    minPoints: 25000,    
-                    maxPoints: 99999,
-                    multiplier: 1.25, 
-                    name: "Silver", 
-                    color: "#2C3E50",
-                    discountRate: 0.20
-                },
-                RUBY: { 
-                    minPoints: 100000,    
-                    maxPoints: 249999,
-                    multiplier: 1.30, 
-                    name: "Ruby", 
-                    color: "#8B475D",
-                    discountRate: 0.22
-                },
-                GOLD: { 
-                    minPoints: 250000,    
-                    maxPoints: 499999,
-                    multiplier: 1.40, 
-                    name: "Gold", 
-                    color: "#FFD700",
-                    discountRate: 0.25
-                },
-                SAPPHIRE: { 
-                    minPoints: 500000,    
-                    maxPoints: 999999,
-                    multiplier: 1.50, 
-                    name: "Sapphire", 
-                    color: "#34495E",
-                    discountRate: 0.28
-                },
-                PLATINUM: { 
-                    minPoints: 1000000,    
-                    maxPoints: 9999999,
-                    multiplier: 1.60, 
-                    name: "Platinum", 
-                    color: "#2F4F4F",
-                    discountRate: 0.30
-                }
-            }
-        };
+       // Jeans Club Configuration - UPDATED for 7 tiers
+const jeansClubConfig = {
+    pointValue: 750,
+    // REMOVE: redemptionRate: 0.005,
+    
+    // ADD TIER-BASED REDEMPTION RATES:
+    tierRedemptionRates: {
+        PEARL: 0.0003,    // 100 pts = 3% discount
+        BRONZE: 0.0004,   // 100 pts = 4% discount
+        SILVER: 0.0005,   // 100 pts = 5% discount
+        RUBY: 0.0006,     // 100 pts = 6% discount
+        GOLD: 0.0007,     // 100 pts = 7% discount
+        SAPPHIRE: 0.0008, // 100 pts = 8% discount
+        PLATINUM: 0.0010  // 100 pts = 10% discount
+    },
+    
+    tiers: {
+        PEARL: { 
+            minPoints: 0, 
+            maxPoints: 7499,
+            multiplier: 1.0, 
+            name: "Pearl", 
+            color: "#FFF8DC",
+            discountRate: 0.03  // ← CHANGE FROM 0.10 to 0.03 (3%)
+        },
+        BRONZE: { 
+            minPoints: 7500,    
+            maxPoints: 24999,
+            multiplier: 1.10, 
+            name: "Bronze", 
+            color: "#B76E79",
+            discountRate: 0.04  // ← CHANGE FROM 0.15 to 0.04 (4%)
+        },
+        SILVER: { 
+            minPoints: 25000,    
+            maxPoints: 99999,
+            multiplier: 1.25, 
+            name: "Silver", 
+            color: "#2C3E50",
+            discountRate: 0.05  // ← CHANGE FROM 0.20 to 0.05 (5%)
+        },
+        RUBY: { 
+            minPoints: 100000,    
+            maxPoints: 249999,
+            multiplier: 1.30, 
+            name: "Ruby", 
+            color: "#8B475D",
+            discountRate: 0.06  // ← CHANGE FROM 0.22 to 0.06 (6%)
+        },
+        GOLD: { 
+            minPoints: 250000,    
+            maxPoints: 499999,
+            multiplier: 1.40, 
+            name: "Gold", 
+            color: "#FFD700",
+            discountRate: 0.07  // ← CHANGE FROM 0.25 to 0.07 (7%)
+        },
+        SAPPHIRE: { 
+            minPoints: 500000,    
+            maxPoints: 999999,
+            multiplier: 1.50, 
+            name: "Sapphire", 
+            color: "#34495E",
+            discountRate: 0.08  // ← CHANGE FROM 0.28 to 0.08 (8%)
+        },
+        PLATINUM: { 
+            minPoints: 1000000,    
+            maxPoints: 9999999,
+            multiplier: 1.60, 
+            name: "Platinum", 
+            color: "#2F4F4F",
+            discountRate: 0.10  // ← CHANGE FROM 0.30 to 0.10 (10%)
+        }
+    }
+};
 
         // Main JeansClubManager - Copied from first index.html
         class JeansClubManager {
@@ -4143,84 +4243,95 @@
 
             // Calculate discount based on points
             calculateDiscount(points) {
-                if (points < 10) {
-                    return { 
-                        success: false, 
-                        message: "Minimum 10 points required for discount" 
-                    };
-                }
-                
-                const tier = this.getTier(this.currentMember);
-                const discountPercentage = Math.min(points * jeansClubConfig.redemptionRate, 50);
-                
-                return {
-                    success: true,
-                    points: points,
-                    discountPercentage: discountPercentage.toFixed(1),
-                    value: (points * jeansClubConfig.pointValue).toLocaleString() + ' UGX',
-                    tierMultiplier: tier.multiplier
-                };
-            }
+    if (points < 10) {
+        return { 
+            success: false, 
+            message: "Minimum 10 points required for discount" 
+        };
+    }
+    
+    const tier = this.getTier(this.currentMember);
+    
+    // Get tier-specific redemption rate
+    const redemptionRate = jeansClubConfig.tierRedemptionRates[tier.name] || 0.0003;
+    
+    // Calculate discount
+    const maxDiscount = jeansClubConfig.tiers[tier.name].discountRate * 100;
+    const discountPercentage = Math.min(points * redemptionRate * 100, maxDiscount);
+    
+    return {
+        success: true,
+        points: points,
+        discountPercentage: discountPercentage.toFixed(1),
+        maxPossible: maxDiscount + '%',
+        value: (points * jeansClubConfig.pointValue).toLocaleString() + ' UGX',
+        tierMultiplier: tier.multiplier
+    };
+}
+                 
 
             // Create discount voucher
-            async createDiscountVoucher(points) {
-                const discountCalc = this.calculateDiscount(points);
-                
-                if (!discountCalc.success) {
-                    return discountCalc;
-                }
-                
-                // Check if member has enough points
-                if (this.currentMember.points < points) {
-                    return { 
-                        success: false, 
-                        message: `Insufficient points. You have ${this.currentMember.points} points, but need ${points} points.` 
-                    };
-                }
-                
-                // Deduct points
-                this.currentMember.points -= points;
-                
-                // Add activity log
-                this.currentMember.activityLog.unshift({
-                    type: 'points_redeemed',
-                    description: `Redeemed ${points} points for ${discountCalc.discountPercentage}% discount voucher`,
-                    date: new Date().toISOString(),
-                    points: -points
-                });
-                
-                // Create voucher
-                const voucher = voucherSystem.createVoucher(
-                    this.currentMember.jcId,
-                    this.currentMember.name,
-                    points,
-                    parseFloat(discountCalc.discountPercentage)
-                );
-                
-                // Save member
-                await this.db.saveMember(this.currentMember);
-                
-                // Send voucher email
-                try {
-                    await this.emailService.sendDiscountEmail(
-                        this.currentMember.email,
-                        this.currentMember,
-                        {
-                            pointsUsed: points,
-                            discountPercentage: discountCalc.discountPercentage,
-                            voucher: voucher
-                        }
-                    );
-                } catch (emailError) {
-                    console.log('Voucher email failed:', emailError);
-                }
-                
-                return {
-                    success: true,
-                    message: `Voucher created successfully! ${discountCalc.discountPercentage}% discount applied.`,
-                    voucher: voucher
-                };
+    // Create discount voucher
+async createDiscountVoucher(points) {
+    const discountCalc = this.calculateDiscount(points);
+    
+    if (!discountCalc.success) {
+        return discountCalc;
+    }
+    
+    // Check if member has enough points
+    if (this.currentMember.points < points) {
+        return { 
+            success: false, 
+            message: `Insufficient points. You have ${this.currentMember.points} points, but need ${points} points.` 
+        };
+    }
+    
+    // Deduct points but keep same tier
+    const currentTier = this.currentMember.tier; // Store current tier
+    this.currentMember.points -= points;
+    this.currentMember.tier = currentTier; // Keep original tier - NO DOWNGRADE
+    
+    // Add activity log
+    this.currentMember.activityLog.unshift({
+        type: 'points_redeemed',
+        description: `Redeemed ${points} points for ${discountCalc.discountPercentage}% discount voucher`,
+        date: new Date().toISOString(),
+        points: -points
+    });
+    
+    // Create voucher
+    const voucher = voucherSystem.createVoucher(
+        this.currentMember.jcId,
+        this.currentMember.name,
+        points,
+        parseFloat(discountCalc.discountPercentage)
+    );
+    
+    // Save member
+    await this.db.saveMember(this.currentMember);
+    
+    // Send voucher email
+    try {
+        await this.emailService.sendDiscountEmail(
+            this.currentMember.email,
+            this.currentMember,
+            {
+                pointsUsed: points,
+                discountPercentage: discountCalc.discountPercentage,
+                voucher: voucher
             }
+        );
+    } catch (emailError) {
+        console.log('Voucher email failed:', emailError);
+    }
+    
+    return {
+        success: true,
+        message: `Voucher created successfully! ${discountCalc.discountPercentage}% discount applied.`,
+        voucher: voucher
+    };
+}
 
             // Redeem voucher (admin function)
             async redeemVoucher(voucherCode, redeemedBy = 'staff') {
@@ -4250,66 +4361,86 @@
             }
 
             // Add purchase (admin function)
-            async addPurchase(jcId, amount, description) {
-                const member = await this.db.getMemberByJCId(jcId);
-                
-                if (!member) {
-                    return { success: false, message: "Member not found" };
-                }
-                
-                // Calculate points
-                const tier = this.getTier(member);
-                const pointsEarned = Math.floor(amount * tier.multiplier * 0.01);
-                
-                // Update member
-                member.points += pointsEarned;
-                member.totalSpent = (member.totalSpent || 0) + amount;
-                
-                // Add purchase to history
-                member.purchaseHistory = member.purchaseHistory || [];
-                member.purchaseHistory.unshift({
-                    amount: amount,
-                    description: description,
-                    date: new Date().toISOString(),
-                    pointsEarned: pointsEarned
-                });
-                
-                // Add activity log
-                member.activityLog.unshift({
-                    type: 'purchase',
-                    description: `Purchase: ${description} - UGX ${amount.toLocaleString()}`,
-                    date: new Date().toISOString(),
-                    points: pointsEarned
-                });
-                
-                // Update tier if needed
-                this.updateMemberTier(member);
-                
-                // Save to database
-                await this.db.saveMember(member);
-                
-                // Send purchase email
-                try {
-                    await this.emailService.sendPurchaseEmail(
-                        member.email,
-                        member,
-                        {
-                            amount: amount,
-                            description: description,
-                            pointsEarned: pointsEarned
-                        }
-                    );
-                } catch (emailError) {
-                    console.log('Purchase email failed:', emailError);
-                }
-                
-                return {
-                    success: true,
-                    message: `Purchase recorded! ${pointsEarned} points added.`,
-                    member: member,
-                    pointsEarned: pointsEarned
-                };
+           // Add purchase (admin function)
+async addPurchase(jcId, amount, description) {
+    const member = await this.db.getMemberByJCId(jcId);
+    
+    if (!member) {
+        return { success: false, message: "Member not found" };
+    }
+    
+    // Calculate points
+    const tier = this.getTier(member);
+    const pointsEarned = Math.floor(amount * tier.multiplier * 0.01);
+    
+    // Update member
+    const oldPoints = member.points || 0;
+    member.points = oldPoints + pointsEarned;
+    member.totalSpent = (member.totalSpent || 0) + amount;
+    
+    // Add purchase to history
+    member.purchaseHistory = member.purchaseHistory || [];
+    member.purchaseHistory.unshift({
+        amount: amount,
+        description: description,
+        date: new Date().toISOString(),
+        pointsEarned: pointsEarned
+    });
+    
+    // Add activity log
+    member.activityLog.unshift({
+        type: 'purchase',
+        description: `Purchase: ${description} - UGX ${amount.toLocaleString()}`,
+        date: new Date().toISOString(),
+        points: pointsEarned
+    });
+    
+    // Update tier - ONLY UPGRADE, NO DOWNGRADE
+    const newTierInfo = this.getTier(member);
+    const currentTier = member.tier;
+    const newTier = newTierInfo.name;
+    
+    // Only change tier if it's an upgrade
+    const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
+    const currentIndex = tierOrder.indexOf(currentTier);
+    const newIndex = tierOrder.indexOf(newTier);
+    
+    if (newIndex > currentIndex) {
+        // It's an upgrade
+        member.tier = newTier;
+        member.activityLog.unshift({
+            type: 'tier_upgrade',
+            description: `Tier upgraded from ${currentTier} to ${newTier}`,
+            date: new Date().toISOString()
+        });
+    }
+    // If newIndex <= currentIndex, keep the current tier (no downgrade)
+    
+    // Save to database
+    await this.db.saveMember(member);
+    
+    // Send purchase email
+    try {
+        await this.emailService.sendPurchaseEmail(
+            member.email,
+            member,
+            {
+                amount: amount,
+                description: description,
+                pointsEarned: pointsEarned
             }
+        );
+    } catch (emailError) {
+        console.log('Purchase email failed:', emailError);
+    }
+    
+    return {
+        success: true,
+        message: `Purchase recorded! ${pointsEarned} points added.`,
+        member: member,
+        pointsEarned: pointsEarned
+    };
+}
 
             // Delete member (admin function)
             async deleteMember(jcId) {
@@ -5278,177 +5409,268 @@
 
         // QR Redemption Functions
         async function calculateRedemptionOptions() {
-            const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
-            
-            if (!purchaseAmount || purchaseAmount <= 0) {
-                showToast("Please enter a valid purchase amount", "error");
-                return;
-            }
-            
-            showToast("Calculating redemption options...", "info");
-            
-            const result = await clubManager.createQRRedemption(purchaseAmount);
-            
-            if (!result.success) {
-                showToast(result.message, "error");
-                return;
-            }
-            
-            // Display options
-            const redemptionOptions = document.getElementById('redemptionOptions');
-            redemptionOptions.innerHTML = result.options.map((option, index) => {
-                let optionHTML = '';
-                
-                if (option.type === 'points_redemption') {
-                    optionHTML = `
-                        <div class="redemption-option" onclick="selectRedemptionOption(${index})">
-                            <div class="option-header">
-                                <h4>💰 Pay with Points</h4>
-                                <span class="option-tier tier-${option.tier.toLowerCase()}">${option.tier}</span>
-                            </div>
-                            <p><strong>Available:</strong> ${option.maxRedemption.toLocaleString()} UGX</p>
-                            <p><strong>Points Equivalent:</strong> ${option.pointsEquivalent.toLocaleString()} points</p>
-                            <p><strong>Description:</strong> ${option.description}</p>
-                            <p><strong>Value:</strong> ${option.pointsValue} points multiplier</p>
-                            <p><small>Uses your accumulated points for purchase credit</small></p>
-                        </div>
-                    `;
-                } else if (option.type === 'discount_voucher') {
-                    optionHTML = `
-                        <div class="redemption-option" onclick="selectRedemptionOption(${index})">
-                            <div class="option-header">
-                                <h4>🎫 Discount Voucher</h4>
-                                <span class="option-tier tier-${option.tier.toLowerCase()}">${option.tier}</span>
-                            </div>
-                            <p><strong>Discount Amount:</strong> ${option.discountAmount.toLocaleString()} UGX</p>
-                            <p><strong>Discount Percentage:</strong> ${option.discountPercentage}%</p>
-                            <p><strong>Applicable Amount:</strong> ${option.applicableAmount.toLocaleString()} UGX</p>
-                            <p><strong>Points Required:</strong> ${option.pointsRequired.toLocaleString()} points</p>
-                            <p><small>Get a fixed discount voucher for future use</small></p>
-                        </div>
-                    `;
-                }
-                
-                return optionHTML;
-            }).join('');
-            
-            if (result.options.length === 0) {
-                redemptionOptions.innerHTML = `
-                    <div class="info-card">
-                        <p>No redemption options available for your purchase amount and tier.</p>
+    const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
+    
+    if (!purchaseAmount || purchaseAmount <= 0) {
+        showToast("Please enter a valid purchase amount", "error");
+        return;
+    }
+    
+    currentPurchaseAmount = purchaseAmount; // Store globally
+    
+    showToast("Calculating redemption options...", "info");
+    
+    // Use the global qrRedemptionSystem directly
+    currentRedemptionOptions = qrRedemptionSystem.calculateRedemptionOptions(
+        clubManager.currentMember, 
+        purchaseAmount
+    );
+    
+    if (!currentRedemptionOptions || currentRedemptionOptions.length === 0) {
+        const redemptionOptions = document.getElementById('redemptionOptions');
+        redemptionOptions.innerHTML = `
+            <div class="info-card">
+                <p>No redemption options available for your purchase amount and tier.</p>
+                <p><small>Pearl members only have discount voucher options. Higher tiers have pay-with-points options.</small></p>
+            </div>
+        `;
+        selectedOptionIndex = -1;
+        return;
+    }
+    
+    // Display options
+    const redemptionOptions = document.getElementById('redemptionOptions');
+    redemptionOptions.innerHTML = currentRedemptionOptions.map((option, index) => {
+        let optionHTML = '';
+        
+        if (option.type === 'points_redemption') {
+            optionHTML = `
+                <div class="redemption-option" onclick="selectRedemptionOption(${index})">
+                    <div class="option-header">
+                        <h4>💰 Pay with Points</h4>
+                        <span class="option-tier tier-${option.tier.toLowerCase()}">${option.tier}</span>
                     </div>
-                `;
+                    <p><strong>Available:</strong> ${option.maxRedemption.toLocaleString()} UGX</p>
+                    <p><strong>Points Equivalent:</strong> ${option.pointsEquivalent.toLocaleString()} points</p>
+                    <p><strong>Description:</strong> ${option.description}</p>
+                    <p><strong>Value:</strong> ${option.pointsValue} points multiplier</p>
+                    <p><small>Uses your accumulated points for purchase credit</small></p>
+                </div>
+            `;
+        } else if (option.type === 'discount_voucher') {
+            optionHTML = `
+                <div class="redemption-option" onclick="selectRedemptionOption(${index})">
+                    <div class="option-header">
+                        <h4>🎫 Discount Voucher</h4>
+                        <span class="option-tier tier-${option.tier.toLowerCase()}">${option.tier}</span>
+                    </div>
+                    <p><strong>Discount Amount:</strong> ${option.discountAmount.toLocaleString()} UGX</p>
+                    <p><strong>Discount Percentage:</strong> ${option.discountPercentage}%</p>
+                    <p><strong>Applicable Amount:</strong> ${option.applicableAmount.toLocaleString()} UGX</p>
+                    <p><strong>Points Required:</strong> ${option.pointsRequired.toLocaleString()} points</p>
+                    <p><small>Get a fixed discount voucher for future use</small></p>
+                </div>
+            `;
+        }
+        
+        return optionHTML;
+    }).join('');
+    
+    selectedOptionIndex = -1; // Reset selection
+    showToast(`${currentRedemptionOptions.length} redemption options available`, "success");
+}
+        function selectRedemptionOption(index) {
+    selectedOptionIndex = index;
+    
+    // Get the current purchase amount from the input
+    currentPurchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
+    
+    if (!currentPurchaseAmount || currentPurchaseAmount <= 0) {
+        showToast("Please enter a valid purchase amount first", "error");
+        return;
+    }
+    
+    // Calculate redemption options directly using the global qrRedemptionSystem
+    currentRedemptionOptions = qrRedemptionSystem.calculateRedemptionOptions(
+        clubManager.currentMember, 
+        currentPurchaseAmount
+    );
+    
+    if (!currentRedemptionOptions || currentRedemptionOptions.length === 0) {
+        showToast("No redemption options available", "error");
+        return;
+    }
+    
+    if (index < 0 || index >= currentRedemptionOptions.length) {
+        showToast("Invalid option selected", "error");
+        return;
+    }
+    
+    // Remove selected class from all options
+    document.querySelectorAll('.redemption-option').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    // Add selected class to clicked option
+    const allOptions = document.querySelectorAll('.redemption-option');
+    if (allOptions[index]) {
+        allOptions[index].classList.add('selected');
+    }
+    
+    // Show option details
+    const selectedOption = currentRedemptionOptions[index];
+    const selectedOptionDetails = document.getElementById('selectedOptionDetails');
+    
+    let detailsHTML = '';
+    if (selectedOption.type === 'points_redemption') {
+        detailsHTML = `
+            <div class="selected-option-details">
+                <h4>💰 Pay with Points Selected</h4>
+                <p><strong>Tier:</strong> ${selectedOption.tier}</p>
+                <p><strong>Maximum Redemption:</strong> ${selectedOption.maxRedemption.toLocaleString()} UGX</p>
+                <p><strong>Points Required:</strong> ${selectedOption.pointsEquivalent.toLocaleString()} points</p>
+                <p><strong>Description:</strong> ${selectedOption.description}</p>
+                <p><strong>Your Points Balance:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
+                <p><strong>Points After Redemption:</strong> ${(clubManager.currentMember.points - selectedOption.pointsEquivalent).toLocaleString()} points</p>
+                <button class="btn" onclick="generateQRCode()" style="margin-top: 15px;">
+                    Generate QR Code
+                </button>
+            </div>
+        `;
+    } else if (selectedOption.type === 'discount_voucher') {
+        detailsHTML = `
+            <div class="selected-option-details">
+                <h4>🎫 Discount Voucher Selected</h4>
+                <p><strong>Discount Amount:</strong> ${selectedOption.discountAmount.toLocaleString()} UGX</p>
+                <p><strong>Discount Percentage:</strong> ${selectedOption.discountPercentage}%</p>
+                <p><strong>Applicable Purchase:</strong> ${selectedOption.applicableAmount.toLocaleString()} UGX</p>
+                <p><strong>Points Required:</strong> ${selectedOption.pointsRequired.toLocaleString()} points</p>
+                <p><strong>Your Points Balance:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
+                <p><strong>Points After Redemption:</strong> ${(clubManager.currentMember.points - selectedOption.pointsRequired).toLocaleString()} points</p>
+                <button class="btn" onclick="generateQRCode()" style="margin-top: 15px;">
+                    Generate QR Code
+                </button>
+            </div>
+        `;
+    }
+    
+    selectedOptionDetails.innerHTML = detailsHTML;
+}
+     
+   async function generateQRCode() {
+    try {
+        if (selectedOptionIndex === -1) {
+            showToast("Please select a redemption option first", "error");
+            return { success: false, message: "No option selected" };
+        }
+        
+        if (!clubManager.currentMember) {
+            showToast("You must be logged in", "error");
+            return { success: false, message: "Not logged in" };
+        }
+        
+        const selectedOption = currentRedemptionOptions[selectedOptionIndex];
+        const purchaseAmount = currentPurchaseAmount;
+        
+        // POINTS BALANCE CHECK - CRITICAL!
+        if (selectedOption.type === 'points_redemption') {
+            const memberPoints = clubManager.currentMember.points || 0;
+            const pointsNeeded = selectedOption.pointsEquivalent || 0;
+            
+            if (memberPoints < pointsNeeded) {
+                const errorMsg = `Insufficient points! You have ${memberPoints.toLocaleString()} points, need ${pointsNeeded.toLocaleString()}`;
+                showToast(errorMsg, "error");
+                return { success: false, message: errorMsg };
             }
         }
-
-        let selectedOptionIndex = -1;
-        let currentRedemptionOptions = [];
-        let currentPurchaseAmount = 0;
-
-        function selectRedemptionOption(index) {
-            selectedOptionIndex = index;
-            currentRedemptionOptions = clubManager.qrRedemptionSystem.calculateRedemptionOptions(
-                clubManager.currentMember, 
-                currentPurchaseAmount
-            );
+        
+        showToast("Generating QR code...", "info");
+        
+        // Create redemption record
+        const redemption = qrRedemptionSystem.createRedemption(
+            clubManager.currentMember,
+            selectedOption,
+            purchaseAmount
+        );
+        
+        if (!redemption) {
+            showToast("Failed to create redemption", "error");
+            return { success: false, message: "Redemption creation failed" };
+        }
+        
+        // DEDUCT POINTS (only if check passed)
+        if (selectedOption.type === 'points_redemption') {
+            const oldPoints = clubManager.currentMember.points;
+            const currentTier = clubManager.currentMember.tier; // Store current tier BEFORE deduction
             
-            // Remove selected class from all options
-            document.querySelectorAll('.redemption-option').forEach(el => {
-                el.classList.remove('selected');
+            // Deduct points but DO NOT recalculate tier
+            clubManager.currentMember.points -= selectedOption.pointsEquivalent;
+            
+            // KEEP THE SAME TIER - NO DOWNGRADE
+            clubManager.currentMember.tier = currentTier; // Keep original tier
+            
+            // Add activity log
+            clubManager.currentMember.activityLog.unshift({
+                type: 'points_redemption_qr',
+                description: `Created QR redemption for ${selectedOption.totalAmount.toLocaleString()} UGX`,
+                date: new Date().toISOString(),
+                points: -selectedOption.pointsEquivalent
             });
             
-            // Add selected class to clicked option
-            document.querySelectorAll('.redemption-option')[index].classList.add('selected');
-            
-            // Show option details
-            const selectedOption = currentRedemptionOptions[index];
-            const selectedOptionDetails = document.getElementById('selectedOptionDetails');
-            
-            let detailsHTML = '';
-            if (selectedOption.type === 'points_redemption') {
-                detailsHTML = `
-                    <div class="selected-option-details">
-                        <h4>💰 Pay with Points Selected</h4>
-                        <p><strong>Tier:</strong> ${selectedOption.tier}</p>
-                        <p><strong>Maximum Redemption:</strong> ${selectedOption.maxRedemption.toLocaleString()} UGX</p>
-                        <p><strong>Points Required:</strong> ${selectedOption.pointsEquivalent.toLocaleString()} points</p>
-                        <p><strong>Description:</strong> ${selectedOption.description}</p>
-                        <p><strong>Your Points Balance:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
-                        <p><strong>Points After Redemption:</strong> ${(clubManager.currentMember.points - selectedOption.pointsEquivalent).toLocaleString()} points</p>
-                        <button class="btn" onclick="generateQRCode()" style="margin-top: 15px;">
-                            Generate QR Code
-                        </button>
-                    </div>
-                `;
-            } else if (selectedOption.type === 'discount_voucher') {
-                detailsHTML = `
-                    <div class="selected-option-details">
-                        <h4>🎫 Discount Voucher Selected</h4>
-                        <p><strong>Discount Amount:</strong> ${selectedOption.discountAmount.toLocaleString()} UGX</p>
-                        <p><strong>Discount Percentage:</strong> ${selectedOption.discountPercentage}%</p>
-                        <p><strong>Applicable Purchase:</strong> ${selectedOption.applicableAmount.toLocaleString()} UGX</p>
-                        <p><strong>Points Required:</strong> ${selectedOption.pointsRequired.toLocaleString()} points</p>
-                        <p><strong>Your Points Balance:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
-                        <p><strong>Points After Redemption:</strong> ${(clubManager.currentMember.points - selectedOption.pointsRequired).toLocaleString()} points</p>
-                        <button class="btn" onclick="generateQRCode()" style="margin-top: 15px;">
-                            Generate QR Code
-                        </button>
-                    </div>
-                `;
-            }
-            
-            selectedOptionDetails.innerHTML = detailsHTML;
-        }
-
-        async function generateQRCode() {
-            if (selectedOptionIndex === -1) {
-                showToast("Please select a redemption option first", "error");
-                return;
-            }
-            
-            const selectedOption = currentRedemptionOptions[selectedOptionIndex];
-            const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
-            
-            showToast("Generating QR code...", "info");
-            
-            const result = await clubManager.generateQRCodeForRedemption(selectedOption, purchaseAmount);
-            
-            if (result.success) {
-                const qrCodeContainer = document.getElementById('qrCodeContainer');
-                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(result.qrCodeData)}`;
-                
-                qrCodeContainer.innerHTML = `
-                    <div class="qr-code-container">
-                        <h4>🎉 Redemption QR Code</h4>
-                        <img src="${qrCodeUrl}" alt="Redemption QR Code" style="max-width: 250px; margin: 15px 0;">
-                        <p><strong>Redemption ID:</strong> ${result.redemption.redemptionId}</p>
-                        <p><strong>Amount:</strong> ${purchaseAmount.toLocaleString()} UGX</p>
-                        <p><strong>Option:</strong> ${selectedOption.description}</p>
-                        <p><strong>Valid Until:</strong> ${new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleString()}</p>
-                        <p style="font-size: 12px; color: #666; margin-top: 15px;">
-                            Show this QR code to our staff at checkout. It's valid for 24 hours.
-                        </p>
-                    </div>
-                `;
-                
-                showToast("QR code generated successfully! Show this to staff.", "success");
-                
-                // Show success message
-                document.getElementById('qrRedemptionResult').innerHTML = `
-                    <div class="success-card">
-                        <h4>✅ QR Redemption Created!</h4>
-                        <p>Your QR code has been generated successfully. Show it to our staff at checkout.</p>
-                        <p><strong>Redemption ID:</strong> ${result.redemption.redemptionId}</p>
-                        <p><strong>Status:</strong> Pending redemption</p>
-                        <button class="btn" onclick="showDashboard(clubManager.currentMember)" style="margin-top: 10px;">
-                            Back to Dashboard
-                        </button>
-                    </div>
-                `;
-            } else {
-                showToast(result.message, "error");
+            // SAVE TO DATABASE
+            const saved = await clubManager.db.saveMember(clubManager.currentMember);
+            if (!saved) {
+                // Revert if save fails
+                clubManager.currentMember.points = oldPoints;
+                showToast("Failed to save points deduction", "error");
+                return { success: false, message: "Database save failed" };
             }
         }
+        
+        // Generate QR code display
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(redemption.qrCodeData)}`;
+        
+        const qrCodeContainer = document.getElementById('qrCodeContainer');
+        qrCodeContainer.innerHTML = `
+            <div class="qr-code-container">
+                <h4>🎉 Redemption QR Code</h4>
+                <img src="${qrCodeUrl}" alt="Redemption QR Code" style="max-width: 250px; margin: 15px 0;">
+                <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
+                <p><strong>Amount:</strong> ${purchaseAmount.toLocaleString()} UGX</p>
+                <p><strong>Option:</strong> ${selectedOption.description}</p>
+                <p><strong>Valid Until:</strong> ${new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleString()}</p>
+                <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                    Show this QR code to our staff at checkout. It's valid for 24 hours.
+                </p>
+            </div>
+        `;
+        
+        showToast("QR code generated successfully! Show this to staff.", "success");
+        
+        // Show success message
+        document.getElementById('qrRedemptionResult').innerHTML = `
+            <div class="success-card">
+                <h4>✅ QR Redemption Created!</h4>
+                <p>Your QR code has been generated successfully. Show it to our staff at checkout.</p>
+                <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
+                <p><strong>Status:</strong> Pending redemption</p>
+                <p><strong>Your Tier:</strong> ${clubManager.currentMember.tier} (unchanged)</p>
+                <p><strong>Points Balance:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
+                <button class="btn" onclick="showDashboard(clubManager.currentMember)" style="margin-top: 10px;">
+                    Back to Dashboard
+                </button>
+            </div>
+        `;
+        
+        return { success: true, redemption: redemption };
+        
+    } catch (error) {
+        console.error("Error generating QR code:", error);
+        showToast("Error generating QR code: " + error.message, "error");
+        return { success: false, message: error.message };
+    }
+}
+             
 
         // Salesperson: Process scanned QR code
         async function processScannedQRCode(qrCodeData) {

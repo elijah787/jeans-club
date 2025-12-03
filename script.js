@@ -6,23 +6,116 @@ class QRRedemptionSystem {
     constructor() {
         this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
         this.encryptionKey = 'jeansclub_qr_2024_secret';
-        this.tierRules = {
-            BRONZE: { months: 2, percentage: 0.12, multiplier: 1.0 },
-            RUBY: { months: 3, percentage: 0.16, multiplier: 1.3 },
-            GOLD: { months: 5, percentage: 0.25, multiplier: 1.4 },
-            SAPPHIRE: { months: 4, percentage: 0.25, lifetimeBonus: 0.05, multiplier: 1.5 },
-            PLATINUM: { multiplier: 1.6 }, // Can choose any option
-            PEARL: { multiplier: 1.0 } // No pay-with-points
-        };
-        this.discountVoucherLimits = {
-            PEARL: { min: 1000, max: 5000 },
-            BRONZE: { min: 2000, max: 10000 },
-            SILVER: { min: 3000, max: 15000 },
-            RUBY: { min: 4000, max: 20000 },
-            GOLD: { min: 5000, max: 25000 },
-            SAPPHIRE: { min: 6000, max: 30000 },
-            PLATINUM: { min: 10000, max: 50000 }
-        };
+       // UPDATED tierRules in index.html:
+this.tierRules = {
+    PEARL: { 
+        payWithPoints: false,
+        discountVoucherOnly: true,
+        description: "Basic membership - use points for discount vouchers only"
+    },
+    BRONZE: { 
+        months: 2, 
+        percentage: 0.08,
+        multiplier: 1.0,
+        minSpendingThreshold: 300000,
+        maxRedemptionCap: 50000,
+        description: "Redeem 8% of your last 2 months spending as points",
+        pointsPer100UGX: 100
+    },
+    SILVER: { 
+        months: 3, 
+        percentage: 0.10,
+        multiplier: 1.1,
+        minSpendingThreshold: 500000,
+        maxRedemptionCap: 100000,
+        description: "Redeem 10% of your last 3 months spending as points",
+        pointsPer100UGX: 90
+    },
+    RUBY: { 
+        months: 4, 
+        percentage: 0.12,
+        multiplier: 1.3,
+        minSpendingThreshold: 1000000,
+        maxRedemptionCap: 200000,
+        description: "Redeem 12% of your last 4 months spending as points",
+        pointsPer100UGX: 80
+    },
+    GOLD: { 
+        months: 5, 
+        percentage: 0.15,
+        multiplier: 1.4,
+        minSpendingThreshold: 2000000,
+        maxRedemptionCap: 300000,
+        description: "Redeem 15% of your last 5 months spending as points",
+        pointsPer100UGX: 70
+    },
+    SAPPHIRE: { 
+        months: 6, 
+        percentage: 0.18,
+        lifetimeBonus: 0.02,
+        multiplier: 1.5,
+        minSpendingThreshold: 4000000,
+        maxRedemptionCap: 500000,
+        description: "Redeem 18% of last 6 months + 2% lifetime bonus as points",
+        pointsPer100UGX: 60
+    },
+    PLATINUM: { 
+        months: 12, 
+        percentage: 0.25,
+        lifetimeBonus: 0.05,
+        multiplier: 1.6,
+        minSpendingThreshold: 8000000,
+        maxRedemptionCap: 1000000,
+        canChooseAny: true,
+        description: "Redeem 25% of last 12 months + 5% lifetime bonus as points",
+        pointsPer100UGX: 50
+    }
+};
+       // UPDATED discountVoucherLimits:
+this.discountVoucherLimits = {
+    PEARL: { 
+        min: 1000, 
+        max: 5000, 
+        maxPercentage: 5,
+        pointsPerDiscount: 100
+    },
+    BRONZE: { 
+        min: 2000, 
+        max: 10000, 
+        maxPercentage: 8,
+        pointsPerDiscount: 100
+    },
+    SILVER: { 
+        min: 3000, 
+        max: 15000, 
+        maxPercentage: 10,
+        pointsPerDiscount: 100
+    },
+    RUBY: { 
+        min: 5000, 
+        max: 25000, 
+        maxPercentage: 12,
+        pointsPerDiscount: 100
+    },
+    GOLD: { 
+        min: 10000, 
+        max: 50000, 
+        maxPercentage: 15,
+        pointsPerDiscount: 100
+    },
+    SAPPHIRE: { 
+        min: 20000, 
+        max: 100000, 
+        maxPercentage: 18,
+        pointsPerDiscount: 100
+    },
+    PLATINUM: { 
+        min: 50000, 
+        max: 250000, 
+        maxPercentage: 25,
+        pointsPerDiscount: 100
+    }
+};
     }
 
     // Calculate spending history for specified months
@@ -47,71 +140,65 @@ class QRRedemptionSystem {
     }
 
     // Calculate all available redemption options
-    calculateRedemptionOptions(member, purchaseAmount) {
-        const tier = member.tier;
-        const options = [];
+// REPLACE the existing calculateRedemptionOptions method:
+calculateRedemptionOptions(member, purchaseAmount) {
+    const tier = member.tier;
+    const options = [];
+    
+    // Pearl members don't get pay-with-points options
+    if (tier === 'PEARL') {
+        return this.getDiscountVoucherOptions(member, purchaseAmount);
+    }
+    
+    // For Platinum members, they can choose from all other tier options
+    const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
+    
+    eligibleTiers.forEach(tierType => {
+        const rule = this.tierRules[tierType];
+        if (!rule || !rule.months) return;
         
-        // For Platinum members, they can choose from all 4 other tier options
-        const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
+        // Check if member meets minimum spending threshold
+        const monthsSpending = this.calculateSpendingHistory(member, rule.months);
         
-        // Pearl members don't get pay-with-points options
-        if (tier === 'PEARL') {
-            return this.getDiscountVoucherOptions(member, purchaseAmount);
+        if (monthsSpending < rule.minSpendingThreshold) {
+            // Don't show option if threshold not met
+            return;
         }
         
-        eligibleTiers.forEach(tierType => {
-            const rule = this.tierRules[tierType];
-            if (!rule) return;
+        let totalRedemption = monthsSpending * rule.percentage;
+        
+        // Add lifetime bonus for Sapphire/Platinum
+        if (rule.lifetimeBonus) {
+            const lifetimeSpending = this.calculateLifetimeSpending(member);
+            totalRedemption += lifetimeSpending * rule.lifetimeBonus;
+        }
+        
+        // Apply cap
+        totalRedemption = Math.min(totalRedemption, rule.maxRedemptionCap);
+        
+        if (totalRedemption > 0) {
+            const pointsEquivalent = Math.floor(totalRedemption / 100 * rule.pointsPer100UGX);
             
-            if (tierType === 'SAPPHIRE') {
-                const monthsSpending = this.calculateSpendingHistory(member, rule.months);
-                const lifetimeSpending = this.calculateLifetimeSpending(member);
-                const baseAmount = monthsSpending * rule.percentage;
-                const bonusAmount = lifetimeSpending * rule.lifetimeBonus;
-                const totalRedemption = baseAmount + bonusAmount;
-                const pointsEquivalent = Math.floor(totalRedemption * rule.multiplier);
-                
-                if (totalRedemption > 0) {
-                    options.push({
-                        type: 'points_redemption',
-                        tier: tierType,
-                        description: `${(rule.percentage * 100)}% of last ${rule.months} months + ${(rule.lifetimeBonus * 100)}% lifetime bonus`,
-                        monthsSpending: monthsSpending,
-                        baseAmount: baseAmount,
-                        bonusAmount: bonusAmount,
-                        totalAmount: totalRedemption,
-                        maxRedemption: Math.min(totalRedemption, purchaseAmount),
-                        pointsEquivalent: pointsEquivalent,
-                        pointsValue: rule.multiplier + 'x'
-                    });
-                }
-            } else {
-                const monthsSpending = this.calculateSpendingHistory(member, rule.months);
-                const totalRedemption = monthsSpending * rule.percentage;
-                const pointsEquivalent = Math.floor(totalRedemption * rule.multiplier);
-                
-                if (totalRedemption > 0) {
-                    options.push({
-                        type: 'points_redemption',
-                        tier: tierType,
-                        description: `${(rule.percentage * 100)}% of last ${rule.months} months spending`,
-                        monthsSpending: monthsSpending,
-                        totalAmount: totalRedemption,
-                        maxRedemption: Math.min(totalRedemption, purchaseAmount),
-                        pointsEquivalent: pointsEquivalent,
-                        pointsValue: rule.multiplier + 'x'
-                    });
-                }
-            }
-        });
-        
-        // Add discount voucher options
-        const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount);
-        options.push(...voucherOptions);
-        
-        return options.sort((a, b) => b.maxRedemption - a.maxRedemption);
-    }
-
+            options.push({
+                type: 'points_redemption',
+                tier: tierType,
+                description: rule.description,
+                monthsSpending: monthsSpending,
+                totalAmount: totalRedemption,
+                maxRedemption: Math.min(totalRedemption, purchaseAmount),
+                pointsEquivalent: pointsEquivalent,
+                pointsValue: rule.pointsPer100UGX + ' points per 100 UGX',
+                eligibility: `Spent ${monthsSpending.toLocaleString()} UGX in last ${rule.months} months`
+            });
+        }
+    });
+    
+    // Add discount voucher options
+    const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount);
+    options.push(...voucherOptions);
+    
+    return options.sort((a, b) => (b.maxRedemption || 0) - (a.maxRedemption || 0));
+}
     // Get discount voucher options based on tier
     getDiscountVoucherOptions(member, purchaseAmount) {
         const tier = member.tier;
@@ -3758,72 +3845,81 @@ const googleConfig = {
 };
 
 // Jeans Club Configuration - UPDATED NAME WITH NEW TIERS
+// Jeans Club Configuration - UPDATED WITH TIER-SPECIFIC REDEMPTION RATES
 const jeansClubConfig = {
     pointValue: 750,
-    redemptionRate: 0.005,
+    // REMOVE: redemptionRate: 0.005,
+    
+    // ADD TIER-BASED REDEMPTION RATES (Same as index.html):
+    tierRedemptionRates: {
+        PEARL: 0.0003,    // 100 pts = 3% discount
+        BRONZE: 0.0004,   // 100 pts = 4% discount
+        SILVER: 0.0005,   // 100 pts = 5% discount
+        RUBY: 0.0006,     // 100 pts = 6% discount
+        GOLD: 0.0007,     // 100 pts = 7% discount
+        SAPPHIRE: 0.0008, // 100 pts = 8% discount
+        PLATINUM: 0.0010  // 100 pts = 10% discount
+    },
     
     tiers: {
         PEARL: { 
             minPoints: 0, 
-            maxPoints: 9999,
-            multiplier: 1.0,
-            name: "Pearl",
+            maxPoints: 7499,
+            multiplier: 1.0, 
+            name: "Pearl", 
             color: "#F8F8FF",
-            discountRate: 0.10
+            discountRate: 0.03  // 3% max discount
         },
         BRONZE: { 
-            minPoints: 10000,
-            maxPoints: 34999,
-            multiplier: 1.10,
-            name: "Bronze",
+            minPoints: 7500,    
+            maxPoints: 24999,
+            multiplier: 1.10, 
+            name: "Bronze", 
             color: "#cd7f32",
-            discountRate: 0.15
+            discountRate: 0.04  // 4% max discount
         },
         SILVER: { 
-            minPoints: 35000,
-            maxPoints: 74999,
-            multiplier: 1.25,
-            name: "Silver",
+            minPoints: 25000,    
+            maxPoints: 99999,
+            multiplier: 1.25, 
+            name: "Silver", 
             color: "#c0c0c0",
-            discountRate: 0.20
+            discountRate: 0.05  // 5% max discount
         },
-        // NEW TIER: Between Silver and Gold
         RUBY: { 
-            minPoints: 75000,
-            maxPoints: 124999,
-            multiplier: 1.30,
-            name: "Ruby",
+            minPoints: 100000,    
+            maxPoints: 249999,
+            multiplier: 1.30, 
+            name: "Ruby", 
             color: "#e0115f",
-            discountRate: 0.22
+            discountRate: 0.06  // 6% max discount
         },
         GOLD: { 
-            minPoints: 125000,
-            maxPoints: 349999,
-            multiplier: 1.40,
-            name: "Gold",
+            minPoints: 250000,    
+            maxPoints: 499999,
+            multiplier: 1.40, 
+            name: "Gold", 
             color: "#ffd700",
-            discountRate: 0.25
+            discountRate: 0.07  // 7% max discount
         },
-        // NEW TIER: Between Gold and Platinum
         SAPPHIRE: { 
-            minPoints: 350000,
-            maxPoints: 674999,
-            multiplier: 1.50,
-            name: "Sapphire",
+            minPoints: 500000,    
+            maxPoints: 999999,
+            multiplier: 1.50, 
+            name: "Sapphire", 
             color: "#0f52ba",
-            discountRate: 0.27
+            discountRate: 0.08  // 8% max discount
         },
         PLATINUM: { 
-            minPoints: 675000,
+            minPoints: 1000000,    
             maxPoints: 9999999,
-            multiplier: 1.60,
-            name: "Platinum",
+            multiplier: 1.60, 
+            name: "Platinum", 
             color: "#e5e4e2",
-            discountRate: 0.30
+            discountRate: 0.10  // 10% max discount
         }
     }
 };
-
 // Main JeansClubManager - UPDATED to use Supabase
 class JeansClubManager {
     constructor() {
@@ -4408,27 +4504,35 @@ class JeansClubManager {
     }
 
     calculateDiscount(pointsToUse) {
-        if (!this.currentMember) return { success: false, message: "No member logged in" };
+    if (!this.currentMember) return { success: false, message: "No member logged in" };
 
-        const member = this.currentMember;
-        const tierConfig = jeansClubConfig.tiers[member.tier];
-        
-        const maxDiscountPoints = Math.floor(tierConfig.discountRate / jeansClubConfig.redemptionRate);
-        const actualPointsToUse = Math.min(pointsToUse, maxDiscountPoints, member.points);
-        
-        if (actualPointsToUse < 10) {
-            return { success: false, message: "Minimum 10 points required" };
-        }
-
-        const discountPercentage = (actualPointsToUse * jeansClubConfig.redemptionRate * 100).toFixed(1);
-
-        return {
-            success: true,
-            pointsUsed: actualPointsToUse,
-            discountPercentage: discountPercentage,
-            maxPossibleDiscount: (tierConfig.discountRate * 100).toFixed(1) + '%'
-        };
+    const member = this.currentMember;
+    const tier = member.tier;
+    const tierConfig = jeansClubConfig.tiers[tier];
+    
+    // USE TIER-SPECIFIC REDEMPTION RATE
+    const redemptionRate = jeansClubConfig.tierRedemptionRates[tier] || 0.0003;
+    
+    // Calculate max points that can be used for this tier
+    const maxDiscountPoints = Math.floor(tierConfig.discountRate / redemptionRate);
+    const actualPointsToUse = Math.min(pointsToUse, maxDiscountPoints, member.points);
+    
+    if (actualPointsToUse < 10) {
+        return { success: false, message: "Minimum 10 points required" };
     }
+
+    // Calculate discount using tier-specific rate
+    const discountPercentage = (actualPointsToUse * redemptionRate * 100).toFixed(1);
+
+    return {
+        success: true,
+        pointsUsed: actualPointsToUse,
+        discountPercentage: discountPercentage,
+        maxPossibleDiscount: (tierConfig.discountRate * 100).toFixed(1) + '%',
+        redemptionRate: redemptionRate,
+        tierName: tier
+    };
+}
 
     async redeemPoints(pointsToUse) {
         if (!this.currentMember) return { success: false, message: "No member logged in" };
