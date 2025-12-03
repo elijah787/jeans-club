@@ -1201,6 +1201,59 @@
     </div>
 
     <script>
+        // Enhanced email validation function
+function isValidEmail(email) {
+    if (!email || typeof email !== 'string') return false;
+    
+    // Trim and lowercase
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    // Check for basic email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!emailRegex.test(trimmedEmail)) {
+        return false;
+    }
+    
+    // Additional common sense checks
+    const [localPart, domain] = trimmedEmail.split('@');
+    
+    // Check local part (before @)
+    if (localPart.length === 0) return false;
+    
+    // Check domain part (after @)
+    if (domain.length < 3) return false; // a.b is minimum
+    
+    // Check for common fake patterns
+    const fakePatterns = [
+        'test@',
+        'example@',
+        'fake@',
+        'admin@',
+        'user@',
+        'temp@',
+        'dummy@'
+    ];
+    
+    for (const pattern of fakePatterns) {
+        if (trimmedEmail.includes(pattern) && trimmedEmail.length < 15) {
+            return false; // Likely fake email
+        }
+    }
+    
+    return true;
+}
+// Optional: Validate email domain
+function isValidEmailDomain(email) {
+    const validDomains = [
+        'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+        'icloud.com', 'aol.com', 'protonmail.com', 'mail.com',
+        'yandex.com', 'zoho.com', 'gmx.com'
+    ];
+    
+    const domain = email.split('@')[1];
+    return validDomains.includes(domain) || domain.includes('.');
+}
         // VOUCHER SYSTEM IMPLEMENTATION - Copied from first index.html
         class VoucherSystem {
             constructor() {
@@ -4781,6 +4834,18 @@ async addPurchase(jcId, amount, description) {
                 showToast("Please fill in all required fields", "error");
                 return;
             }
+            if (!isValidEmail(email)) {
+        showToast("Please enter a valid email address (e.g., name@example.com)", "error");
+        return;
+    }
+            // Optional: Domain validation
+    if (!isValidEmailDomain(email)) {
+        if (!confirm("This email domain doesn't look typical. Are you sure this is your correct email?")) {
+            showToast("Please enter a valid email address", "error");
+            return;
+        }
+    }
+
 
             if (password.length < 6) {
                 showToast("Password must be at least 6 characters", "error");
