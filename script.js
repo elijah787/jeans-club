@@ -1,3 +1,70 @@
+// Email validation function
+// Enhanced email validation function - FIXED VERSION
+function isValidEmail(email) {
+    if (!email || typeof email !== 'string') return false;
+    
+    // Trim and check for empty
+    const trimmedEmail = email.trim();
+    if (trimmedEmail.length < 6) return false; // minimum a@b.cd = 6 chars
+    
+    // Check for basic email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!emailRegex.test(trimmedEmail)) {
+        return false;
+    }
+    
+    // Extract parts
+    const [localPart, domain] = trimmedEmail.toLowerCase().split('@');
+    
+    // Check local part (before @)
+    if (localPart.length === 0 || localPart.length > 64) return false;
+    
+    // Check for invalid local part characters
+    const localPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
+    if (!localPartRegex.test(localPart)) return false;
+    
+    // Check domain part (after @)
+    if (domain.length < 4) return false; // minimum: a.bc
+    
+    // Check domain structure
+    const domainParts = domain.split('.');
+    if (domainParts.length < 2) return false;
+    
+    // Check each domain part
+    for (const part of domainParts) {
+        if (part.length === 0 || part.length > 63) return false;
+        // Must start and end with alphanumeric
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(part)) return false;
+    }
+    
+    // CRITICAL FIX: Check TLD (last part) - MUST be at least 2 letters
+    const tld = domainParts[domainParts.length - 1];
+    if (tld.length < 2 || !/^[a-zA-Z]{2,}$/.test(tld)) return false;
+    
+    // REJECT OBVIOUSLY FAKE EMAILS
+    const fakePatterns = [
+        'test@', 'example@', 'fake@', 'admin@', 'user@', 'temp@', 'dummy@',
+        'a@a.a', 'aa@aa.aa', 'aaa@aaa.aaa', // too short patterns
+        'con', 'c', 'com', // single letters or "con"
+    ];
+    
+    const lowerEmail = trimmedEmail.toLowerCase();
+    for (const pattern of fakePatterns) {
+        // Check if pattern appears and email is suspiciously short
+        if (lowerEmail.includes(pattern) && trimmedEmail.length < 10) {
+            return false;
+        }
+    }
+    
+    // Additional checks
+    if (trimmedEmail.includes('..')) return false; // double dots
+    if (trimmedEmail.includes('@@')) return false; // double @
+    if (trimmedEmail.startsWith('.') || trimmedEmail.endsWith('.')) return false;
+    if (trimmedEmail.startsWith('@') || trimmedEmail.endsWith('@')) return false;
+    
+    return true;
+}
 // Import Supabase
 const { createClient } = supabase;
 
@@ -141,13 +208,18 @@ this.discountVoucherLimits = {
 
     // Calculate all available redemption options
 // REPLACE the existing calculateRedemptionOptions method:
+     // REPLACE THE EXISTING calculateRedemptionOptions method:
+    // REPLACE the existing calculateRedemptionOptions method in script.js too:
 calculateRedemptionOptions(member, purchaseAmount) {
     const tier = member.tier;
     const options = [];
+    const memberPoints = member.points || 0;
     
-    // Pearl members don't get pay-with-points options
+    // Pearl members only get discount vouchers
     if (tier === 'PEARL') {
-        return this.getDiscountVoucherOptions(member, purchaseAmount);
+        return this.getDiscountVoucherOptions(member, purchaseAmount).filter(option => 
+            memberPoints >= option.pointsRequired
+        );
     }
     
     // For Platinum members, they can choose from all other tier options
@@ -161,8 +233,7 @@ calculateRedemptionOptions(member, purchaseAmount) {
         const monthsSpending = this.calculateSpendingHistory(member, rule.months);
         
         if (monthsSpending < rule.minSpendingThreshold) {
-            // Don't show option if threshold not met
-            return;
+            return; // Don't show option if threshold not met
         }
         
         let totalRedemption = monthsSpending * rule.percentage;
@@ -179,24 +250,32 @@ calculateRedemptionOptions(member, purchaseAmount) {
         if (totalRedemption > 0) {
             const pointsEquivalent = Math.floor(totalRedemption / 100 * rule.pointsPer100UGX);
             
-            options.push({
-                type: 'points_redemption',
-                tier: tierType,
-                description: rule.description,
-                monthsSpending: monthsSpending,
-                totalAmount: totalRedemption,
-                maxRedemption: Math.min(totalRedemption, purchaseAmount),
-                pointsEquivalent: pointsEquivalent,
-                pointsValue: rule.pointsPer100UGX + ' points per 100 UGX',
-                eligibility: `Spent ${monthsSpending.toLocaleString()} UGX in last ${rule.months} months`
-            });
+            // 🚨 CRITICAL: Only add if member has enough points
+            if (memberPoints >= pointsEquivalent) {
+                options.push({
+                    type: 'points_redemption',
+                    tier: tierType,
+                    description: rule.description,
+                    monthsSpending: monthsSpending,
+                    totalAmount: totalRedemption,
+                    maxRedemption: Math.min(totalRedemption, purchaseAmount),
+                    pointsEquivalent: pointsEquivalent,
+                    pointsValue: rule.pointsPer100UGX + ' points per 100 UGX',
+                    eligibility: `Spent ${monthsSpending.toLocaleString()} UGX in last ${rule.months} months`,
+                    requiresSufficientPoints: true,
+                    memberHasPoints: true
+                });
+            }
         }
     });
     
-    // Add discount voucher options
-    const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount);
+    // Add discount voucher options - filtered by points balance
+    const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount)
+        .filter(option => memberPoints >= option.pointsRequired);
+    
     options.push(...voucherOptions);
     
+    // Sort by redemption value and return
     return options.sort((a, b) => (b.maxRedemption || 0) - (a.maxRedemption || 0));
 }
     // Get discount voucher options based on tier
@@ -5220,9 +5299,118 @@ async function signUpWithEmail() {
         alert("Please enter name, email and password");
         return;
     }
+     // ADD EMAIL VALIDATION HERE:
+   // Enhanced email validation function
+function isValidEmail(email) {
+    if (!email || typeof email !== 'string') return false;
     
-    if (password.length < 4) {
-        alert("Password must be at least 4 characters");
+    // Trim and check for empty
+    const trimmedEmail = email.trim();
+    if (trimmedEmail.length < 6) return false; // minimum a@b.cd = 6 chars
+    
+    // Check for basic email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!emailRegex.test(trimmedEmail)) {
+        return false;
+    }
+    
+    // Extract parts
+    const [localPart, domain] = trimmedEmail.toLowerCase().split('@');
+    
+    // Check local part (before @)
+    if (localPart.length === 0 || localPart.length > 64) return false;
+    
+    // Check for invalid local part characters
+    const localPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
+    if (!localPartRegex.test(localPart)) return false;
+    
+    // Check domain part (after @)
+    if (domain.length < 4) return false; // minimum: a.bc
+    
+    // Check domain structure
+    const domainParts = domain.split('.');
+    if (domainParts.length < 2) return false;
+    
+    // Check each domain part
+    for (const part of domainParts) {
+        if (part.length === 0 || part.length > 63) return false;
+        // Must start and end with alphanumeric
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(part)) return false;
+    }
+    
+    // Check TLD (last part)
+    const tld = domainParts[domainParts.length - 1];
+    if (tld.length < 2 || !/^[a-zA-Z]{2,}$/.test(tld)) return false;
+    
+    // REJECT OBVIOUSLY FAKE EMAILS
+    const fakePatterns = [
+        'test@', 'example@', 'fake@', 'admin@', 'user@', 'temp@', 'dummy@',
+        'a@a.a', 'aa@aa.aa', 'aaa@aaa.aaa', // too short patterns
+        'con', 'c', 'com', // single letters or "con"
+    ];
+    
+    const lowerEmail = trimmedEmail.toLowerCase();
+    for (const pattern of fakePatterns) {
+        // Check if pattern appears and email is suspiciously short
+        if (lowerEmail.includes(pattern) && trimmedEmail.length < 10) {
+            return false;
+        }
+    }
+    
+    // Additional checks
+    if (trimmedEmail.includes('..')) return false; // double dots
+    if (trimmedEmail.includes('@@')) return false; // double @
+    if (trimmedEmail.startsWith('.') || trimmedEmail.endsWith('.')) return false;
+    if (trimmedEmail.startsWith('@') || trimmedEmail.endsWith('@')) return false;
+    
+    // Common disposable email domains (add more as needed)
+    const disposableDomains = [
+        'tempmail.com', '10minutemail.com', 'guerrillamail.com',
+        'mailinator.com', 'yopmail.com', 'trashmail.com'
+    ];
+    
+    if (disposableDomains.some(d => domain.includes(d))) {
+        // Optional: You can either reject or warn
+        if (!confirm("This looks like a temporary email address. Are you sure you want to use this?")) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// Quick email format check (simpler version for prompt dialogs)
+function quickEmailCheck(email) {
+    if (!email || email.length < 6) return false;
+    
+    // Must contain @ and .
+    if (!email.includes('@') || !email.includes('.')) return false;
+    
+    const parts = email.split('@');
+    if (parts.length !== 2) return false;
+    
+    const [local, domain] = parts;
+    if (!local || !domain || local.length < 1 || domain.length < 4) return false;
+    
+    // Reject obviously fake emails
+    if (email === 'c' || email === 'con' || email === 'com') return false;
+    if (email.length < 8 && email.includes('@')) return false;
+    
+    return true;
+}
+    
+// Optional: Domain validation
+    if (!isValidEmailDomain(email)) {
+        if (!confirm("This email domain doesn't look typical. Are you sure this is your correct email?")) {
+            alert("Please enter a valid email address");
+            return;
+        }
+    }
+
+
+    if (password.length < 6) {
+        alert("Password must be at least 6 characters");
         return;
     }
     
