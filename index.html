@@ -2270,44 +2270,94 @@
         }
 
         // Enhanced scan processing for salesperson
-        async function processScan() {
-            const scanData = document.getElementById('voucherCodeInput').value.trim();
-            const salespersonName = document.getElementById('salespersonName').value.trim();
-            
-            if (!scanData) {
-                showToast("Please enter voucher code or QR data", "error");
-                return;
-            }
-            
-            if (!salespersonName) {
-                showToast("Please enter your name", "error");
-                return;
-            }
-            
-            showToast("Processing scan...", "info");
-            
-            // Try to process as QR redemption first
-            let result = qrRedemptionSystem.processRedemption(scanData, salespersonName);
-            
-            if (result.success) {
-                // Show enhanced QR redemption details
-                displayQRRedemptionDetails(result.redemption);
-                showToast("QR redemption processed successfully!", "success");
-                return;
-            }
-            
-            // If not QR redemption, try as voucher
-            result = await clubManager.redeemVoucher(scanData, salespersonName);
-            
-            if (result.success) {
-                // Show enhanced voucher details
-                displayVoucherDetails(result.voucher);
-                showToast("Voucher redeemed successfully!", "success");
-            } else {
-                showToast(result.message, "error");
-                document.getElementById('scanDetails').classList.add('hidden');
+        // Enhanced scan processing for salesperson that handles both QR redemptions and vouchers
+async function processScan() {
+    const scanData = document.getElementById('voucherCodeInput').value.trim();
+    const salespersonName = document.getElementById('salespersonName').value.trim();
+    
+    if (!scanData) {
+        showToast("Please enter voucher code or QR data", "error");
+        return;
+    }
+    
+    if (!salespersonName) {
+        showToast("Please enter your name", "error");
+        return;
+    }
+    
+    showToast("Processing scan...", "info");
+    
+    // Check if this is QR redemption encrypted data (base64 encoded)
+    let isQRData = false;
+    let redemptionData = null;
+    
+    try {
+        // Check if it's base64 encoded (QR redemption data usually is)
+        if (scanData.length > 50 && /^[A-Za-z0-9+/=]+$/.test(scanData)) {
+            // Try to decrypt as QR redemption data
+            redemptionData = qrRedemptionSystem.decryptData(scanData);
+            if (redemptionData && redemptionData.type === 'jeansclub_redemption') {
+                isQRData = true;
             }
         }
+    } catch (error) {
+        console.log("Not encrypted QR data, checking other formats...");
+    }
+    
+    if (isQRData && redemptionData) {
+        // Process as QR redemption
+        const result = qrRedemptionSystem.processRedemption(scanData, salespersonName);
+        
+        if (result.success) {
+            // Show enhanced QR redemption details
+            displayQRRedemptionDetails(result.redemption);
+            showToast("QR redemption processed successfully!", "success");
+            
+            // Clear the input field
+            document.getElementById('voucherCodeInput').value = '';
+            return;
+        } else {
+            showToast("QR redemption failed: " + result.message, "error");
+        }
+    } else {
+        // Check if it's a redemption ID (starts with RED)
+        if (scanData.startsWith('RED')) {
+            // Try to find redemption by ID directly
+            const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+            const redemption = allRedemptions.find(r => r.redemptionId === scanData);
+            
+            if (redemption) {
+                // Process direct redemption ID
+                redemption.status = 'completed';
+                redemption.redeemedBy = salespersonName;
+                redemption.redeemedDate = new Date().toISOString();
+                qrRedemptionSystem.saveRedemptions();
+                
+                displayQRRedemptionDetails(redemption);
+                showToast("Redemption completed successfully using ID!", "success");
+                
+                // Clear the input field
+                document.getElementById('voucherCodeInput').value = '';
+                return;
+            }
+        }
+        
+        // Try as regular voucher code
+        const voucherResult = await clubManager.redeemVoucher(scanData, salespersonName);
+        
+        if (voucherResult.success) {
+            // Show enhanced voucher details
+            displayVoucherDetails(voucherResult.voucher);
+            showToast("Voucher redeemed successfully!", "success");
+            
+            // Clear the input field
+            document.getElementById('voucherCodeInput').value = '';
+        } else {
+            showToast(voucherResult.message, "error");
+            document.getElementById('scanDetails').classList.add('hidden');
+        }
+    }
+}
 
         function displayQRRedemptionDetails(redemption) {
             const detailsContainer = document.getElementById('scanDetails');
@@ -2441,6 +2491,62 @@
             if (discount <= 8) return 'SAPPHIRE';
             return 'PLATINUM';
         }
+           // Helper function to determine what type of data was scanned
+function analyzeScanData(data) {
+    if (!data) return "Empty data";
+    
+    // Check for redemption ID
+    if (data.startsWith('RED')) {
+        return "This appears to be a Redemption ID";
+    }
+    
+    // Check for voucher code
+    if (data.startsWith('JC')) {
+        return "This appears to be a Voucher Code";
+    }
+    
+    // Check for base64 (QR data)
+    if (/^[A-Za-z0-9+/=]+$/.test(data) && data.length > 50) {
+        return "This appears to be QR Code data";
+    }
+    
+    // Check if it's JSON
+    try {
+        JSON.parse(data);
+        return "This appears to be JSON data";
+    } catch (e) {
+        // Not JSON
+    }
+    
+    return "Unknown format";
+}
+
+// Update the scan instructions in your HTML
+function updateScanInstructions() {
+    // Add a help section to show what to scan
+    const scanSection = document.querySelector('.scan-voucher-section');
+    if (scanSection) {
+        const helpDiv = document.createElement('div');
+        helpDiv.className = 'info-message';
+        helpDiv.style.marginTop = '10px';
+        helpDiv.innerHTML = `
+            <strong>💡 What to scan:</strong>
+            <ul style="margin: 5px 0; padding-left: 20px;">
+                <li><strong>Voucher Codes:</strong> JC followed by 8 characters (e.g., JCABC12345)</li>
+                <li><strong>QR Redemption Data:</strong> Long base64 string from QR code scan</li>
+                <li><strong>Redemption ID:</strong> RED followed by numbers (e.g., RED12345678)</li>
+            </ul>
+            <small>Salesperson name is required for all redemptions.</small>
+        `;
+        
+        // Only add if not already present
+        if (!scanSection.querySelector('.info-message')) {
+            scanSection.appendChild(helpDiv);
+        }
+    }
+}
+
+
 
         // Information Page Functions
         function showMembershipInfo() {
@@ -5097,65 +5203,125 @@
             }
 
             // Process redemption by scanning QR code
-            processRedemption(qrCodeData, salespersonName) {
-                // Validate salesperson name
-                if (!salespersonName || salespersonName.trim() === '') {
-                    return { success: false, message: "Salesperson name is required" };
-                }
+         // In QRRedemptionSystem class - Updated processRedemption method
+processRedemption(qrCodeData, salespersonName) {
+    console.log("Processing redemption with data length:", qrCodeData?.length);
+    
+    // Validate salesperson name
+    if (!salespersonName || salespersonName.trim() === '') {
+        return { success: false, message: "Salesperson name is required" };
+    }
 
-                // Decrypt and validate QR code data
-                const redemptionData = this.decryptData(qrCodeData);
-                if (!redemptionData) {
-                    return { success: false, message: "Invalid QR code data. Please scan a valid Jeans Club QR code." };
-                }
-
-                // Check if QR code is readable
-                if (!redemptionData.readable) {
-                    return { success: false, message: "QR code is not readable. Please use a valid Jeans Club QR code." };
-                }
-
-                // Validate expiry
-                if (redemptionData.validation && redemptionData.validation.expiryDate) {
-                    const expiryDate = new Date(redemptionData.validation.expiryDate);
-                    const now = new Date();
-                    if (now > expiryDate) {
-                        return { success: false, message: "QR code has expired. Please generate a new one." };
-                    }
-                }
-
-                // Find redemption record
-                const redemption = this.redemptions.find(r => r.redemptionId === redemptionData.redemptionId);
-                if (!redemption) {
-                    return { success: false, message: "Redemption not found in the system" };
-                }
-
-                // Validate signature
-                const expectedSignature = this.generateSignature(redemption);
-                if (redemption.qrCodeData !== this.generateQRCodeData(redemption)) {
-                    return { success: false, message: "QR code validation failed. Please scan a valid QR code." };
-                }
-
-                // Check status
-                if (redemption.status === 'completed') {
-                    return { success: false, message: "Redemption has already been completed" };
-                }
-
-                if (redemption.status === 'expired') {
-                    return { success: false, message: "Redemption has expired" };
-                }
-
-                // Mark as completed
-                redemption.status = 'completed';
-                redemption.redeemedBy = salespersonName.trim();
-                redemption.redeemedDate = new Date().toISOString();
-                this.saveRedemptions();
-
-                return {
-                    success: true,
-                    message: `Redemption completed successfully by ${salespersonName}`,
-                    redemption: redemption
-                };
+    // Check if it's already a redemption ID
+    if (qrCodeData.startsWith('RED')) {
+        const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
+        if (redemption) {
+            // Process direct redemption ID
+            if (redemption.status === 'completed') {
+                return { success: false, message: "Redemption has already been completed" };
             }
+            
+            if (redemption.status === 'expired') {
+                return { success: false, message: "Redemption has expired" };
+            }
+            
+            redemption.status = 'completed';
+            redemption.redeemedBy = salespersonName.trim();
+            redemption.redeemedDate = new Date().toISOString();
+            this.saveRedemptions();
+            
+            return {
+                success: true,
+                message: `Redemption completed successfully by ${salespersonName}`,
+                redemption: redemption
+            };
+        }
+    }
+    
+    // Try to decrypt QR code data
+    let redemptionData;
+    try {
+        redemptionData = this.decryptData(qrCodeData);
+        console.log("Decrypted data:", redemptionData);
+    } catch (error) {
+        console.error("Decryption failed:", error);
+        return { 
+            success: false, 
+            message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+        };
+    }
+    
+    if (!redemptionData) {
+        return { 
+            success: false, 
+            message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+        };
+    }
+    
+    // Check if QR code is readable
+    if (!redemptionData.readable) {
+        return { 
+            success: false, 
+            message: "QR code is not readable. Please use a valid Jeans Club QR code." 
+        };
+    }
+
+    // Validate type
+    if (redemptionData.type !== 'jeansclub_redemption') {
+        return { 
+            success: false, 
+            message: "Invalid QR code type. Please scan a Jeans Club redemption QR code." 
+        };
+    }
+
+    // Validate expiry
+    if (redemptionData.validation && redemptionData.validation.expiryDate) {
+        const expiryDate = new Date(redemptionData.validation.expiryDate);
+        const now = new Date();
+        if (now > expiryDate) {
+            return { 
+                success: false, 
+                message: "QR code has expired. Please generate a new one." 
+            };
+        }
+    }
+
+    // Find redemption record
+    const redemption = this.redemptions.find(r => r.redemptionId === redemptionData.redemptionId);
+    if (!redemption) {
+        return { 
+            success: false, 
+            message: "Redemption not found in the system" 
+        };
+    }
+
+    // Check status
+    if (redemption.status === 'completed') {
+        return { 
+            success: false, 
+            message: "Redemption has already been completed" 
+        };
+    }
+
+    if (redemption.status === 'expired') {
+        return { 
+            success: false, 
+            message: "Redemption has expired" 
+        };
+    }
+
+    // Mark as completed
+    redemption.status = 'completed';
+    redemption.redeemedBy = salespersonName.trim();
+    redemption.redeemedDate = new Date().toISOString();
+    this.saveRedemptions();
+
+    return {
+        success: true,
+        message: `Redemption completed successfully by ${salespersonName}`,
+        redemption: redemption
+    };
+}
 
             // Get member's redemption history
             getMemberRedemptions(memberJCId) {
