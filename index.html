@@ -60,6 +60,82 @@
             color: #00AFF0;
         }
 
+        /* Search Modal */
+        .search-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 100px;
+        }
+
+        .search-modal.active {
+            display: flex;
+        }
+
+        .search-container {
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 20px;
+            font-size: 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid #00AFF0;
+            color: white;
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .search-results {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .search-result-item {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .search-result-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .search-close {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            background: rgba(0,0,0,0.5);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         /* Main Navigation */
         .main-navigation {
             display: flex;
@@ -126,16 +202,21 @@
             transition: 0.3s;
         }
 
+        /* Full Page Background */
+        body {
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+                        url('https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+        }
+
         /* Hero Section */
         .hero-section {
-            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
-                        url('https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
-            background-size: cover;
-            background-position: center;
             color: white;
             padding: 100px 20px;
             text-align: center;
             margin-bottom: 60px;
+            background: transparent;
         }
 
         .hero-title {
@@ -143,6 +224,7 @@
             font-weight: bold;
             margin-bottom: 20px;
             letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
         .hero-subtitle {
@@ -151,7 +233,150 @@
             max-width: 800px;
             margin: 0 auto 40px;
             line-height: 1.6;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
+
+        /* Information Pages */
+        .info-page {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 40px;
+            margin: 20px auto;
+            max-width: 1200px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .info-page h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+
+        .info-page h2 {
+            color: #667eea;
+            margin: 30px 0 15px;
+            font-size: 1.8em;
+        }
+
+        .info-page p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .info-page ul, .info-page ol {
+            color: #555;
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-page li {
+            margin-bottom: 10px;
+        }
+
+        .tiers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .tier-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-top: 4px solid;
+        }
+
+        .tier-card.pearl { border-color: #FFF8DC; }
+        .tier-card.bronze { border-color: #B76E79; }
+        .tier-card.silver { border-color: #2C3E50; }
+        .tier-card.ruby { border-color: #8B475D; }
+        .tier-card.gold { border-color: #FFD700; }
+        .tier-card.sapphire { border-color: #34495E; }
+        .tier-card.platinum { border-color: #2F4F4F; }
+
+        .tier-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .benefits-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .benefit-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .benefit-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+
+        /* Enhanced Voucher/QR Details Display */
+        .voucher-details-display, .qr-details-display {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .detail-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .detail-item strong {
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        /* Social Media Links */
+        .social-links {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .social-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.3s;
+        }
+
+        .social-link:hover {
+            transform: translateY(-2px);
+        }
+
+        .social-tiktok { background: #000000; }
+        .social-instagram { background: #E4405F; }
+        .social-x { background: #000000; }
 
         /* Rest of your existing CSS styles remain exactly the same */
         /* ALL YOUR EXISTING CSS STYLES REMAIN EXACTLY THE SAME */
@@ -192,7 +417,6 @@
             font-size: 1.4rem;
             font-family: HelveticaNeue-Light, Helvetica, Arial, sans-serif;
             line-height: 1.1;
-            background-color: #f6f6f6;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             text-shadow: 1px 1px 1px rgba(0, 0, 0, .004);
@@ -262,7 +486,7 @@
         }
 
         .card {
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
             padding: 30px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
@@ -914,6 +1138,10 @@
             .hero-subtitle {
                 font-size: 18px;
             }
+            
+            .tiers-grid, .benefits-list {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 480px) {
@@ -948,7 +1176,7 @@
 
         /* Footer */
         .footer {
-            background: #000000;
+            background: rgba(0, 0, 0, 0.9);
             color: white;
             padding: 60px 20px 30px;
             margin-top: 60px;
@@ -990,6 +1218,15 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+    <!-- Search Modal -->
+    <div class="search-modal" id="searchModal">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search for members, vouchers, redemptions...">
+            <div class="search-results" id="searchResults"></div>
+        </div>
+        <div class="search-close" onclick="hideSearch()">×</div>
+    </div>
+
     <!-- Mercedes-Benz Inspired Header -->
     <header class="mercedes-header">
         <div class="header-top">
@@ -1031,8 +1268,399 @@
     </section>
 
     <div class="container" id="main-content">
-        <!-- Rest of your HTML content remains exactly the same -->
-        <!-- All your existing HTML content from the first index.html -->
+        <!-- Information Pages -->
+        <div id="membershipInfoPage" class="info-page hidden">
+            <div class="nav-buttons">
+                <button class="btn secondary" onclick="showDashboardSection()">← Back to Dashboard</button>
+            </div>
+            
+            <h1>Membership Information</h1>
+            
+            <h2>Welcome to Jeans Club Membership</h2>
+            <p>Our loyalty program is designed to reward our most valued customers with exclusive benefits, points, and tiered privileges. As a member, you'll enjoy a premium denim shopping experience like no other.</p>
+            
+            <h2>How to Join</h2>
+            <ol>
+                <li>Sign up using your email address or Google account</li>
+                <li>Receive your unique JC ID (Jeans Club Identification)</li>
+                <li>Get your starting points and referral code</li>
+                <li>Start shopping to earn points and climb tiers</li>
+            </ol>
+            
+            <h2>Membership Features</h2>
+            <div class="benefits-list">
+                <div class="benefit-item">
+                    <div class="benefit-icon">🎁</div>
+                    <h3>Points System</h3>
+                    <p>Earn points with every purchase. Higher tiers earn points faster with multipliers.</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">⭐</div>
+                    <h3>7 Tiers</h3>
+                    <p>Progress through Pearl, Bronze, Silver, Ruby, Gold, Sapphire, and Platinum tiers.</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">👥</div>
+                    <h3>Referral Program</h3>
+                    <p>Earn 100 points for each friend who joins using your referral code.</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">💎</div>
+                    <h3>Exclusive Discounts</h3>
+                    <p>Convert points to discount vouchers or use points for purchases.</p>
+                </div>
+            </div>
+            
+            <h2>Getting Started</h2>
+            <p>Upon joining, you'll receive:</p>
+            <ul>
+                <li>10 welcome points (20 if referred by a friend)</li>
+                <li>Unique JC ID for all transactions</li>
+                <li>Personal referral code to share with friends</li>
+                <li>Starting tier: Pearl</li>
+                <li>Access to your digital membership card</li>
+            </ul>
+            
+            <h2>Managing Your Membership</h2>
+            <p>Use your dashboard to:</p>
+            <ul>
+                <li>Track your points balance and tier progress</li>
+                <li>View purchase history and activity log</li>
+                <li>Create and manage discount vouchers</li>
+                <li>Share your referral code</li>
+                <li>Update newsletter preferences</li>
+            </ul>
+            
+            <div style="text-align: center; margin-top: 40px;">
+                <button class="btn" onclick="showSignupScreen()">Join Now</button>
+                <button class="btn secondary" onclick="showLoginScreen()" style="margin-left: 10px;">Login</button>
+            </div>
+        </div>
+
+        <div id="benefitsInfoPage" class="info-page hidden">
+            <div class="nav-buttons">
+                <button class="btn secondary" onclick="showDashboardSection()">← Back to Dashboard</button>
+            </div>
+            
+            <h1>Member Benefits</h1>
+            
+            <h2>🌟 Exclusive Member Benefits</h2>
+            <p>As a Jeans Club member, you unlock a world of exclusive benefits designed to enhance your denim shopping experience.</p>
+            
+            <div class="benefits-list">
+                <div class="benefit-item">
+                    <div class="benefit-icon">💰</div>
+                    <h3>Points Redemption</h3>
+                    <p>Convert points to discount vouchers or use them to pay for purchases.</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">🎫</div>
+                    <h3>QR Code Redemption</h3>
+                    <p>Generate QR codes for instant redemption at checkout.</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">📧</div>
+                    <h3>Exclusive Emails</h3>
+                    <p>Receive personalized offers, new arrival alerts, and style tips.</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">⚡</div>
+                    <h3>Faster Checkout</h3>
+                    <p>Quick QR code scanning for seamless purchases.</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">🎁</div>
+                    <h3>Birthday Rewards</h3>
+                    <p>Special birthday discounts and bonus points.</p>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon">👑</div>
+                    <h3>VIP Access</h3>
+                    <p>Early access to sales and exclusive collections.</p>
+                </div>
+            </div>
+            
+            <h2>🎯 Tier-Specific Benefits</h2>
+            <p>Your benefits increase as you progress through tiers:</p>
+            
+            <h3>Pearl & Bronze Tiers</h3>
+            <ul>
+                <li>Basic points earning (1x multiplier)</li>
+                <li>Discount voucher creation</li>
+                <li>Newsletter subscription</li>
+                <li>Referral program access</li>
+            </ul>
+            
+            <h3>Silver & Ruby Tiers</h3>
+            <ul>
+                <li>Higher points multipliers (1.1x - 1.3x)</li>
+                <li>Pay-with-points redemption options</li>
+                <li>Extended voucher validity</li>
+                <li>Priority email support</li>
+            </ul>
+            
+            <h3>Gold & Sapphire Tiers</h3>
+            <ul>
+                <li>Premium multipliers (1.4x - 1.5x)</li>
+                <li>Higher discount percentages</li>
+                <li>Lifetime spending bonuses</li>
+                <li>Exclusive event invitations</li>
+            </ul>
+            
+            <h3>Platinum Tier</h3>
+            <ul>
+                <li>Maximum multiplier (1.6x)</li>
+                <li>All redemption options available</li>
+                <li>Personalized shopping assistance</li>
+                <li>Highest discount rates</li>
+            </ul>
+            
+            <h2>🔧 How to Maximize Benefits</h2>
+            <ol>
+                <li>Shop regularly to earn more points</li>
+                <li>Use referral codes to earn bonus points</li>
+                <li>Subscribe to newsletters for exclusive offers</li>
+                <li>Use QR codes for faster redemptions</li>
+                <li>Combine points for larger discounts</li>
+                <li>Participate in seasonal promotions</li>
+            </ol>
+            
+            <div style="text-align: center; margin-top: 40px;">
+                <button class="btn" onclick="showDashboardSection()">View Your Benefits</button>
+            </div>
+        </div>
+
+        <div id="tiersInfoPage" class="info-page hidden">
+            <div class="nav-buttons">
+                <button class="btn secondary" onclick="showDashboardSection()">← Back to Dashboard</button>
+            </div>
+            
+            <h1>Tier System</h1>
+            
+            <h2>🎯 Our 7-Tier System</h2>
+            <p>Progress through our carefully designed tier system to unlock increasingly valuable benefits and rewards.</p>
+            
+            <div class="tiers-grid">
+                <div class="tier-card pearl">
+                    <h3>PEARL</h3>
+                    <p><strong>Points Range:</strong> 0 - 7,499</p>
+                    <p><strong>Multiplier:</strong> 1.0x</p>
+                    <p><strong>Discount Rate:</strong> 3%</p>
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>Basic points earning</li>
+                        <li>Discount vouchers</li>
+                        <li>Newsletter access</li>
+                        <li>Referral program</li>
+                    </ul>
+                </div>
+                
+                <div class="tier-card bronze">
+                    <h3>BRONZE</h3>
+                    <p><strong>Points Range:</strong> 7,500 - 24,999</p>
+                    <p><strong>Multiplier:</strong> 1.1x</p>
+                    <p><strong>Discount Rate:</strong> 4%</p>
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>All Pearl benefits</li>
+                        <li>Higher point multiplier</li>
+                        <li>8% spending redemption</li>
+                        <li>Extended support</li>
+                    </ul>
+                </div>
+                
+                <div class="tier-card silver">
+                    <h3>SILVER</h3>
+                    <p><strong>Points Range:</strong> 25,000 - 99,999</p>
+                    <p><strong>Multiplier:</strong> 1.25x</p>
+                    <p><strong>Discount Rate:</strong> 5%</p>
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>10% spending redemption</li>
+                        <li>Pay-with-points option</li>
+                        <li>Priority support</li>
+                        <li>Early sale access</li>
+                    </ul>
+                </div>
+                
+                <div class="tier-card ruby">
+                    <h3>RUBY</h3>
+                    <p><strong>Points Range:</strong> 100,000 - 249,999</p>
+                    <p><strong>Multiplier:</strong> 1.3x</p>
+                    <p><strong>Discount Rate:</strong> 6%</p>
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>12% spending redemption</li>
+                        <li>Higher discount caps</li>
+                        <li>Exclusive offers</li>
+                        <li>Faster processing</li>
+                    </ul>
+                </div>
+                
+                <div class="tier-card gold">
+                    <h3>GOLD</h3>
+                    <p><strong>Points Range:</strong> 250,000 - 499,999</p>
+                    <p><strong>Multiplier:</strong> 1.4x</p>
+                    <p><strong>Discount Rate:</strong> 7%</p>
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>15% spending redemption</li>
+                        <li>Loyalty bonuses</li>
+                        <li>VIP treatment</li>
+                        <li>Event invitations</li>
+                    </ul>
+                </div>
+                
+                <div class="tier-card sapphire">
+                    <h3>SAPPHIRE</h3>
+                    <p><strong>Points Range:</strong> 500,000 - 999,999</p>
+                    <p><strong>Multiplier:</strong> 1.5x</p>
+                    <p><strong>Discount Rate:</strong> 8%</p>
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>18% + 2% lifetime bonus</li>
+                        <li>Maximum discounts</li>
+                        <li>Personal assistant</li>
+                        <li>Custom fittings</li>
+                    </ul>
+                </div>
+                
+                <div class="tier-card platinum">
+                    <h3>PLATINUM</h3>
+                    <p><strong>Points Range:</strong> 1,000,000+</p>
+                    <p><strong>Multiplier:</strong> 1.6x</p>
+                    <p><strong>Discount Rate:</strong> 10%</p>
+                    <p><strong>Benefits:</strong></p>
+                    <ul>
+                        <li>25% + 5% lifetime bonus</li>
+                        <li>All redemption options</li>
+                        <li>Exclusive collections</li>
+                        <li>Highest privileges</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <h2>📈 Tier Progression</h2>
+            <p>Your tier is automatically calculated based on your total points. Points never expire and tiers only go up - once you reach a tier, you never downgrade!</p>
+            
+            <h3>How to Move Up Tiers</h3>
+            <ol>
+                <li><strong>Make Purchases:</strong> Every purchase earns points based on your current tier multiplier</li>
+                <li><strong>Refer Friends:</strong> Earn 100 points for each successful referral</li>
+                <li><strong>Participate in Promotions:</strong> Seasonal events offer bonus points</li>
+                <li><strong>Be Consistent:</strong> Regular shopping accelerates tier progression</li>
+            </ol>
+            
+            <h3>Important Notes</h3>
+            <ul>
+                <li>Points are permanent and never expire</li>
+                <li>Tiers only increase - no downgrading</li>
+                <li>Higher tiers = better multipliers and benefits</li>
+                <li>All benefits are cumulative</li>
+                <li>Redemption options expand with higher tiers</li>
+            </ul>
+            
+            <div style="text-align: center; margin-top: 40px;">
+                <button class="btn" onclick="showDashboardSection()">Check Your Tier Progress</button>
+            </div>
+        </div>
+
+        <div id="contactInfoPage" class="info-page hidden">
+            <div class="nav-buttons">
+                <button class="btn secondary" onclick="showDashboardSection()">← Back to Dashboard</button>
+            </div>
+            
+            <h1>Contact Us</h1>
+            
+            <h2>📞 Get in Touch</h2>
+            <p>We're here to help you with any questions about your Jeans Club membership, points, redemptions, or general inquiries.</p>
+            
+            <div class="benefits-list">
+                <div class="benefit-item">
+                    <div class="benefit-icon">📧</div>
+                    <h3>Email</h3>
+                    <p><strong>Primary:</strong> oliviakamukama@gmail.com</p>
+                    <p><strong>Support:</strong> support@jeansclub.com</p>
+                </div>
+                
+                <div class="benefit-item">
+                    <div class="benefit-icon">📱</div>
+                    <h3>Phone</h3>
+                    <p><strong>Customer Service:</strong> +256 772558913</p>
+                    <p><strong>WhatsApp:</strong> +256 772558913</p>
+                </div>
+                
+                <div class="benefit-item">
+                    <div class="benefit-icon">⏰</div>
+                    <h3>Business Hours</h3>
+                    <p><strong>Monday - Saturday:</strong> 8:00 AM - 9:00 PM</p>
+                    <p><strong>Sunday:</strong> Closed</p>
+                </div>
+                
+                <div class="benefit-item">
+                    <div class="benefit-icon">📍</div>
+                    <h3>Location</h3>
+                    <p>Kampala, Uganda</p>
+                    <p>Premium Denim Boutique</p>
+                </div>
+            </div>
+            
+            <h2>🌐 Connect With Us</h2>
+            <p>Follow us on social media for the latest updates, style tips, and exclusive offers:</p>
+            
+            <div class="social-links" style="justify-content: center; margin: 30px 0;">
+                <a href="#" class="social-link social-tiktok">
+                    <span>🎵</span> TikTok
+                </a>
+                <a href="#" class="social-link social-instagram">
+                    <span>📸</span> Instagram
+                </a>
+                <a href="#" class="social-link social-x">
+                    <span>𝕏</span> X (Twitter)
+                </a>
+            </div>
+            
+            <h2>📋 Frequently Asked Questions</h2>
+            
+            <h3>Membership Questions</h3>
+            <p><strong>Q: How do I join Jeans Club?</strong><br>
+            A: Click "Sign Up" on our website and follow the simple registration process.</p>
+            
+            <p><strong>Q: Is there a membership fee?</strong><br>
+            A: No, Jeans Club membership is completely free!</p>
+            
+            <p><strong>Q: How do I check my points balance?</strong><br>
+            A: Log into your dashboard to see your current points and tier status.</p>
+            
+            <h3>Points & Redemptions</h3>
+            <p><strong>Q: How do I earn points?</strong><br>
+            A: Earn points with every purchase. The amount depends on your current tier multiplier.</p>
+            
+            <p><strong>Q: How do I redeem points?</strong><br>
+            A: You can create discount vouchers or use the QR redemption system for instant savings.</p>
+            
+            <p><strong>Q: Do points expire?</strong><br>
+            A: No, your points never expire as long as your account remains active.</p>
+            
+            <h3>Tier System</h3>
+            <p><strong>Q: How do I move to a higher tier?</strong><br>
+            A: Accumulate points through purchases and referrals to automatically progress to higher tiers.</p>
+            
+            <p><strong>Q: Can I be downgraded to a lower tier?</strong><br>
+            A: No, once you reach a tier, you never go down. Our system only allows tier upgrades.</p>
+            
+            <h2>🆘 Need Immediate Help?</h2>
+            <p>For urgent issues or assistance during checkout, please call us directly at <strong>+256 772558913</strong> during business hours.</p>
+            
+            <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                <h3>Ready to Shop?</h3>
+                <p>Visit our store or contact us for personalized shopping assistance!</p>
+                <button class="btn" onclick="showDashboardSection()">Go to Dashboard</button>
+            </div>
+        </div>
+
+        <!-- Rest of your existing HTML content remains exactly the same -->
+        <!-- All your existing HTML content from before -->
         <!-- Signup Section -->
         <div id="signupSection" class="card">
             <h2 class="section-title">Create Account</h2>
@@ -1293,14 +1921,21 @@
                 <div id="purchaseResult" style="margin-top: 10px;"></div>
             </div>
 
-            <!-- NEW VOUCHER SCANNING SECTION -->
+            <!-- ENHANCED VOUCHER SCANNING SECTION -->
             <div class="scan-voucher-section">
-                <h3>Scan & Redeem Voucher</h3>
+                <h3>Scan & Redeem Voucher/QR Code</h3>
                 <div class="form-group">
-                    <label for="voucherCodeInput">Voucher Code</label>
-                    <input type="text" id="voucherCodeInput" placeholder="Enter voucher code or scan QR code">
+                    <label for="voucherCodeInput">Voucher Code or QR Data</label>
+                    <input type="text" id="voucherCodeInput" placeholder="Enter voucher code or QR code data">
                 </div>
-                <button class="btn" onclick="redeemVoucherByCode()">Redeem Voucher</button>
+                <div class="form-group">
+                    <label for="salespersonName">Your Name (Salesperson)</label>
+                    <input type="text" id="salespersonName" placeholder="Enter your name" required>
+                </div>
+                <button class="btn" onclick="processScan()">Process Scan</button>
+                <div id="scanDetails" class="voucher-details-display hidden" style="margin-top: 20px;">
+                    <!-- Details will be shown here -->
+                </div>
                 <div id="voucherRedeemResult" style="margin-top: 10px;"></div>
             </div>
 
@@ -1417,45 +2052,6 @@
             <div id="qrRedemptionResult" style="margin-top: 20px;"></div>
         </div>
 
-        <!-- Salesperson Redemption Section -->
-        <div id="salespersonRedemptionSection" class="card hidden">
-            <div class="nav-buttons">
-                <button class="btn secondary" onclick="showLoginScreen()">← Back to Login</button>
-            </div>
-            
-            <h2 class="section-title">📱 Salesperson: Scan & Redeem</h2>
-            
-            <div class="content-grid" style="display: grid; gap: 20px; margin-top: 20px;">
-                <div class="info-card">
-                    <h3>Step 1: Scan QR Code</h3>
-                    <div class="info-card">
-                        <p>Scan the member's QR code or enter the code manually:</p>
-                    </div>
-                    <div class="form-group">
-                        <label for="salespersonQrCodeInput">QR Code Data:</label>
-                        <input type="text" id="salespersonQrCodeInput" placeholder="Paste QR code data here">
-                    </div>
-                    <div class="form-group">
-                        <label for="salespersonName">Your Name (Salesperson):</label>
-                        <input type="text" id="salespersonName" placeholder="Enter your name" required>
-                    </div>
-                    <button class="btn" onclick="processScannedQRCode(document.getElementById('salespersonQrCodeInput').value)" style="width: 100%;">
-                        Process Redemption
-                    </button>
-                    <div id="salespersonScanResult" style="margin-top: 15px;"></div>
-                </div>
-                
-                <div class="info-card">
-                    <h3>Step 2: Review & Complete</h3>
-                    <div id="salespersonRedemptionDetails">
-                        <div class="info-card">
-                            <p>Scan a QR code to see redemption details.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- QR Redemption Management Section -->
         <div id="qrRedemptionManagementSection" class="card hidden">
             <div class="nav-buttons">
@@ -1475,15 +2071,17 @@
             </div>
         </div>
 
-        <!-- QR Code Section -->
-        <div class="card" style="text-align: center; margin-top: 20px;">
-            <h3 style="color: #333; margin-bottom: 20px;">Share Jeans Club</h3>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://elijah787.github.io/jeans-club" 
-                 alt="QR Code for Jeans Club"
-                 style="border: 2px solid #ddd; border-radius: 10px; padding: 10px; display: block; margin: 0 auto;">
-            <p style="color: #666; margin-top: 15px;">Scan to share with friends</p>
-        </div>
+       <!-- QR Code Section (moved outside main container) -->
+<div class="container">
+    <div class="card" style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+        <h3 style="color: #333; margin-bottom: 20px;">Share Jeans Club</h3>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://elijah787.github.io/jeans-club" 
+             alt="QR Code for Jeans Club"
+             style="border: 2px solid #ddd; border-radius: 10px; padding: 10px; display: block; margin: 0 auto;">
+        <p style="color: #666; margin-top: 15px;">Scan to share with friends</p>
     </div>
+</div>
+
 
     <!-- Footer -->
     <footer class="footer">
@@ -1492,6 +2090,17 @@
                 <h3>Jeans Club</h3>
                 <p>Premium denim loyalty program with tiered privileges and exclusive benefits for our valued members.</p>
                 <p>Raised on Denim, Elevated by Experience.</p>
+                <div class="social-links">
+                    <a href="#" class="social-link social-tiktok">
+                        <span>🎵</span> TikTok
+                    </a>
+                    <a href="#" class="social-link social-instagram">
+                        <span>📸</span> Instagram
+                    </a>
+                    <a href="#" class="social-link social-x">
+                        <span>𝕏</span> X
+                    </a>
+                </div>
             </div>
             
             <div class="footer-section">
@@ -1504,32 +2113,379 @@
             
             <div class="footer-section">
                 <h3>Contact</h3>
-                <p>Email: support@jeansclub.com</p>
-                <p>Phone: +256 700 123 456</p>
-                <p>Hours: Mon-Fri 9AM-6PM</p>
+                <p>Email: oliviakamukama@gmail.com</p>
+                <p>Phone: +256 772558913</p>
+                <p>Hours: Mon-Saturday 8AM-9PM</p>
+                <p>📍 Kampala, Uganda</p>
             </div>
             
             <div class="footer-section">
-                <h3>Connect With Us</h3>
-                <p>Follow us for updates and exclusive offers</p>
-                <p>📍 Kampala, Uganda</p>
+                <h3>Support</h3>
+                <p>For membership inquiries and support:</p>
+                <p>support@jeansclub.com</p>
+                <p>Visit our website for more information</p>
             </div>
         </div>
         
         <div class="footer-bottom">
-            <p>&copy; 2024 Jeans Club. All rights reserved. | Premium Denim Loyalty Program</p>
+            <p>&copy; 2026 Jeans Club. All rights reserved. | Premium Denim Loyalty Program</p>
         </div>
     </footer>
 
     <script>
+        // Search Functionality
+        function showSearch() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.add('active');
+            document.getElementById('searchInput').focus();
+        }
+
+        function hideSearch() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.remove('active');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+        }
+
+        // Enhanced search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (searchTerm.length < 2) {
+                resultsContainer.innerHTML = '<div class="search-result-item">Type at least 2 characters to search</div>';
+                return;
+            }
+            
+            // Perform search
+            performSearch(searchTerm).then(results => {
+                if (results.length === 0) {
+                    resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
+                    return;
+                }
+                
+                resultsContainer.innerHTML = results.map(result => `
+                    <div class="search-result-item" onclick="handleSearchResult('${result.type}', '${result.id}')">
+                        <strong>${result.title}</strong>
+                        <div style="font-size: 12px; opacity: 0.8;">${result.description}</div>
+                        <div style="font-size: 11px; margin-top: 5px; color: #00AFF0;">${result.type.toUpperCase()}</div>
+                    </div>
+                `).join('');
+            });
+        });
+
+        async function performSearch(term) {
+            const results = [];
+            
+            try {
+                // Search members
+                const allMembers = await clubManager.db.getAllMembers();
+                allMembers.forEach(member => {
+                    if (
+                        member.jcId.toLowerCase().includes(term) ||
+                        member.name.toLowerCase().includes(term) ||
+                        member.email.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'member',
+                            id: member.jcId,
+                            title: `${member.name} (${member.jcId})`,
+                            description: `Tier: ${member.tier} | Points: ${member.points || 0} | Email: ${member.email}`
+                        });
+                    }
+                });
+                
+                // Search vouchers
+                const allVouchers = voucherSystem.getAllVouchers();
+                allVouchers.forEach(voucher => {
+                    if (
+                        voucher.code.toLowerCase().includes(term) ||
+                        voucher.memberJCId.toLowerCase().includes(term) ||
+                        voucher.memberName.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'voucher',
+                            id: voucher.code,
+                            title: `Voucher: ${voucher.code}`,
+                            description: `Member: ${voucher.memberName} (${voucher.memberJCId}) | Discount: ${voucher.discountPercentage}% | Status: ${voucher.status}`
+                        });
+                    }
+                });
+                
+                // Search QR redemptions
+                const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+                allRedemptions.forEach(redemption => {
+                    if (
+                        redemption.redemptionId.toLowerCase().includes(term) ||
+                        redemption.memberJCId.toLowerCase().includes(term) ||
+                        redemption.memberName.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'redemption',
+                            id: redemption.redemptionId,
+                            title: `Redemption: ${redemption.redemptionId}`,
+                            description: `Member: ${redemption.memberName} | Amount: ${redemption.purchaseAmount} UGX | Status: ${redemption.status}`
+                        });
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+            
+            return results.slice(0, 20); // Limit results
+        }
+
+        function handleSearchResult(type, id) {
+            hideSearch();
+            
+            switch(type) {
+                case 'member':
+                    // If admin, show member info
+                    if (clubManager.isAdmin) {
+                        showAdminPanel();
+                        // You could add functionality to highlight the member
+                        showToast(`Member: ${id} selected`, 'info');
+                    }
+                    break;
+                    
+                case 'voucher':
+                    // If admin, show voucher details
+                    if (clubManager.isAdmin) {
+                        showAdminPanel();
+                        document.getElementById('voucherCodeInput').value = id;
+                        showToast(`Voucher: ${id} selected`, 'info');
+                    }
+                    break;
+                    
+                case 'redemption':
+                    // If admin, show redemption details
+                    if (clubManager.isAdmin) {
+                        showQRRedemptionManagementPanel();
+                        showToast(`Redemption: ${id} selected`, 'info');
+                    }
+                    break;
+            }
+        }
+
+        // Enhanced scan processing for salesperson
+        async function processScan() {
+            const scanData = document.getElementById('voucherCodeInput').value.trim();
+            const salespersonName = document.getElementById('salespersonName').value.trim();
+            
+            if (!scanData) {
+                showToast("Please enter voucher code or QR data", "error");
+                return;
+            }
+            
+            if (!salespersonName) {
+                showToast("Please enter your name", "error");
+                return;
+            }
+            
+            showToast("Processing scan...", "info");
+            
+            // Try to process as QR redemption first
+            let result = qrRedemptionSystem.processRedemption(scanData, salespersonName);
+            
+            if (result.success) {
+                // Show enhanced QR redemption details
+                displayQRRedemptionDetails(result.redemption);
+                showToast("QR redemption processed successfully!", "success");
+                return;
+            }
+            
+            // If not QR redemption, try as voucher
+            result = await clubManager.redeemVoucher(scanData, salespersonName);
+            
+            if (result.success) {
+                // Show enhanced voucher details
+                displayVoucherDetails(result.voucher);
+                showToast("Voucher redeemed successfully!", "success");
+            } else {
+                showToast(result.message, "error");
+                document.getElementById('scanDetails').classList.add('hidden');
+            }
+        }
+
+        function displayQRRedemptionDetails(redemption) {
+            const detailsContainer = document.getElementById('scanDetails');
+            detailsContainer.classList.remove('hidden');
+            
+            detailsContainer.innerHTML = `
+                <h4>🔍 QR Redemption Details</h4>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <strong>Redemption ID</strong>
+                        <div>${redemption.redemptionId}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Member</strong>
+                        <div>${redemption.memberName} (${redemption.memberJCId})</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Member Tier</strong>
+                        <div>${redemption.memberTier}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Purchase Amount</strong>
+                        <div>${redemption.purchaseAmount.toLocaleString()} UGX</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redemption Type</strong>
+                        <div>${redemption.selectedOption.type === 'points_redemption' ? 'Pay with Points' : 'Discount Voucher'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Option Details</strong>
+                        <div>${redemption.selectedOption.description}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Created Date</strong>
+                        <div>${new Date(redemption.createdDate).toLocaleString()}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redeemed By</strong>
+                        <div>${redemption.redeemedBy}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redeemed Date</strong>
+                        <div>${new Date(redemption.redeemedDate).toLocaleString()}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Status</strong>
+                        <div style="color: #28a745; font-weight: bold;">✅ COMPLETED</div>
+                    </div>
+                </div>
+                ${redemption.selectedOption.type === 'points_redemption' ? `
+                    <div style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 5px;">
+                        <strong>Points Redemption Details:</strong>
+                        <p>Points Equivalent: ${redemption.selectedOption.pointsEquivalent?.toLocaleString() || 'N/A'} points</p>
+                        <p>Redemption Value: ${redemption.selectedOption.maxRedemption?.toLocaleString() || 'N/A'} UGX</p>
+                    </div>
+                ` : ''}
+                ${redemption.selectedOption.type === 'discount_voucher' ? `
+                    <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 5px;">
+                        <strong>Discount Voucher Details:</strong>
+                        <p>Discount Amount: ${redemption.selectedOption.discountAmount?.toLocaleString() || 'N/A'} UGX</p>
+                        <p>Discount Percentage: ${redemption.selectedOption.discountPercentage || 'N/A'}%</p>
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        function displayVoucherDetails(voucher) {
+            const detailsContainer = document.getElementById('scanDetails');
+            detailsContainer.classList.remove('hidden');
+            
+            detailsContainer.innerHTML = `
+                <h4>🎫 Voucher Details</h4>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <strong>Voucher Code</strong>
+                        <div style="font-family: 'Courier New', monospace; font-weight: bold;">${voucher.code}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Member</strong>
+                        <div>${voucher.memberName} (${voucher.memberJCId})</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Discount</strong>
+                        <div>${voucher.discountPercentage}% off</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Points Used</strong>
+                        <div>${voucher.pointsUsed} points</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Created Date</strong>
+                        <div>${new Date(voucher.createdDate).toLocaleDateString()}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Expiry Date</strong>
+                        <div>${new Date(voucher.expiryDate).toLocaleDateString()}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redeemed By</strong>
+                        <div>${voucher.redeemedBy || 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redeemed Date</strong>
+                        <div>${voucher.usedDate ? new Date(voucher.usedDate).toLocaleString() : 'Not redeemed'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Status</strong>
+                        <div style="color: ${voucher.status === 'active' ? '#28a745' : voucher.status === 'used' ? '#6c757d' : '#dc3545'}; font-weight: bold;">
+                            ${voucher.status.toUpperCase()}
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <strong>💡 Usage Instructions:</strong>
+                    <p>This voucher provides ${voucher.discountPercentage}% discount on any purchase.</p>
+                    <p>Valid until: ${new Date(voucher.expiryDate).toLocaleDateString()}</p>
+                    <p>Points used to create: ${voucher.pointsUsed} points</p>
+                    <p>Member tier at creation: ${getTierFromVoucher(voucher)}</p>
+                </div>
+            `;
+        }
+
+        function getTierFromVoucher(voucher) {
+            // This function would determine the tier based on discount percentage
+            const discount = voucher.discountPercentage;
+            if (discount <= 3) return 'PEARL';
+            if (discount <= 4) return 'BRONZE';
+            if (discount <= 5) return 'SILVER';
+            if (discount <= 6) return 'RUBY';
+            if (discount <= 7) return 'GOLD';
+            if (discount <= 8) return 'SAPPHIRE';
+            return 'PLATINUM';
+        }
+
+        // Information Page Functions
+        function showMembershipInfo() {
+            hideAllSections();
+            document.getElementById('membershipInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showBenefits() {
+            hideAllSections();
+            document.getElementById('benefitsInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showTiers() {
+            hideAllSections();
+            document.getElementById('tiersInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showContact() {
+            hideAllSections();
+            document.getElementById('contactInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showRewards() {
+            // For now, redirect to QR redemption
+            showQRRedemptionPanel();
+            toggleMobileMenu();
+        }
+
+        function hideAllSections() {
+            // Hide all regular sections
+            const sections = document.querySelectorAll('.card');
+            sections.forEach(section => section.classList.add('hidden'));
+            
+            // Hide all info pages
+            const infoPages = document.querySelectorAll('.info-page');
+            infoPages.forEach(page => page.classList.add('hidden'));
+        }
+
         // Header and Navigation Functions
         function toggleMobileMenu() {
             const navLinks = document.getElementById('navLinks');
             navLinks.classList.toggle('active');
-        }
-
-        function showSearch() {
-            alert('Search functionality coming soon!');
         }
 
         function toggleUserMenu() {
@@ -1550,31 +2506,6 @@
             toggleMobileMenu();
         }
 
-        function showMembershipInfo() {
-            alert('Membership information page coming soon!');
-            toggleMobileMenu();
-        }
-
-        function showBenefits() {
-            alert('Benefits information page coming soon!');
-            toggleMobileMenu();
-        }
-
-        function showTiers() {
-            alert('Tiers information page coming soon!');
-            toggleMobileMenu();
-        }
-
-        function showRewards() {
-            alert('Rewards information page coming soon!');
-            toggleMobileMenu();
-        }
-
-        function showContact() {
-            alert('Contact information: support@jeansclub.com');
-            toggleMobileMenu();
-        }
-
         // Close mobile menu when clicking outside
         document.addEventListener('click', function(event) {
             const navLinks = document.getElementById('navLinks');
@@ -1583,11 +2514,36 @@
             if (!menuToggle.contains(event.target) && !navLinks.contains(event.target)) {
                 navLinks.classList.remove('active');
             }
+            
+            // Close search modal when clicking outside
+            const searchModal = document.getElementById('searchModal');
+            const searchInput = document.getElementById('searchInput');
+            const searchClose = document.querySelector('.search-close');
+            
+            if (searchModal.classList.contains('active') && 
+                !searchModal.contains(event.target) && 
+                event.target !== document.querySelector('.search-icon')) {
+                hideSearch();
+            }
         });
 
-        // Rest of your JavaScript code remains exactly the same
-        // ALL YOUR EXISTING JAVASCRIPT CODE FROM THE FIRST INDEX.HTML
-        // Enhanced email validation function - ADD THIS AT THE BEGINNING
+        // Close search with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const searchModal = document.getElementById('searchModal');
+                if (searchModal.classList.contains('active')) {
+                    hideSearch();
+                }
+            }
+        });
+
+        // Rest of your existing JavaScript code remains exactly the same
+        // ALL YOUR EXISTING JAVASCRIPT CODE FROM BEFORE
+        
+        // ... (All your existing JavaScript code remains unchanged below this point)
+        // I've only added the new functions above. Your existing voucherSystem, 
+        // QRRedemptionSystem, JeansClubManager, and all other code remains intact.
+
         // Enhanced email validation function - FIXED VERSION
         // Enhanced email validation function - Catches common domain typos
         function isValidEmail(email) {
@@ -2575,6 +3531,7 @@
                     border-radius: 20px; 
                     font-size: 14px; 
                     font-weight: bold; 
+                    margin: 5px 0; 
                 }
                 .email-footer { 
                     text-align: center; 
@@ -5252,11 +6209,6 @@
             document.getElementById('qrRedemptionSection').classList.remove('hidden');
         }
 
-        function showSalespersonRedemptionPanel() {
-            hideAllSections();
-            document.getElementById('salespersonRedemptionSection').classList.remove('hidden');
-        }
-
         function showQRRedemptionManagementPanel() {
             hideAllSections();
             document.getElementById('qrRedemptionManagementSection').classList.remove('hidden');
@@ -5264,8 +6216,13 @@
         }
 
         function hideAllSections() {
+            // Hide all regular sections
             const sections = document.querySelectorAll('.card');
             sections.forEach(section => section.classList.add('hidden'));
+            
+            // Hide all info pages
+            const infoPages = document.querySelectorAll('.info-page');
+            infoPages.forEach(page => page.classList.add('hidden'));
         }
 
         // Sign up with email
@@ -6240,64 +7197,6 @@
             }
         }
 
-        // Salesperson: Process scanned QR code
-        async function processScannedQRCode(qrCodeData) {
-            if (!qrCodeData || qrCodeData.trim() === '') {
-                showToast("Please enter or scan QR code data", "error");
-                return;
-            }
-            
-            const salespersonName = document.getElementById('salespersonName').value.trim();
-            
-            showToast("Processing redemption...", "info");
-            
-            const result = qrRedemptionSystem.processRedemption(qrCodeData, salespersonName);
-            
-            const scanResult = document.getElementById('salespersonScanResult');
-            if (result.success) {
-                scanResult.className = 'success-message';
-                scanResult.innerHTML = `
-                    <strong>✅ Redemption Successful!</strong><br>
-                    <p>${result.message}</p>
-                `;
-                
-                // Show redemption details
-                const redemption = result.redemption;
-                const redemptionDetails = document.getElementById('salespersonRedemptionDetails');
-                
-                redemptionDetails.innerHTML = `
-                    <div class="info-card">
-                        <h4>Redemption Details</h4>
-                        <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
-                        <p><strong>Member:</strong> ${redemption.memberName} (${redemption.memberJCId})</p>
-                        <p><strong>Tier:</strong> ${redemption.memberTier}</p>
-                        <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
-                        <p><strong>Option:</strong> ${redemption.selectedOption.description}</p>
-                        <p><strong>Processed By:</strong> ${redemption.redeemedBy}</p>
-                        <p><strong>Date:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}</p>
-                        <p><strong>Status:</strong> Completed ✅</p>
-                    </div>
-                `;
-                
-                // Clear QR code input
-                document.getElementById('salespersonQrCodeInput').value = '';
-                
-                // Update QR redemption management if open
-                if (!document.getElementById('qrRedemptionManagementSection').classList.contains('hidden')) {
-                    loadQRRedemptionData();
-                }
-            } else {
-                scanResult.className = 'error-message';
-                scanResult.textContent = result.message;
-                
-                document.getElementById('salespersonRedemptionDetails').innerHTML = `
-                    <div class="info-card">
-                        <p>Please scan a valid QR code to see redemption details.</p>
-                    </div>
-                `;
-            }
-        }
-
         // Load QR redemption data for admin
         function loadQRRedemptionData() {
             // Load stats
@@ -6350,7 +7249,7 @@
                 `;
             }).join('');
         }
-
+         
         // Toast notification system
         function showToast(message, type = "info") {
             // Remove existing toasts
@@ -6416,7 +7315,12 @@
             // Check if there's a salesperson mode parameter
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('mode') === 'salesperson') {
-                showSalespersonRedemptionPanel();
+                // Salesperson mode is now integrated into admin panel
+                if (clubManager.isAdmin) {
+                    showAdminPanel();
+                } else {
+                    showAdminLogin();
+                }
             }
         };
 
@@ -6436,7 +7340,16 @@
                     // Already on dashboard
                 } else if (!document.getElementById('adminSection').classList.contains('hidden')) {
                     showLoginScreen();
+                } else if (!document.querySelector('.info-page:not(.hidden)')) {
+                    // If on info page, go back to dashboard
+                    showDashboardSection();
                 }
+            }
+            
+            // Ctrl + F for search
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                showSearch();
             }
         });
 
