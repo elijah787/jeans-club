@@ -1613,13 +1613,13 @@
             <p>Follow us on social media for the latest updates, style tips, and exclusive offers:</p>
             
             <div class="social-links" style="justify-content: center; margin: 30px 0;">
-                <a href="#" class="social-link social-tiktok">
+                <a href="https://www.tiktok.com/@jeansclubug?_r=1&_t=ZM-91wJ0p98EMG" target="_blank" class="social-link social-tiktok">
                     <span>🎵</span> TikTok
                 </a>
-                <a href="#" class="social-link social-instagram">
+                <a href="https://www.instagram.com/jeans_club_ug?igsh=NmFkNTI5MDYzMTZk" target="_blank" class="social-link social-instagram">
                     <span>📸</span> Instagram
                 </a>
-                <a href="#" class="social-link social-x">
+                <a href="https://x.com/jeansclub_ug?s=20" target="_blank" class="social-link social-x">
                     <span>𝕏</span> X (Twitter)
                 </a>
             </div>
@@ -2092,13 +2092,13 @@
                 <p>Premium denim loyalty program with tiered privileges and exclusive benefits for our valued members.</p>
                 <p>Raised on Denim, Elevated by Experience.</p>
                 <div class="social-links">
-                    <a href="#" class="social-link social-tiktok">
+                    <a href="https://www.tiktok.com/@jeansclubug?_r=1&_t=ZM-91wJ0p98EMG" target="_blank" class="social-link social-tiktok">
                         <span>🎵</span> TikTok
                     </a>
-                    <a href="#" class="social-link social-instagram">
+                    <a href="https://www.instagram.com/jeans_club_ug?igsh=NmFkNTI5MDYzMTZk" target="_blank" class="social-link social-instagram">
                         <span>📸</span> Instagram
                     </a>
-                    <a href="#" class="social-link social-x">
+                    <a href="https://x.com/jeansclub_ug?s=20" target="_blank" class="social-link social-x">
                         <span>𝕏</span> X
                     </a>
                 </div>
@@ -2672,7 +2672,9 @@
                 return JSON.stringify({
                     code: voucherCode,
                     timestamp: Date.now(),
-                    type: 'jeansclub_voucher'
+                    type: 'jeansclub_voucher',
+                    readable: true,
+                    version: '1.0'
                 });
             }
 
@@ -5013,7 +5015,13 @@
                     selectedOption: redemptionData.selectedOption,
                     purchaseAmount: redemptionData.purchaseAmount,
                     timestamp: Date.now(),
-                    signature: this.generateSignature(redemptionData)
+                    signature: this.generateSignature(redemptionData),
+                    readable: true,
+                    validation: {
+                        valid: true,
+                        expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours validity
+                        status: 'active'
+                    }
                 };
                 
                 return this.encryptData(qrData);
@@ -5098,19 +5106,33 @@
                 // Decrypt and validate QR code data
                 const redemptionData = this.decryptData(qrCodeData);
                 if (!redemptionData) {
-                    return { success: false, message: "Invalid QR code data" };
+                    return { success: false, message: "Invalid QR code data. Please scan a valid Jeans Club QR code." };
+                }
+
+                // Check if QR code is readable
+                if (!redemptionData.readable) {
+                    return { success: false, message: "QR code is not readable. Please use a valid Jeans Club QR code." };
+                }
+
+                // Validate expiry
+                if (redemptionData.validation && redemptionData.validation.expiryDate) {
+                    const expiryDate = new Date(redemptionData.validation.expiryDate);
+                    const now = new Date();
+                    if (now > expiryDate) {
+                        return { success: false, message: "QR code has expired. Please generate a new one." };
+                    }
                 }
 
                 // Find redemption record
                 const redemption = this.redemptions.find(r => r.redemptionId === redemptionData.redemptionId);
                 if (!redemption) {
-                    return { success: false, message: "Redemption not found" };
+                    return { success: false, message: "Redemption not found in the system" };
                 }
 
                 // Validate signature
                 const expectedSignature = this.generateSignature(redemption);
                 if (redemption.qrCodeData !== this.generateQRCodeData(redemption)) {
-                    return { success: false, message: "QR code validation failed" };
+                    return { success: false, message: "QR code validation failed. Please scan a valid QR code." };
                 }
 
                 // Check status
