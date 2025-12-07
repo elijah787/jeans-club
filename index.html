@@ -1964,7 +1964,61 @@
             
             startCamera();
         }
+         async function signUpWithEmail() {
+    const name = document.getElementById('userName').value.trim();
+    const email = document.getElementById('userEmail').value.trim();
+    const password = document.getElementById('userPassword').value;
+    const referralCode = document.getElementById('referralCode').value.trim();
+    const newsletter = document.getElementById('newsletterSignup').checked;
 
+    if (!name || !email || !password) {
+        showToast("Please fill in all required fields", "error");
+        return;
+    }
+
+    if (!isValidEmail(email)) {
+        showToast("Please enter a valid email address (e.g., name@domain.com)", "error");
+        return;
+    }
+
+    if (password.length < 6) {
+        showToast("Password must be at least 6 characters", "error");
+        return;
+    }
+
+    showToast("Creating account...", "info");
+
+    try {
+        const result = await clubManager.createAccount(
+            { name, email, newsletter },
+            password,
+            referralCode
+        );
+
+        if (result.success) {
+            showDashboard(result.member);
+            showToast("Account created successfully! Welcome to Jeans Club! 🎉", "success");
+            
+            // Clear form fields
+            document.getElementById('userName').value = '';
+            document.getElementById('userEmail').value = '';
+            document.getElementById('userPassword').value = '';
+            document.getElementById('referralCode').value = '';
+            
+        } else {
+            showToast(result.message, "error");
+        }
+    } catch (error) {
+        console.error('Signup error:', error);
+        showToast("An error occurred. Please try again.", "error");
+    }
+}
+
+// Also add the email validation function if missing:
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
         // Start camera with simplified HTML5 QR Code library
         async function startCamera() {
             try {
