@@ -1,6 +1,3 @@
-I'll combine the best parts of both files. I'll keep the first file's camera scanning functionality exactly as it is, and merge in all the missing JavaScript from the second file. Here's the complete updated HTML:
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1067,7 +1064,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             margin: 5px 0;
         }
 
-        /* NEW CAMERA SCANNER STYLES - FIXED */
+        /* NEW CAMERA SCANNER STYLES */
         .camera-scanner-modal {
             display: none;
             position: fixed;
@@ -1540,8 +1537,8 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
     <!-- Add Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <!-- Add QR Scanner Library - FIXED VERSION -->
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- Add QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
     <!-- Search Modal -->
@@ -1553,15 +1550,20 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
         <div class="search-close" onclick="hideSearch()">×</div>
     </div>
 
-    <!-- Camera Scanner Modal - UPDATED -->
+    <!-- Camera Scanner Modal -->
     <div class="camera-scanner-modal" id="cameraScannerModal">
         <div class="camera-container">
             <div class="scan-status" id="scanStatus">
-                Loading camera...
+                Point camera at QR code
             </div>
             <div class="camera-viewport">
-                <div id="qr-reader" style="width: 100%; height: 100%;"></div>
-                <div id="qr-reader-results"></div>
+                <div class="camera-overlay">
+                    <div class="scan-frame">
+                        <div class="scan-line"></div>
+                    </div>
+                </div>
+                <video id="cameraVideo" playsinline autoplay></video>
+                <canvas id="cameraCanvas" style="display: none;"></canvas>
             </div>
             <div class="camera-controls">
                 <button class="camera-btn close-btn" onclick="closeCameraScanner()">
@@ -2009,6 +2011,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             </div>
         </div>
 
+        <!-- Rest of your existing HTML content -->
         <!-- Signup Section -->
         <div id="signupSection" class="card">
             <h2 class="section-title">Create Account</h2>
@@ -2435,15 +2438,14 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             </div>
         </div>
 
-        <!-- QR Code Section -->
-        <div class="card qr-share-section" style="text-align: center; margin-top: 20px;">
-            <h3 style="color: #333; margin-bottom: 20px;">Share Jeans Club</h3>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://elijah787.github.io/jeans-club" 
-                 alt="QR Code for Jeans Club"
-                 style="border: 2px solid #ddd; border-radius: 10px; padding: 10px; display: block; margin: 0 auto;">
-            <p style="color: #666; margin-top: 15px;">Scan to share with friends</p>
-        </div>
-    </div>
+      <!-- QR Code Section -->
+<div class="card qr-share-section" style="text-align: center; margin-top: 20px;">
+    <h3 style="color: #333; margin-bottom: 20px;">Share Jeans Club</h3>
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://elijah787.github.io/jeans-club" 
+         alt="QR Code for Jeans Club"
+         style="border: 2px solid #ddd; border-radius: 10px; padding: 10px; display: block; margin: 0 auto;">
+    <p style="color: #666; margin-top: 15px;">Scan to share with friends</p>
+</div>
 
     <!-- Footer -->
     <footer class="footer">
@@ -2496,12 +2498,15 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
 
     <script>
         // ===========================
-        // CAMERA SCANNER FUNCTIONALITY - COMPLETELY FIXED VERSION
+        // CAMERA SCANNER FUNCTIONALITY - IMPROVED VERSION
         // ===========================
         
+        let currentStream = null;
+        let facingMode = 'environment';
+        let flashOn = false;
         let html5QrCode = null;
-        let cameraId = null;
         let isScanning = false;
+        let currentScanner = null;
 
         // Open camera scanner
         function openCameraScanner() {
@@ -2517,180 +2522,223 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             startCamera();
         }
 
-        // Start camera with simplified HTML5 QR Code library
+        // Start camera with improved scanning
         async function startCamera() {
             try {
-                console.log("Starting camera scanner...");
+                console.log("Starting camera...");
                 
+                // Stop any existing scanner
+                if (html5QrCode) {
+                    try {
+                        await html5QrCode.stop();
+                    } catch (e) {
+                        // Ignore stopping errors
+                    }
+                    html5QrCode = null;
+                }
+
+                const videoElement = document.getElementById('cameraVideo');
                 const scanStatus = document.getElementById('scanStatus');
+                
                 scanStatus.textContent = "Starting camera...";
                 scanStatus.className = 'scan-status scan-processing';
+
+                // Check if camera is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Camera API not supported in this browser");
+                }
+
+                // Set up constraints
+                const constraints = {
+                    video: {
+                        facingMode: facingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+
+                // Request camera access
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                currentStream = stream;
                 
-                // Create QR reader container
-                const qrReaderDiv = document.getElementById('qr-reader');
-                qrReaderDiv.innerHTML = '';
+                // Set video source
+                videoElement.srcObject = stream;
                 
-                // Initialize the scanner
-                html5QrCode = new Html5Qrcode("qr-reader");
-                
+                // Wait for video to be ready
+                await new Promise((resolve) => {
+                    videoElement.onloadedmetadata = () => {
+                        videoElement.play();
+                        resolve();
+                    };
+                });
+
+                scanStatus.textContent = "Camera ready - Point at QR code";
+                scanStatus.className = 'scan-status';
+
+                // Initialize QR Scanner using html5-qrcode library
                 const config = {
                     fps: 10,
                     qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0,
                     rememberLastUsedCamera: true,
                     supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
                 };
+
+                html5QrCode = new Html5Qrcode("cameraVideo");
                 
-                // Get camera list and start with back camera if available
-                const devices = await Html5Qrcode.getCameras();
-                if (devices && devices.length > 0) {
-                    // Prefer back camera
-                    const backCamera = devices.find(device => 
-                        device.label.toLowerCase().includes('back') || 
-                        device.label.includes('2') ||
-                        device.label.includes('rear')
-                    );
-                    
-                    cameraId = backCamera ? backCamera.id : devices[0].id;
-                    
-                    // Start scanning
-                    await html5QrCode.start(
-                        cameraId,
-                        config,
-                        onScanSuccess,
-                        onScanError
-                    );
-                    
-                    scanStatus.textContent = "Ready to scan - Point camera at QR code";
-                    scanStatus.className = 'scan-status';
-                    isScanning = true;
-                    
-                    console.log("✅ Camera started successfully");
-                } else {
-                    throw new Error("No cameras found");
-                }
+                const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                    if (isScanning) {
+                        handleQRScan(decodedText);
+                    }
+                };
                 
+                const qrCodeErrorCallback = (errorMessage) => {
+                    // Quietly ignore scanning errors during normal operation
+                    console.debug("QR scanning:", errorMessage);
+                };
+
+                // Start scanning
+                await html5QrCode.start(
+                    { facingMode: facingMode },
+                    config,
+                    qrCodeSuccessCallback,
+                    qrCodeErrorCallback
+                );
+
+                isScanning = true;
+                console.log("✅ Camera and QR scanner started successfully");
+
             } catch (error) {
                 console.error("Camera error:", error);
                 updateScanStatus("Camera error: " + error.message, "error");
                 
-                // Try fallback method
-                try {
-                    await html5QrCode.start(
-                        { facingMode: "environment" },
-                        config,
-                        onScanSuccess,
-                        onScanError
-                    );
-                    
-                    updateScanStatus("Camera ready (fallback mode)", "info");
-                    isScanning = true;
-                } catch (fallbackError) {
-                    console.error("Fallback also failed:", fallbackError);
-                    updateScanStatus("Failed to access camera", "error");
-                    
-                    setTimeout(() => {
-                        closeCameraScanner();
-                        showToast("Using manual input instead", "info");
-                    }, 3000);
+                let errorMessage = "Camera access failed: ";
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += "Please allow camera access in your browser settings";
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += "No camera found on this device";
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage += "Camera not supported on this browser";
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += "Camera is being used by another application";
+                } else {
+                    errorMessage += error.message;
                 }
+                
+                updateScanStatus(errorMessage, "error");
+                
+                // Fallback after delay
+                setTimeout(() => {
+                    closeCameraScanner();
+                    document.getElementById('voucherCodeInput').focus();
+                    showToast("Using manual input instead", "info");
+                }, 3000);
             }
         }
 
-        // Handle successful scan
-        async function onScanSuccess(decodedText, decodedResult) {
-            console.log("QR Code detected:", decodedText);
+        // Stop camera function
+        function stopCamera() {
+            console.log("Stopping camera...");
+            isScanning = false;
             
+            // Stop QR scanner
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    console.log("QR scanner stopped");
+                    html5QrCode.clear();
+                    html5QrCode = null;
+                }).catch(error => {
+                    console.log("Error stopping QR scanner:", error);
+                    html5QrCode = null;
+                });
+            }
+            
+            // Stop video stream
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+                currentStream = null;
+            }
+            
+            // Clear video element
+            const videoElement = document.getElementById('cameraVideo');
+            if (videoElement) {
+                videoElement.srcObject = null;
+                videoElement.load();
+            }
+        }
+
+        // Close camera scanner
+        function closeCameraScanner() {
+            console.log("Closing camera scanner...");
+            const modal = document.getElementById('cameraScannerModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+            
+            stopCamera();
+            resetScanStatus();
+        }
+
+        // Switch between front/back camera
+        async function switchCamera() {
+            facingMode = facingMode === 'environment' ? 'user' : 'environment';
+            
+            updateScanStatus("Switching camera...", "info");
+            
+            // Stop current camera
+            stopCamera();
+            
+            // Start new camera after a short delay
+            setTimeout(() => {
+                startCamera();
+            }, 500);
+        }
+
+        // Toggle flash (if available)
+        async function toggleFlash() {
+            if (!currentStream) return;
+            
+            try {
+                const track = currentStream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                
+                if (capabilities.torch) {
+                    await track.applyConstraints({
+                        advanced: [{ torch: !flashOn }]
+                    });
+                    flashOn = !flashOn;
+                    
+                    const flashBtn = document.getElementById('flashBtn');
+                    flashBtn.style.background = flashOn ? '#ffc107' : '#00AFF0';
+                    flashBtn.style.color = flashOn ? '#333' : 'white';
+                    
+                    updateScanStatus(flashOn ? "Flash ON" : "Flash OFF", "info");
+                } else {
+                    showToast("Flash not available on this device", "info");
+                }
+            } catch (error) {
+                console.error("Flash error:", error);
+                showToast("Flash not supported", "error");
+            }
+        }
+
+        // Handle QR scan result
+        async function handleQRScan(qrData) {
             if (!isScanning) return;
             
-            // Stop scanning temporarily
+            console.log("QR Code detected:", qrData);
+            
+            // Temporarily stop scanning
             isScanning = false;
-            if (html5QrCode && html5QrCode.isScanning) {
+            if (html5QrCode) {
                 html5QrCode.pause();
             }
             
             updateScanStatus("✓ QR Code detected!", "success");
             
-            // Play success sound
-            playBeepSound();
-            
-            // Process the scanned data
-            await processScannedQR(decodedText);
-            
-            // Resume scanning after 2 seconds
-            setTimeout(() => {
-                if (html5QrCode && !isScanning) {
-                    html5QrCode.resume();
-                    isScanning = true;
-                    updateScanStatus("Ready to scan", "info");
-                }
-            }, 2000);
-        }
-
-        // Handle scan errors
-        function onScanError(error) {
-            // Ignore common scanning errors during normal operation
-            if (!error.includes('NotFoundException') && 
-                !error.includes('No QR code found')) {
-                console.debug("QR scanning:", error);
-            }
-        }
-
-        // Process scanned QR code
-        async function processScannedQR(qrData) {
-            const salespersonName = document.getElementById('salespersonName')?.value.trim();
-            
-            if (!salespersonName) {
-                updateScanStatus("Please enter your name first", "error");
-                
-                // Close camera and focus on name field
-                setTimeout(() => {
-                    closeCameraScanner();
-                    const nameField = document.getElementById('salespersonName');
-                    if (nameField) {
-                        nameField.focus();
-                    }
-                    showToast("Please enter your name first", "error");
-                }, 1000);
-                return;
-            }
-            
-            // Auto-fill the input field
-            const inputField = document.getElementById('voucherCodeInput');
-            if (inputField) {
-                inputField.value = qrData;
-            }
-            
-            // Process the scan
-            const result = await processScanData(qrData, salespersonName);
-            
-            // Display results
-            if (result.success) {
-                updateScanStatus("✓ Scan Successful!", "success");
-                displayScanResults(result, true);
-                
-                // Close camera after successful scan
-                setTimeout(() => {
-                    closeCameraScanner();
-                    showToast("Scan processed successfully!", "success");
-                }, 2000);
-            } else {
-                updateScanStatus("✗ " + result.message, "error");
-                displayScanResults(result, false);
-                
-                // Resume scanning after 3 seconds
-                setTimeout(() => {
-                    if (html5QrCode && !isScanning) {
-                        html5QrCode.resume();
-                        isScanning = true;
-                        updateScanStatus("Ready to scan", "info");
-                    }
-                }, 3000);
-            }
-        }
-
-        // Play beep sound
-        function playBeepSound() {
+            // Add beep sound effect
             try {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
@@ -2709,90 +2757,134 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             } catch (e) {
                 // Sound not critical
             }
+            
+            // Auto-fill the input field
+            const inputField = document.getElementById('voucherCodeInput');
+            if (inputField) {
+                inputField.value = qrData;
+            }
+            
+            // Process the scan
+            await processScanFromCamera(qrData);
         }
 
-        // Switch camera
-        async function switchCamera() {
-            if (!html5QrCode || !isScanning) return;
+        // Process scan from camera
+        async function processScanFromCamera(qrData) {
+            const salespersonName = document.getElementById('salespersonName').value.trim();
             
-            updateScanStatus("Switching camera...", "info");
+            if (!salespersonName) {
+                updateScanStatus("Please enter your name first", "error");
+                
+                setTimeout(() => {
+                    closeCameraScanner();
+                    const nameField = document.getElementById('salespersonName');
+                    if (nameField) {
+                        nameField.focus();
+                    }
+                    showToast("Please enter your name first", "error");
+                }, 1000);
+                
+                return;
+            }
             
+            // Process the scan
+            const result = await processScanData(qrData, salespersonName);
+            
+            // Visual feedback
+            if (result.success) {
+                // Green success effect
+                updateScanStatus("✓ Scan Successful!", "success");
+                
+                // Show detailed results
+                displayScanResults(result, true);
+                
+                // Close camera after successful scan
+                setTimeout(() => {
+                    closeCameraScanner();
+                    showToast("Scan processed successfully!", "success");
+                }, 2000);
+            } else {
+                // Red error effect
+                updateScanStatus("✗ " + result.message, "error");
+                
+                // Show error results
+                displayScanResults(result, false);
+                
+                // Resume scanning after delay
+                setTimeout(() => {
+                    updateScanStatus("Ready to scan", "info");
+                    
+                    if (html5QrCode) {
+                        html5QrCode.resume();
+                        isScanning = true;
+                    }
+                }, 3000);
+            }
+        }
+
+        // Process scan data
+        async function processScanData(qrData, salespersonName) {
             try {
-                // Get available cameras
-                const devices = await Html5Qrcode.getCameras();
-                if (devices.length < 2) {
-                    showToast("Only one camera available", "info");
-                    return;
+                // Try voucher first
+                const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
+                if (voucherResult.success) {
+                    return {
+                        success: true,
+                        type: 'voucher',
+                        message: voucherResult.message,
+                        data: voucherResult.voucher
+                    };
                 }
                 
-                // Stop current camera
-                await html5QrCode.stop();
-                isScanning = false;
+                // Try QR redemption
+                const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                if (redemptionResult.success) {
+                    return {
+                        success: true,
+                        type: 'redemption',
+                        message: redemptionResult.message,
+                        data: redemptionResult.redemption
+                    };
+                }
                 
-                // Find next camera
-                const currentIndex = devices.findIndex(device => device.id === cameraId);
-                const nextIndex = (currentIndex + 1) % devices.length;
-                cameraId = devices[nextIndex].id;
+                // Check if it's a JC ID
+                if (qrData.startsWith('JC')) {
+                    const member = await clubManager.db.getMemberByJCId(qrData);
+                    if (member) {
+                        return {
+                            success: true,
+                            type: 'member',
+                            message: `Member found: ${member.name}`,
+                            data: member
+                        };
+                    }
+                }
                 
-                // Restart with new camera
-                const config = {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0
+                return {
+                    success: false,
+                    message: "Invalid QR code. Please scan a valid Jeans Club voucher or redemption QR code."
                 };
                 
-                await html5QrCode.start(
-                    cameraId,
-                    config,
-                    onScanSuccess,
-                    onScanError
-                );
-                
-                isScanning = true;
-                updateScanStatus("Camera switched", "info");
-                
             } catch (error) {
-                console.error("Switch camera error:", error);
-                updateScanStatus("Failed to switch camera", "error");
+                console.error("Scan processing error:", error);
+                return {
+                    success: false,
+                    message: "Error processing QR code: " + error.message
+                };
             }
         }
 
-        // Toggle flash (simplified version)
-        function toggleFlash() {
-            showToast("Flash toggle not available in browser", "info");
-        }
-
-        // Close camera scanner
-        async function closeCameraScanner() {
-            console.log("Closing camera scanner...");
-            
-            const modal = document.getElementById('cameraScannerModal');
-            modal.classList.remove('active');
-            document.body.style.overflow = 'auto';
-            
-            // Stop scanner if running
-            if (html5QrCode && isScanning) {
-                try {
-                    await html5QrCode.stop();
-                    html5QrCode.clear();
-                    html5QrCode = null;
-                } catch (error) {
-                    console.error("Error stopping scanner:", error);
-                }
-            }
-            
-            isScanning = false;
-            resetScanStatus();
-        }
-
-        // Update scan status
+        // Update scan status display
         function updateScanStatus(message, type) {
             const statusElement = document.getElementById('scanStatus');
             if (!statusElement) return;
             
             statusElement.textContent = message;
+            
+            // Remove all classes
             statusElement.classList.remove('scan-success', 'scan-error', 'scan-processing');
             
+            // Add appropriate class
             if (type === 'success') {
                 statusElement.classList.add('scan-success');
             } else if (type === 'error') {
@@ -2952,83 +3044,343 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
         }
 
-        // Process scan data
-        async function processScanData(qrData, salespersonName) {
-            try {
-                console.log("Processing scan data:", qrData.substring(0, 50) + "...");
-                
-                // Try voucher first
-                const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
-                if (voucherResult.success) {
-                    return {
-                        success: true,
-                        type: 'voucher',
-                        message: voucherResult.message,
-                        data: voucherResult.voucher
-                    };
-                }
-                
-                // Try QR redemption
-                const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
-                if (redemptionResult.success) {
-                    return {
-                        success: true,
-                        type: 'redemption',
-                        message: redemptionResult.message,
-                        data: redemptionResult.redemption
-                    };
-                }
-                
-                // Check if it's a JC ID
-                if (qrData.startsWith('JC')) {
-                    const member = await clubManager.db.getMemberByJCId(qrData);
-                    if (member) {
-                        return {
-                            success: true,
-                            type: 'member',
-                            message: `Member found: ${member.name}`,
-                            data: member
-                        };
+        // ===========================
+        // VOUCHER CLEANUP FUNCTION
+        // ===========================
+        
+        function cleanupExpiredVouchers() {
+            const now = new Date();
+            const vouchers = voucherSystem.getAllVouchers();
+            let removedCount = 0;
+            
+            // Remove vouchers expired more than 30 days ago
+            vouchers.forEach((voucher, index) => {
+                if (voucher.status === 'expired') {
+                    const expiryDate = new Date(voucher.expiryDate);
+                    const daysSinceExpiry = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
+                    
+                    if (daysSinceExpiry > 30) {
+                        // Remove from array
+                        voucherSystem.vouchers.splice(index, 1);
+                        removedCount++;
                     }
                 }
-                
-                // Try to parse as JSON
-                try {
-                    const parsedData = JSON.parse(qrData);
-                    if (parsedData && parsedData.code) {
-                        const voucherResult2 = voucherSystem.redeemVoucher(parsedData.code, salespersonName);
-                        if (voucherResult2.success) {
-                            return {
-                                success: true,
-                                type: 'voucher',
-                                message: voucherResult2.message,
-                                data: voucherResult2.voucher
-                            };
-                        }
-                    }
-                } catch (e) {
-                    // Not JSON
-                }
-                
-                return {
-                    success: false,
-                    message: "Invalid QR code. Please scan a valid Jeans Club voucher or redemption QR code."
-                };
-                
-            } catch (error) {
-                console.error("Scan processing error:", error);
-                return {
-                    success: false,
-                    message: "Error processing QR code: " + error.message
-                };
+            });
+            
+            if (removedCount > 0) {
+                voucherSystem.saveVouchers();
+                console.log(`Cleaned up ${removedCount} expired vouchers`);
             }
+            
+            // Schedule next cleanup in 24 hours
+            setTimeout(cleanupExpiredVouchers, 24 * 60 * 60 * 1000);
         }
 
         // ===========================
-        // ALL THE MISSING JAVASCRIPT FROM THE SECOND FILE
+        // REMAINING EXISTING CODE
         // ===========================
         
-        // VOUCHER SYSTEM IMPLEMENTATION (UPDATED)
+        // Search Functionality
+        function showSearch() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.add('active');
+            document.getElementById('searchInput').focus();
+        }
+
+        function hideSearch() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.remove('active');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+        }
+
+        // Enhanced search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (searchTerm.length < 2) {
+                resultsContainer.innerHTML = '<div class="search-result-item">Type at least 2 characters to search</div>';
+                return;
+            }
+            
+            performSearch(searchTerm).then(results => {
+                if (results.length === 0) {
+                    resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
+                    return;
+                }
+                
+                resultsContainer.innerHTML = results.map(result => `
+                    <div class="search-result-item" onclick="handleSearchResult('${result.type}', '${result.id}')">
+                        <strong>${result.title}</strong>
+                        <div style="font-size: 12px; opacity: 0.8;">${result.description}</div>
+                        <div style="font-size: 11px; margin-top: 5px; color: #00AFF0;">${result.type.toUpperCase()}</div>
+                    </div>
+                `).join('');
+            });
+        });
+
+        async function performSearch(term) {
+            const results = [];
+            
+            try {
+                // Search members
+                const allMembers = await clubManager.db.getAllMembers();
+                allMembers.forEach(member => {
+                    if (
+                        member.jcId.toLowerCase().includes(term) ||
+                        member.name.toLowerCase().includes(term) ||
+                        member.email.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'member',
+                            id: member.jcId,
+                            title: `${member.name} (${member.jcId})`,
+                            description: `Tier: ${member.tier} | Points: ${member.points || 0} | Email: ${member.email}`
+                        });
+                    }
+                });
+                
+                // Search vouchers
+                const allVouchers = voucherSystem.getAllVouchers();
+                allVouchers.forEach(voucher => {
+                    if (
+                        voucher.code.toLowerCase().includes(term) ||
+                        voucher.memberJCId.toLowerCase().includes(term) ||
+                        voucher.memberName.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'voucher',
+                            id: voucher.code,
+                            title: `Voucher: ${voucher.code}`,
+                            description: `Member: ${voucher.memberName} (${voucher.memberJCId}) | Discount: ${voucher.discountPercentage}% | Status: ${voucher.status}`
+                        });
+                    }
+                });
+                
+                // Search QR redemptions
+                const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+                allRedemptions.forEach(redemption => {
+                    if (
+                        redemption.redemptionId.toLowerCase().includes(term) ||
+                        redemption.memberJCId.toLowerCase().includes(term) ||
+                        redemption.memberName.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'redemption',
+                            id: redemption.redemptionId,
+                            title: `Redemption: ${redemption.redemptionId}`,
+                            description: `Member: ${redemption.memberName} | Amount: ${redemption.purchaseAmount} UGX | Status: ${redemption.status}`
+                        });
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+            
+            return results.slice(0, 20);
+        }
+
+        function handleSearchResult(type, id) {
+            hideSearch();
+            
+            switch(type) {
+                case 'member':
+                    if (clubManager.isAdmin) {
+                        showAdminPanel();
+                        showToast(`Member: ${id} selected`, 'info');
+                    }
+                    break;
+                    
+                case 'voucher':
+                    if (clubManager.isAdmin) {
+                        showAdminPanel();
+                        document.getElementById('voucherCodeInput').value = id;
+                        showToast(`Voucher: ${id} selected`, 'info');
+                    }
+                    break;
+                    
+                case 'redemption':
+                    if (clubManager.isAdmin) {
+                        showQRRedemptionManagementPanel();
+                        showToast(`Redemption: ${id} selected`, 'info');
+                    }
+                    break;
+            }
+        }
+
+        // Information Page Functions
+        function showMembershipInfo() {
+            hideAllSections();
+            document.getElementById('membershipInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showBenefits() {
+            hideAllSections();
+            document.getElementById('benefitsInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showTiers() {
+            hideAllSections();
+            document.getElementById('tiersInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showContact() {
+            hideAllSections();
+            document.getElementById('contactInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showRewards() {
+            showQRRedemptionPanel();
+            toggleMobileMenu();
+        }
+
+        function hideAllSections() {
+            const sections = document.querySelectorAll('.card:not(.qr-share-section)');
+            sections.forEach(section => section.classList.add('hidden'));
+            
+            const infoPages = document.querySelectorAll('.info-page');
+            infoPages.forEach(page => page.classList.add('hidden'));
+        }
+
+        // Header and Navigation Functions
+        function toggleMobileMenu() {
+            const navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('active');
+        }
+
+        function toggleUserMenu() {
+            if (clubManager.currentMember) {
+                showDashboard(clubManager.currentMember);
+            } else {
+                showLoginScreen();
+            }
+        }
+
+        // Navigation link handlers
+        function showDashboardSection() {
+            if (clubManager.currentMember) {
+                showDashboard(clubManager.currentMember);
+            } else {
+                showLoginScreen();
+            }
+            toggleMobileMenu();
+        }
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const navLinks = document.getElementById('navLinks');
+            const menuToggle = document.querySelector('.menu-toggle');
+            
+            if (!menuToggle.contains(event.target) && !navLinks.contains(event.target)) {
+                navLinks.classList.remove('active');
+            }
+            
+            const searchModal = document.getElementById('searchModal');
+            if (searchModal.classList.contains('active') && 
+                !searchModal.contains(event.target) && 
+                event.target !== document.querySelector('.search-icon')) {
+                hideSearch();
+            }
+        });
+
+        // Close search with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const searchModal = document.getElementById('searchModal');
+                if (searchModal.classList.contains('active')) {
+                    hideSearch();
+                }
+                
+                const cameraModal = document.getElementById('cameraScannerModal');
+                if (cameraModal.classList.contains('active')) {
+                    closeCameraScanner();
+                }
+            }
+        });
+
+        // Enhanced email validation function
+        function isValidEmail(email) {
+            if (!email || typeof email !== 'string') return false;
+            
+            const trimmedEmail = email.trim();
+            if (trimmedEmail.length < 8) return false;
+            
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(trimmedEmail)) return false;
+            
+            const [localPart, domain] = trimmedEmail.toLowerCase().split('@');
+            if (localPart.length === 0 || localPart.length > 64) return false;
+            
+            const localPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
+            if (!localPartRegex.test(localPart)) return false;
+            
+            if (domain.length < 4) return false;
+            const domainParts = domain.split('.');
+            if (domainParts.length < 2) return false;
+            
+            for (const part of domainParts) {
+                if (part.length === 0 || part.length > 63) return false;
+                if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(part)) return false;
+            }
+            
+            const commonDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com'];
+            const domainWithoutTld = domain.slice(0, domain.lastIndexOf('.'));
+            
+            for (const commonDomain of commonDomains) {
+                const commonDomainWithoutTld = commonDomain.slice(0, commonDomain.lastIndexOf('.'));
+                if (domainWithoutTld === commonDomainWithoutTld) {
+                    const expectedTld = commonDomain.slice(commonDomain.lastIndexOf('.') + 1);
+                    const actualTld = domainParts[domainParts.length - 1];
+                    
+                    if (actualTld !== expectedTld) {
+                        return false;
+                    }
+                }
+            }
+            
+            const tld = domainParts[domainParts.length - 1];
+            const validCommonTlds = ['com', 'org', 'net', 'edu', 'gov', 'mil', 'io', 'co', 'uk', 'us', 
+                                   'ca', 'au', 'de', 'fr', 'jp', 'cn', 'in', 'br', 'ru', 'it', 'es', 
+                                   'mx', 'kr', 'za', 'ng', 'ke', 'tz', 'ug'];
+            
+            if (tld.length <= 2 && !validCommonTlds.includes(tld.toLowerCase())) {
+                return false;
+            }
+            
+            if (tld.length < 2) return false;
+            
+            const fakePatterns = [
+                'test@', 'example@', 'fake@', 'admin@', 'user@', 'temp@', 'dummy@',
+                'a@a.a', 'aa@aa.aa', 'aaa@aaa.aaa',
+                'con', 'c', 'com',
+            ];
+            
+            const lowerEmail = trimmedEmail.toLowerCase();
+            for (const pattern of fakePatterns) {
+                if (lowerEmail.includes(pattern) && trimmedEmail.length < 10) {
+                    return false;
+                }
+            }
+            
+            if (trimmedEmail.includes('..')) return false;
+            if (trimmedEmail.includes('@@')) return false;
+            if (trimmedEmail.startsWith('.') || trimmedEmail.endsWith('.')) return false;
+            if (trimmedEmail.startsWith('@') || trimmedEmail.endsWith('@')) return false;
+            
+            if (/(\w)\1\1/.test(localPart)) {
+                return false;
+            }
+            
+            return true;
+        }
+
+        // VOUCHER SYSTEM IMPLEMENTATION
         class VoucherSystem {
             constructor() {
                 this.vouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
@@ -3229,7 +3581,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
         // Import Supabase
         const { createClient } = supabase;
 
-        // Supabase Database Manager (FROM SECOND FILE)
+        // Supabase Database Manager
         class SupabaseDB {
             constructor() {
                 this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
@@ -3297,57 +3649,57 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
 
             async saveMember(member) {
-                try {
-                    console.log('💾 Saving member to Supabase:', member.jcId);
-                    
-                    const memberData = {
-                        jcId: member.jcId,
-                        id: member.id || 'member_' + Date.now(),
-                        email: member.email,
-                        name: member.name,
-                        password: member.password || null,
-                        googleId: member.googleId || null,
-                        loginMethod: member.loginMethod || 'email',
-                        points: member.points || 0,
-                        tier: member.tier || 'PEARL',
-                        referralCode: member.referralCode,
-                        referredBy: member.referredBy || null,
-                        purchaseHistory: member.purchaseHistory || [],
-                        activityLog: member.activityLog || [],
-                        joinedDate: member.joinedDate || new Date().toISOString(),
-                        totalSpent: member.totalSpent || 0,
-                        challenges: member.challenges || [],
-                        referrals: member.referrals || [],
-                        resetToken: member.resetToken || null,
-                        resetTokenExpiry: member.resetTokenExpiry || null
-                    };
+            try {
+                console.log('💾 Saving member to Supabase:', member.jcId);
+                
+                const memberData = {
+                    jcId: member.jcId,
+                    id: member.id || 'member_' + Date.now(),
+                    email: member.email,
+                    name: member.name,
+                    password: member.password || null,
+                    googleId: member.googleId || null,
+                    loginMethod: member.loginMethod || 'email',
+                    points: member.points || 0,
+                    tier: member.tier || 'PEARL',
+                    referralCode: member.referralCode,
+                    referredBy: member.referredBy || null,
+                    purchaseHistory: member.purchaseHistory || [],
+                    activityLog: member.activityLog || [],
+                    joinedDate: member.joinedDate || new Date().toISOString(),
+                    totalSpent: member.totalSpent || 0,
+                    challenges: member.challenges || [],
+                    referrals: member.referrals || [],
+                    resetToken: member.resetToken || null,
+                    resetTokenExpiry: member.resetTokenExpiry || null
+                };
 
-                    const { data, error } = await this.supabase
-                        .from('members')
-                        .upsert(memberData, { 
-                            onConflict: 'jcId'
-                        });
+                const { data, error } = await this.supabase
+                    .from('members')
+                    .upsert(memberData, { 
+                        onConflict: 'jcId'
+                    });
 
-                    if (error) {
-                        console.error('❌ Supabase save error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Member saved successfully to Supabase');
-                    
-                    const cache = this.getCache();
-                    if (cache) {
-                        cache.lastSync = 0;
-                        this.setCache(cache);
-                    }
-
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to save member to Supabase:', error);
-                    return false;
+                if (error) {
+                    console.error('❌ Supabase save error:', error);
+                    throw error;
                 }
+
+                console.log('✅ Member saved successfully to Supabase');
+                
+                const cache = this.getCache();
+                if (cache) {
+                    cache.lastSync = 0;
+                    this.setCache(cache);
+                }
+
+                return true;
+
+            } catch (error) {
+                console.error('❌ Failed to save member to Supabase:', error);
+                return false;
             }
+        }
 
             async deleteMember(jcId) {
                 try {
@@ -3540,7 +3892,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
         }
 
-        // Google Apps Script Email Service (FROM SECOND FILE)
+        // Google Apps Script Email Service - FIXED VERSION
         class GoogleAppsEmailService {
             constructor() {
                 this.scriptURL = 'https://script.google.com/macros/s/AKfycbwPycPrQFn5hux5eHrbAg1KIc8aO96HwrEI-KUZG7YmITm1ACyqIDQJcWGP5pqq9kun/exec';
@@ -3815,6 +4167,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
 
             // Other email template methods (purchase, discount, referral, password_reset, etc.)
+            // They remain the same as in your original code
             buildPurchaseEmail(memberData, extraData) {
                 return `<div>Purchase email content...</div>`;
             }
@@ -3969,7 +4322,91 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
         }
 
-        // QR Code Redemption System Implementation (FROM SECOND FILE)
+        // Legacy Central Storage (for fallback)
+        class CentralStorage {
+            constructor() {
+                this.storageKey = 'jeansClubCentralData';
+                this.init();
+            }
+
+            async init() {
+                if (!this.getData()) {
+                    this.setData({
+                        members: [],
+                        lastUpdate: new Date().toISOString(),
+                        version: '1.0'
+                    });
+                }
+            }
+
+            getData() {
+                try {
+                    return JSON.parse(localStorage.getItem(this.storageKey));
+                } catch (error) {
+                    console.error('Error reading storage:', error);
+                    return null;
+                }
+            }
+
+            setData(data) {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(data));
+                    return true;
+                } catch (error) {
+                    console.error('Error writing to storage:', error);
+                    return false;
+                }
+            }
+
+            getAllMembers() {
+                const data = this.getData();
+                return data ? data.members : [];
+            }
+
+            saveMember(member) {
+                const data = this.getData();
+                if (!data) return false;
+
+                const existingIndex = data.members.findIndex(m => m.jcId === member.jcId);
+                
+                if (existingIndex >= 0) {
+                    data.members[existingIndex] = member;
+                } else {
+                    data.members.push(member);
+                }
+
+                data.lastUpdate = new Date().toISOString();
+                return this.setData(data);
+            }
+
+            deleteMember(jcId) {
+                const data = this.getData();
+                if (!data) return false;
+
+                data.members = data.members.filter(m => m.jcId !== jcId);
+                data.lastUpdate = new Date().toISOString();
+                return this.setData(data);
+            }
+
+            getMemberByJCId(jcId) {
+                const data = this.getData();
+                if (!data) return null;
+                return data.members.find(m => m.jcId === jcId);
+            }
+
+            getMemberByEmail(email) {
+                const data = this.getData();
+                if (!data) return null;
+                return data.members.find(m => m.email === email);
+            }
+        }
+
+        // Google OAuth Configuration
+        const googleConfig = {
+            clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
+        };
+
+        // QR Code Redemption System Implementation
         class QRRedemptionSystem {
             constructor() {
                 this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
@@ -4434,7 +4871,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
         // Initialize QR redemption system
         const qrRedemptionSystem = new QRRedemptionSystem();
 
-        // Jeans Club Configuration (FROM SECOND FILE)
+        // Jeans Club Configuration
         const jeansClubConfig = {
             pointValue: 750,
             tierRedemptionRates: {
@@ -4507,7 +4944,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
         };
 
-        // Main JeansClubManager (FROM SECOND FILE)
+        // Main JeansClubManager
         class JeansClubManager {
             constructor() {
                 this.db = new SupabaseDB();
@@ -5274,359 +5711,57 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
         // Initialize Jeans Club Manager
         const clubManager = new JeansClubManager();
 
-        // ===========================
-        // UI FUNCTIONS FROM SECOND FILE
-        // ===========================
-        
-        // Toast notification system
-        function showToast(message, type = "info") {
-            const existingToasts = document.querySelectorAll('.toast');
-            existingToasts.forEach(toast => toast.remove());
-            
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 25px;
-                background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
-                color: white;
-                border-radius: 8px;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-                z-index: 1000;
-                animation: slideIn 0.3s ease;
-                max-width: 400px;
-                word-wrap: break-word;
-            `;
-            
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
-            }, 5000);
-        }
-
-        // Add CSS for toast animations
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(100%); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        // Information Page Functions
-        function showMembershipInfo() {
-            hideAllSections();
-            document.getElementById('membershipInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showBenefits() {
-            hideAllSections();
-            document.getElementById('benefitsInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showTiers() {
-            hideAllSections();
-            document.getElementById('tiersInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showContact() {
-            hideAllSections();
-            document.getElementById('contactInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showRewards() {
-            showQRRedemptionPanel();
-            toggleMobileMenu();
-        }
-
-        function hideAllSections() {
-            const sections = document.querySelectorAll('.card:not(.qr-share-section)');
-            sections.forEach(section => section.classList.add('hidden'));
-            
-            const infoPages = document.querySelectorAll('.info-page');
-            infoPages.forEach(page => page.classList.add('hidden'));
-        }
-
-        // Header and Navigation Functions
-        function toggleMobileMenu() {
-            const navLinks = document.getElementById('navLinks');
-            navLinks.classList.toggle('active');
-        }
-
-        function toggleUserMenu() {
-            if (clubManager.currentMember) {
-                showDashboard(clubManager.currentMember);
-            } else {
-                showLoginScreen();
-            }
-        }
-
-        // Navigation link handlers
-        function showDashboardSection() {
-            if (clubManager.currentMember) {
-                showDashboard(clubManager.currentMember);
-            } else {
-                showLoginScreen();
-            }
-            toggleMobileMenu();
-        }
-
-        // Search functionality
-        function showSearch() {
-            const modal = document.getElementById('searchModal');
-            modal.classList.add('active');
-            document.getElementById('searchInput').focus();
-        }
-
-        function hideSearch() {
-            const modal = document.getElementById('searchModal');
-            modal.classList.remove('active');
-            document.getElementById('searchInput').value = '';
-            document.getElementById('searchResults').innerHTML = '';
-        }
-
-        // Enhanced search functionality
-        document.getElementById('searchInput').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            const resultsContainer = document.getElementById('searchResults');
-            
-            if (searchTerm.length < 2) {
-                resultsContainer.innerHTML = '<div class="search-result-item">Type at least 2 characters to search</div>';
-                return;
-            }
-            
-            performSearch(searchTerm).then(results => {
-                if (results.length === 0) {
-                    resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
-                    return;
-                }
-                
-                resultsContainer.innerHTML = results.map(result => `
-                    <div class="search-result-item" onclick="handleSearchResult('${result.type}', '${result.id}')">
-                        <strong>${result.title}</strong>
-                        <div style="font-size: 12px; opacity: 0.8;">${result.description}</div>
-                        <div style="font-size: 11px; margin-top: 5px; color: #00AFF0;">${result.type.toUpperCase()}</div>
-                    </div>
-                `).join('');
+        // Google Sign-In Initialization
+        function initGoogleSignIn() {
+            google.accounts.id.initialize({
+                client_id: googleConfig.clientId,
+                callback: handleGoogleSignIn,
+                auto_select: false,
+                cancel_on_tap_outside: true
             });
-        });
 
-        async function performSearch(term) {
-            const results = [];
-            
+            google.accounts.id.renderButton(
+                document.querySelector('.google-signin-button'),
+                {
+                    theme: "outline",
+                    size: "large",
+                    text: "signup_with",
+                    shape: "rectangular",
+                    logo_alignment: "left"
+                }
+            );
+
+            google.accounts.id.renderButton(
+                document.querySelector('.google-login-button'),
+                {
+                    theme: "outline",
+                    size: "large",
+                    text: "signin_with",
+                    shape: "rectangular",
+                    logo_alignment: "left"
+                }
+            );
+        }
+
+        async function handleGoogleSignIn(response) {
             try {
-                // Search members
-                const allMembers = await clubManager.db.getAllMembers();
-                allMembers.forEach(member => {
-                    if (
-                        member.jcId.toLowerCase().includes(term) ||
-                        member.name.toLowerCase().includes(term) ||
-                        member.email.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'member',
-                            id: member.jcId,
-                            title: `${member.name} (${member.jcId})`,
-                            description: `Tier: ${member.tier} | Points: ${member.points || 0} | Email: ${member.email}`
-                        });
-                    }
-                });
+                const user = jwt_decode(response.credential);
                 
-                // Search vouchers
-                const allVouchers = voucherSystem.getAllVouchers();
-                allVouchers.forEach(voucher => {
-                    if (
-                        voucher.code.toLowerCase().includes(term) ||
-                        voucher.memberJCId.toLowerCase().includes(term) ||
-                        voucher.memberName.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'voucher',
-                            id: voucher.code,
-                            title: `Voucher: ${voucher.code}`,
-                            description: `Member: ${voucher.memberName} (${voucher.memberJCId}) | Discount: ${voucher.discountPercentage}% | Status: ${voucher.status}`
-                        });
-                    }
-                });
+                const result = await clubManager.loginWithGoogle(response);
                 
-                // Search QR redemptions
-                const allRedemptions = qrRedemptionSystem.getAllRedemptions();
-                allRedemptions.forEach(redemption => {
-                    if (
-                        redemption.redemptionId.toLowerCase().includes(term) ||
-                        redemption.memberJCId.toLowerCase().includes(term) ||
-                        redemption.memberName.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'redemption',
-                            id: redemption.redemptionId,
-                            title: `Redemption: ${redemption.redemptionId}`,
-                            description: `Member: ${redemption.memberName} | Amount: ${redemption.purchaseAmount} UGX | Status: ${redemption.status}`
-                        });
-                    }
-                });
-                
+                if (result.success) {
+                    showDashboard(result.member);
+                    showToast("Google login successful! 🎉", "success");
+                } else {
+                    showToast(result.message, "error");
+                }
             } catch (error) {
-                console.error('Search error:', error);
-            }
-            
-            return results.slice(0, 20);
-        }
-
-        function handleSearchResult(type, id) {
-            hideSearch();
-            
-            switch(type) {
-                case 'member':
-                    if (clubManager.isAdmin) {
-                        showAdminPanel();
-                        showToast(`Member: ${id} selected`, 'info');
-                    }
-                    break;
-                    
-                case 'voucher':
-                    if (clubManager.isAdmin) {
-                        showAdminPanel();
-                        document.getElementById('voucherCodeInput').value = id;
-                        showToast(`Voucher: ${id} selected`, 'info');
-                    }
-                    break;
-                    
-                case 'redemption':
-                    if (clubManager.isAdmin) {
-                        showQRRedemptionManagementPanel();
-                        showToast(`Redemption: ${id} selected`, 'info');
-                    }
-                    break;
+                console.error('Google sign-in error:', error);
+                showToast("Google sign-in failed. Please try again.", "error");
             }
         }
 
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
-            const navLinks = document.getElementById('navLinks');
-            const menuToggle = document.querySelector('.menu-toggle');
-            
-            if (!menuToggle.contains(event.target) && !navLinks.contains(event.target)) {
-                navLinks.classList.remove('active');
-            }
-            
-            const searchModal = document.getElementById('searchModal');
-            if (searchModal.classList.contains('active') && 
-                !searchModal.contains(event.target) && 
-                event.target !== document.querySelector('.search-icon')) {
-                hideSearch();
-            }
-        });
-
-        // Close search with Escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                const searchModal = document.getElementById('searchModal');
-                if (searchModal.classList.contains('active')) {
-                    hideSearch();
-                }
-                
-                const cameraModal = document.getElementById('cameraScannerModal');
-                if (cameraModal.classList.contains('active')) {
-                    closeCameraScanner();
-                }
-            }
-        });
-
-        // Enhanced email validation function
-        function isValidEmail(email) {
-            if (!email || typeof email !== 'string') return false;
-            
-            const trimmedEmail = email.trim();
-            if (trimmedEmail.length < 8) return false;
-            
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(trimmedEmail)) return false;
-            
-            const [localPart, domain] = trimmedEmail.toLowerCase().split('@');
-            if (localPart.length === 0 || localPart.length > 64) return false;
-            
-            const localPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
-            if (!localPartRegex.test(localPart)) return false;
-            
-            if (domain.length < 4) return false;
-            const domainParts = domain.split('.');
-            if (domainParts.length < 2) return false;
-            
-            for (const part of domainParts) {
-                if (part.length === 0 || part.length > 63) return false;
-                if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(part)) return false;
-            }
-            
-            const commonDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com'];
-            const domainWithoutTld = domain.slice(0, domain.lastIndexOf('.'));
-            
-            for (const commonDomain of commonDomains) {
-                const commonDomainWithoutTld = commonDomain.slice(0, commonDomain.lastIndexOf('.'));
-                if (domainWithoutTld === commonDomainWithoutTld) {
-                    const expectedTld = commonDomain.slice(commonDomain.lastIndexOf('.') + 1);
-                    const actualTld = domainParts[domainParts.length - 1];
-                    
-                    if (actualTld !== expectedTld) {
-                        return false;
-                    }
-                }
-            }
-            
-            const tld = domainParts[domainParts.length - 1];
-            const validCommonTlds = ['com', 'org', 'net', 'edu', 'gov', 'mil', 'io', 'co', 'uk', 'us', 
-                                   'ca', 'au', 'de', 'fr', 'jp', 'cn', 'in', 'br', 'ru', 'it', 'es', 
-                                   'mx', 'kr', 'za', 'ng', 'ke', 'tz', 'ug'];
-            
-            if (tld.length <= 2 && !validCommonTlds.includes(tld.toLowerCase())) {
-                return false;
-            }
-            
-            if (tld.length < 2) return false;
-            
-            const fakePatterns = [
-                'test@', 'example@', 'fake@', 'admin@', 'user@', 'temp@', 'dummy@',
-                'a@a.a', 'aa@aa.aa', 'aaa@aaa.aaa',
-                'con', 'c', 'com',
-            ];
-            
-            const lowerEmail = trimmedEmail.toLowerCase();
-            for (const pattern of fakePatterns) {
-                if (lowerEmail.includes(pattern) && trimmedEmail.length < 10) {
-                    return false;
-                }
-            }
-            
-            if (trimmedEmail.includes('..')) return false;
-            if (trimmedEmail.includes('@@')) return false;
-            if (trimmedEmail.startsWith('.') || trimmedEmail.endsWith('.')) return false;
-            if (trimmedEmail.startsWith('@') || trimmedEmail.endsWith('@')) return false;
-            
-            if (/(\w)\1\1/.test(localPart)) {
-                return false;
-            }
-            
-            return true;
-        }
-
-        // ===========================
-        // REMAINING UI FUNCTIONS FROM SECOND FILE
-        // ===========================
-        
+        // UI Functions
         function showSignupScreen() {
             hideAllSections();
             document.getElementById('signupSection').classList.remove('hidden');
@@ -5679,89 +5814,6 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             hideAllSections();
             document.getElementById('qrRedemptionManagementSection').classList.remove('hidden');
             loadQRRedemptionData();
-        }
-
-        // Google Sign-In Initialization
-        function initGoogleSignIn() {
-            if (typeof google === 'undefined' || !google.accounts) {
-                console.log('Google API not loaded yet, retrying in 1 second...');
-                setTimeout(initGoogleSignIn, 1000);
-                return;
-            }
-
-            google.accounts.id.initialize({
-                client_id: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com',
-                callback: handleGoogleSignIn,
-                auto_select: false,
-                cancel_on_tap_outside: true
-            });
-
-            const signinButton = document.querySelector('.google-signin-button');
-            const loginButton = document.querySelector('.google-login-button');
-            
-            if (signinButton) {
-                google.accounts.id.renderButton(
-                    signinButton,
-                    {
-                        theme: "outline",
-                        size: "large",
-                        text: "signup_with",
-                        shape: "rectangular",
-                        logo_alignment: "left"
-                    }
-                );
-            }
-            
-            if (loginButton) {
-                google.accounts.id.renderButton(
-                    loginButton,
-                    {
-                        theme: "outline",
-                        size: "large",
-                        text: "signin_with",
-                        shape: "rectangular",
-                        logo_alignment: "left"
-                    }
-                );
-            }
-        }
-
-        async function handleGoogleSignIn(response) {
-            try {
-                // Decode the JWT token manually
-                const token = response.credential;
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                
-                const user = JSON.parse(jsonPayload);
-                
-                // Create a mock googleUser object
-                const googleUser = {
-                    getBasicProfile: function() {
-                        return {
-                            getEmail: () => user.email,
-                            getName: () => user.name,
-                            getImageUrl: () => user.picture
-                        };
-                    },
-                    getId: () => user.sub
-                };
-                
-                const result = await clubManager.loginWithGoogle(googleUser);
-                
-                if (result.success) {
-                    showDashboard(result.member);
-                    showToast("Google login successful! 🎉", "success");
-                } else {
-                    showToast(result.message, "error");
-                }
-            } catch (error) {
-                console.error('Google sign-in error:', error);
-                showToast("Google sign-in failed. Please try again.", "error");
-            }
         }
 
         async function signUpWithEmail() {
@@ -6035,19 +6087,16 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
         }
 
         async function toggleNewsletter() {
-            if (!clubManager.currentMember) {
-                showToast("Please login first", "error");
-                return;
-            }
+            if (!clubManager.currentMember) return;
             
-            const member = clubManager.currentMember;
-            const currentlySubscribed = member.newsletterSubscribed !== false;
+            const currentlySubscribed = clubManager.currentMember.newsletterSubscribed !== false;
+            const action = currentlySubscribed ? false : true;
             
-            showToast("Updating preferences...", "info");
+            showToast("Updating newsletter preferences...", "info");
             
             const result = await clubManager.toggleNewsletter(
-                member.email, 
-                !currentlySubscribed
+                clubManager.currentMember.email,
+                action
             );
             
             if (result.success) {
@@ -6058,104 +6107,42 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
         }
 
-        async function shareReferral() {
-            if (!clubManager.currentMember) {
-                showToast("Please login first", "error");
-                return;
-            }
+        function shareReferral() {
+            if (!clubManager.currentMember) return;
             
             const referralCode = clubManager.currentMember.referralCode;
-            const shareText = `Join Jeans Club! Use my referral code: ${referralCode}\nSign up at: https://elijah787.github.io/jeans-club`;
+            const message = `Join me on Jeans Club! Use my referral code ${referralCode} to get bonus points when you sign up. Sign up at https://elijah787.github.io/jeans-club`;
             
             if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: 'Join Jeans Club',
-                        text: `Use my referral code: ${referralCode}`,
-                        url: 'https://elijah787.github.io/jeans-club'
-                    });
-                } catch (error) {
-                    copyToClipboard(referralCode);
-                }
+                navigator.share({
+                    title: 'Join Jeans Club',
+                    text: message,
+                    url: 'https://elijah787.github.io/jeans-club'
+                });
             } else {
-                copyToClipboard(referralCode);
+                navigator.clipboard.writeText(message);
+                showToast("Referral code copied to clipboard! 📋", "success");
             }
         }
 
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                showToast(`Referral code copied to clipboard!`, "success");
-            }).catch(() => {
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                showToast(`Referral code copied to clipboard!`, "success");
-            });
+        function logout() {
+            clubManager.logout();
+            showLoginScreen();
+            showToast("Logged out successfully", "info");
         }
 
         async function refreshData() {
-            if (!clubManager.currentMember) {
-                showToast("Please login first", "error");
-                return;
-            }
-            
             showToast("Refreshing data...", "info");
-            
             const updatedMember = await clubManager.refreshData();
             if (updatedMember) {
                 updateDashboard(updatedMember);
-                showToast("Data refreshed successfully!", "success");
+                showToast("Data refreshed!", "success");
             } else {
                 showToast("Failed to refresh data", "error");
             }
         }
 
-        async function loadAdminData() {
-            if (!clubManager.isAdmin) {
-                showToast("Admin access required", "error");
-                return;
-            }
-            
-            const adminContent = document.getElementById('adminContent');
-            adminContent.innerHTML = '<p>Loading members...</p>';
-            
-            try {
-                const allMembers = await clubManager.db.getAllMembers();
-                
-                if (allMembers.length === 0) {
-                    adminContent.innerHTML = '<div class="admin-card">No members found</div>';
-                    return;
-                }
-                
-                adminContent.innerHTML = `
-                    <h3>All Members (${allMembers.length})</h3>
-                    <div class="members-list">
-                        ${allMembers.map(member => `
-                            <div class="admin-card">
-                                <h4>${member.name} <span style="font-size: 12px; color: #666;">(${member.jcId})</span></h4>
-                                <p><strong>Tier:</strong> ${member.tier} | <strong>Points:</strong> ${member.points?.toLocaleString() || 0} | <strong>Total Spent:</strong> ${(member.totalSpent || 0).toLocaleString()} UGX</p>
-                                <p><strong>Email:</strong> ${member.email}</p>
-                                <p><strong>Joined:</strong> ${new Date(member.joinedDate).toLocaleDateString()}</p>
-                                <p><strong>Referrals:</strong> ${(member.referrals || []).length}</p>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            } catch (error) {
-                console.error('Error loading admin data:', error);
-                adminContent.innerHTML = '<div class="admin-card">Error loading members</div>';
-            }
-        }
-
         async function adminAddPurchase() {
-            if (!clubManager.isAdmin) {
-                showToast("Admin access required", "error");
-                return;
-            }
-            
             const jcId = document.getElementById('purchaseJCId').value.trim();
             const amount = parseFloat(document.getElementById('purchaseAmount').value);
             const description = document.getElementById('purchaseDescription').value.trim();
@@ -6170,7 +6157,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
                 return;
             }
             
-            showToast("Adding purchase...", "info");
+            showToast("Recording purchase...", "info");
             
             const result = await clubManager.addPurchase(jcId, amount, description);
             
@@ -6178,9 +6165,8 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             if (result.success) {
                 purchaseResult.className = 'success-message';
                 purchaseResult.innerHTML = `
-                    <strong>✅ Purchase Recorded!</strong><br>
-                    ${result.pointsEarned} points added to ${result.member.name}'s account.<br>
-                    New total: ${result.member.points?.toLocaleString() || 0} points
+                    <strong>Success!</strong> ${result.message}<br>
+                    <small>Member: ${result.member.name} (${result.member.jcId})</small>
                 `;
                 
                 document.getElementById('purchaseJCId').value = '';
@@ -6194,113 +6180,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
         }
 
-        async function confirmDeleteMember() {
-            if (!clubManager.isAdmin) {
-                showToast("Admin access required", "error");
-                return;
-            }
-            
-            const jcId = document.getElementById('deleteJCId').value.trim();
-            
-            if (!jcId) {
-                showToast("Please enter a JC ID", "error");
-                return;
-            }
-            
-            if (!confirm(`⚠️ WARNING: This will permanently delete member ${jcId} and all their data. This action cannot be undone. Are you sure?`)) {
-                return;
-            }
-            
-            showToast("Deleting member...", "info");
-            
-            const result = await clubManager.deleteMember(jcId);
-            
-            const deleteResult = document.getElementById('deleteResult');
-            if (result.success) {
-                deleteResult.className = 'success-message';
-                deleteResult.textContent = result.message;
-                
-                document.getElementById('deleteJCId').value = '';
-                loadAdminData();
-            } else {
-                deleteResult.className = 'error-message';
-                deleteResult.textContent = result.message;
-            }
-        }
-
-        async function loadAllVouchers() {
-            voucherSystem.updateVoucherStatuses();
-            const vouchers = voucherSystem.getAllVouchers();
-            const stats = voucherSystem.getVoucherStats();
-            
-            document.getElementById('voucherStats').innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
-                    <div style="background: #e7f3ff; padding: 10px; border-radius: 5px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold;">${stats.total}</div>
-                        <div style="font-size: 12px; color: #666;">Total Vouchers</div>
-                    </div>
-                    <div style="background: #d4edda; padding: 10px; border-radius: 5px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold;">${stats.active}</div>
-                        <div style="font-size: 12px; color: #666;">Active</div>
-                    </div>
-                    <div style="background: #e2e3e5; padding: 10px; border-radius: 5px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold;">${stats.used}</div>
-                        <div style="font-size: 12px; color: #666;">Used</div>
-                    </div>
-                    <div style="background: #f8d7da; padding: 10px; border-radius: 5px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold;">${stats.expired}</div>
-                        <div style="font-size: 12px; color: #666;">Expired</div>
-                    </div>
-                </div>
-                <p style="margin-top: 10px;"><strong>Redemption Rate:</strong> ${stats.redemptionRate}</p>
-                <p><strong>Average Discount:</strong> ${stats.avgDiscount}%</p>
-            `;
-            
-            const vouchersList = document.getElementById('allVouchersList');
-            
-            if (vouchers.length === 0) {
-                vouchersList.innerHTML = '<div class="activity-item">No vouchers found</div>';
-                return;
-            }
-            
-            vouchersList.innerHTML = vouchers.map(voucher => {
-                const statusClass = voucher.status === 'active' ? 'status-active' : 
-                                  voucher.status === 'used' ? 'status-used' : 'status-expired';
-                const statusText = voucher.status === 'active' ? 'ACTIVE' :
-                                 voucher.status === 'used' ? 'USED' : 'EXPIRED';
-                
-                return `
-                    <div class="voucher-item ${voucher.status}">
-                        <div class="option-header">
-                            <h4>${voucher.discountPercentage}% Discount Voucher</h4>
-                            <span class="voucher-status ${statusClass}">${statusText}</span>
-                        </div>
-                        <p><strong>Code:</strong> <span class="voucher-code">${voucher.code}</span></p>
-                        <p><strong>Member:</strong> ${voucher.memberName} (${voucher.memberJCId})</p>
-                        <p><strong>Points Used:</strong> ${voucher.pointsUsed} points</p>
-                        <p><strong>Created:</strong> ${new Date(voucher.createdDate).toLocaleDateString()}</p>
-                        <p><strong>Expires:</strong> ${new Date(voucher.expiryDate).toLocaleDateString()}</p>
-                        ${voucher.usedDate ? `
-                            <p><strong>Redeemed:</strong> ${new Date(voucher.usedDate).toLocaleDateString()}</p>
-                            ${voucher.redeemedBy ? `<p><strong>Redeemed By:</strong> ${voucher.redeemedBy}</p>` : ''}
-                        ` : ''}
-                    </div>
-                `;
-            }).join('');
-        }
-
-        async function refreshVouchers() {
-            showToast("Refreshing vouchers...", "info");
-            await loadAllVouchers();
-            showToast("Vouchers refreshed!", "success");
-        }
-
         async function sendNewsletter() {
-            if (!clubManager.isAdmin) {
-                showToast("Admin access required", "error");
-                return;
-            }
-            
             const subject = document.getElementById('newsletterSubject').value.trim();
             const content = document.getElementById('newsletterContent').value.trim();
             
@@ -6309,11 +6189,11 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
                 return;
             }
             
-            if (!confirm(`Send newsletter to all subscribers? This will send to all active newsletter subscribers.`)) {
+            if (!confirm(`Send newsletter to all subscribers? This will send to everyone subscribed to the newsletter.`)) {
                 return;
             }
             
-            showToast("Sending newsletter...", "info");
+            showToast("Sending newsletter... This may take a moment.", "info");
             
             const result = await clubManager.sendNewsletter(subject, content);
             
@@ -6330,275 +6210,119 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             }
         }
 
-        async function calculateRedemptionOptions() {
-            if (!clubManager.currentMember) {
-                showToast("Please login first", "error");
-                return;
-            }
+        async function loadAdminData() {
+            const adminContent = document.getElementById('adminContent');
+            adminContent.innerHTML = '<div class="activity-item">Loading members...</div>';
             
-            const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
-            
-            if (!purchaseAmount || purchaseAmount <= 0) {
-                showToast("Please enter a valid purchase amount", "error");
-                return;
-            }
-            
-            const result = await clubManager.createQRRedemption(purchaseAmount);
-            
-            const optionsContainer = document.getElementById('redemptionOptions');
-            const detailsContainer = document.getElementById('selectedOptionDetails');
-            
-            if (result.success) {
-                optionsContainer.innerHTML = result.options.map((option, index) => {
-                    const isVoucher = option.type === 'discount_voucher';
-                    const buttonText = isVoucher 
-                        ? `Get ${option.discountAmount.toLocaleString()} UGX Discount (${option.discountPercentage}%)`
-                        : `Pay with Points: ${option.totalAmount.toLocaleString()} UGX`;
-                    
-                    return `
-                        <div class="redemption-option" onclick="selectRedemptionOption(${index})" id="option-${index}">
-                            <div class="option-header">
-                                <h4>${isVoucher ? '🎫 Discount Voucher' : '💰 Pay with Points'}</h4>
-                                <span class="option-tier">${option.tier}</span>
-                            </div>
-                            <p><strong>${option.description}</strong></p>
-                            <p>${isVoucher ? 
-                                `Points Required: ${option.pointsRequired} points` : 
-                                `Points Equivalent: ${option.pointsEquivalent} points`
-                            }</p>
-                            <p style="font-size: 12px; color: #666;">${option.eligibility || ''}</p>
-                        </div>
-                    `;
-                }).join('');
+            try {
+                const members = await clubManager.db.getAllMembers();
                 
-                detailsContainer.innerHTML = `
-                    <div class="info-card">
-                        <p>Select a redemption option above to see details and generate QR code.</p>
-                    </div>
-                `;
-                
-                document.getElementById('qrCodeContainer').innerHTML = `
-                    <div class="info-card">
-                        <p>Select a redemption option to generate QR code.</p>
-                    </div>
-                `;
-                
-            } else {
-                optionsContainer.innerHTML = `
-                    <div class="info-card" style="border-left-color: #f44336;">
-                        <h4>No Redemption Options Available</h4>
-                        <p>${result.message}</p>
-                        <p>You may need to:</p>
-                        <ul>
-                            <li>Check your points balance</li>
-                            <li>Check your tier requirements</li>
-                            <li>Ensure sufficient spending history for pay-with-points options</li>
-                        </ul>
-                    </div>
-                `;
-            }
-        }
-
-        let selectedOptionIndex = -1;
-
-        function selectRedemptionOption(index) {
-            if (!clubManager.currentMember) return;
-            
-            selectedOptionIndex = index;
-            
-            const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
-            const result = clubManager.createQRRedemption(purchaseAmount);
-            
-            if (result.success && result.options[index]) {
-                const option = result.options[index];
-                
-                document.querySelectorAll('.redemption-option').forEach(el => {
-                    el.classList.remove('selected');
-                });
-                document.getElementById(`option-${index}`).classList.add('selected');
-                
-                const detailsContainer = document.getElementById('selectedOptionDetails');
-                detailsContainer.innerHTML = `
-                    <div class="selected-option-details">
-                        <h4>✅ Selected Option</h4>
-                        <div class="details-grid">
-                            <div class="detail-item">
-                                <strong>Type</strong>
-                                <div>${option.type === 'discount_voucher' ? 'Discount Voucher' : 'Pay with Points'}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Tier</strong>
-                                <div>${option.tier}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Description</strong>
-                                <div>${option.description}</div>
-                            </div>
-                            ${option.type === 'discount_voucher' ? `
-                                <div class="detail-item">
-                                    <strong>Discount Amount</strong>
-                                    <div>${option.discountAmount.toLocaleString()} UGX</div>
-                                </div>
-                                <div class="detail-item">
-                                    <strong>Discount Percentage</strong>
-                                    <div>${option.discountPercentage}%</div>
-                                </div>
-                                <div class="detail-item">
-                                    <strong>Points Required</strong>
-                                    <div>${option.pointsRequired} points</div>
-                                </div>
-                            ` : `
-                                <div class="detail-item">
-                                    <strong>Redemption Amount</strong>
-                                    <div>${option.totalAmount.toLocaleString()} UGX</div>
-                                </div>
-                                <div class="detail-item">
-                                    <strong>Points Equivalent</strong>
-                                    <div>${option.pointsEquivalent} points</div>
-                                </div>
-                                <div class="detail-item">
-                                    <strong>Monthly Spending</strong>
-                                    <div>${option.monthsSpending.toLocaleString()} UGX</div>
-                                </div>
-                            `}
-                        </div>
-                        <button class="btn" onclick="generateQRCodeForRedemption()" style="margin-top: 15px;">
-                            Generate QR Code for This Option
-                        </button>
-                    </div>
-                `;
-            }
-        }
-
-        async function generateQRCodeForRedemption() {
-            if (!clubManager.currentMember || selectedOptionIndex === -1) {
-                showToast("Please select a redemption option first", "error");
-                return;
-            }
-            
-            const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
-            const result = await clubManager.createQRRedemption(purchaseAmount);
-            
-            if (!result.success) {
-                showToast(result.message, "error");
-                return;
-            }
-            
-            const selectedOption = result.options[selectedOptionIndex];
-            
-            if (selectedOption.type === 'points_redemption' && clubManager.currentMember.points < selectedOption.pointsEquivalent) {
-                showToast(`Insufficient points. You need ${selectedOption.pointsEquivalent} points but have ${clubManager.currentMember.points}.`, "error");
-                return;
-            }
-            
-            showToast("Generating QR code...", "info");
-            
-            const qrResult = await clubManager.generateQRCodeForRedemption(selectedOption, purchaseAmount);
-            
-            if (qrResult.success) {
-                const qrCodeContainer = document.getElementById('qrCodeContainer');
-                const redemption = qrResult.redemption;
-                
-                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(redemption.qrCodeData)}`;
-                
-                qrCodeContainer.innerHTML = `
-                    <div class="qr-code-container">
-                        <h4>✅ Your QR Code is Ready!</h4>
-                        <img src="${qrCodeUrl}" alt="Redemption QR Code" 
-                             style="border: 2px solid #ddd; border-radius: 10px; padding: 10px; max-width: 200px;">
-                        <div style="margin-top: 15px;">
-                            <p><strong>Redemption ID:</strong> <span class="voucher-code">${redemption.redemptionId}</span></p>
-                            <p><strong>Valid until:</strong> ${new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleString()}</p>
-                            <button class="btn" onclick="downloadQRCode('${qrCodeUrl}', '${redemption.redemptionId}')" style="margin-top: 10px;">
-                                📥 Download QR Code
-                            </button>
-                        </div>
-                    </div>
-                `;
-                
-                showToast("QR code generated successfully! Show this at checkout.", "success");
-                
-                if (selectedOption.type === 'points_redemption') {
-                    updateDashboard(clubManager.currentMember);
+                if (members.length === 0) {
+                    adminContent.innerHTML = '<div class="activity-item">No members yet</div>';
+                    return;
                 }
                 
-            } else {
-                showToast(qrResult.message, "error");
+                adminContent.innerHTML = `
+                    <div class="info-card">
+                        <h3>All Members (${members.length})</h3>
+                        <div class="members-list">
+                            ${members.map(member => `
+                                <div class="admin-card">
+                                    <h4>${member.name} <small style="color: #666;">(${member.jcId})</small></h4>
+                                    <p><strong>Email:</strong> ${member.email}</p>
+                                    <p><strong>Tier:</strong> ${member.tier}</p>
+                                    <p><strong>Points:</strong> ${member.points?.toLocaleString() || 0}</p>
+                                    <p><strong>Total Spent:</strong> ${(member.totalSpent || 0).toLocaleString()} UGX</p>
+                                    <p><strong>Joined:</strong> ${new Date(member.joinedDate).toLocaleDateString()}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading admin data:', error);
+                adminContent.innerHTML = '<div class="activity-item error-message">Error loading members</div>';
             }
         }
 
-        function downloadQRCode(qrCodeUrl, redemptionId) {
-            const link = document.createElement('a');
-            link.href = qrCodeUrl;
-            link.download = `jeansclub_redemption_${redemptionId}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast("QR code downloaded!", "success");
-        }
-
-        async function loadQRRedemptionData() {
-            const stats = qrRedemptionSystem.getRedemptionStats();
-            const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+        async function confirmDeleteMember() {
+            const jcId = document.getElementById('deleteJCId').value.trim();
             
-            document.getElementById('qrRedemptionStats').innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
-                    <div style="background: #e7f3ff; padding: 10px; border-radius: 5px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold;">${stats.total}</div>
-                        <div style="font-size: 12px; color: #666;">Total Redemptions</div>
-                    </div>
-                    <div style="background: #fff3cd; padding: 10px; border-radius: 5px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold;">${stats.pending}</div>
-                        <div style="font-size: 12px; color: #666;">Pending</div>
-                    </div>
-                    <div style="background: #d4edda; padding: 10px; border-radius: 5px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold;">${stats.completed}</div>
-                        <div style="font-size: 12px; color: #666;">Completed</div>
-                    </div>
-                    <div style="background: #f8d7da; padding: 10px; border-radius: 5px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold;">${stats.expired}</div>
-                        <div style="font-size: 12px; color: #666;">Expired</div>
-                    </div>
-                </div>
-                <p style="margin-top: 10px;"><strong>Completion Rate:</strong> ${stats.completionRate}</p>
-                <p><strong>Total Value Redeemed:</strong> ${stats.totalValue.toLocaleString()} UGX</p>
-            `;
-            
-            const redemptionsList = document.getElementById('allRedemptionsList');
-            
-            if (allRedemptions.length === 0) {
-                redemptionsList.innerHTML = '<div class="activity-item">No redemptions found</div>';
+            if (!jcId) {
+                showToast("Please enter JC ID", "error");
                 return;
             }
             
-            redemptionsList.innerHTML = allRedemptions.map(redemption => {
-                const statusColor = redemption.status === 'completed' ? '#28a745' : 
-                                  redemption.status === 'pending' ? '#ffc107' : '#dc3545';
+            if (!confirm(`Are you absolutely sure you want to delete member ${jcId}? This action cannot be undone!`)) {
+                return;
+            }
+            
+            showToast("Deleting member...", "info");
+            
+            const result = await clubManager.deleteMember(jcId);
+            
+            const deleteResult = document.getElementById('deleteResult');
+            if (result.success) {
+                deleteResult.className = 'success-message';
+                deleteResult.textContent = result.message;
+                document.getElementById('deleteJCId').value = '';
+            } else {
+                deleteResult.className = 'error-message';
+                deleteResult.textContent = result.message;
+            }
+        }
+
+        async function loadAllVouchers() {
+            const allVouchersList = document.getElementById('allVouchersList');
+            allVouchersList.innerHTML = '<div class="activity-item">Loading vouchers...</div>';
+            
+            const stats = voucherSystem.getVoucherStats();
+            document.getElementById('voucherStats').innerHTML = `
+                <p><strong>Total Vouchers:</strong> ${stats.total}</p>
+                <p><strong>Active:</strong> ${stats.active}</p>
+                <p><strong>Used:</strong> ${stats.used}</p>
+                <p><strong>Expired:</strong> ${stats.expired}</p>
+                <p><strong>Redemption Rate:</strong> ${stats.redemptionRate}</p>
+                <p><strong>Average Discount:</strong> ${stats.avgDiscount}%</p>
+            `;
+            
+            const vouchers = voucherSystem.getAllVouchers();
+            
+            if (vouchers.length === 0) {
+                allVouchersList.innerHTML = '<div class="activity-item">No vouchers yet</div>';
+                return;
+            }
+            
+            allVouchersList.innerHTML = vouchers.map(voucher => {
+                const statusClass = voucher.status === 'active' ? 'status-active' : 
+                                  voucher.status === 'used' ? 'status-used' : 'status-expired';
+                const statusText = voucher.status === 'active' ? 'ACTIVE' :
+                                 voucher.status === 'used' ? 'USED' : 'EXPIRED';
                 
                 return `
-                    <div class="redemption-item">
+                    <div class="voucher-item ${voucher.status}">
                         <div class="option-header">
-                            <h4>Redemption ${redemption.redemptionId}</h4>
-                            <span class="redemption-status" style="background: ${statusColor}; color: white;">
-                                ${redemption.status.toUpperCase()}
-                            </span>
+                            <h4>${voucher.memberName} (${voucher.memberJCId})</h4>
+                            <span class="voucher-status ${statusClass}">${statusText}</span>
                         </div>
-                        <p><strong>Member:</strong> ${redemption.memberName} (${redemption.memberJCId}) - ${redemption.memberTier}</p>
-                        <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
-                        <p><strong>Type:</strong> ${redemption.selectedOption.type === 'points_redemption' ? 'Pay with Points' : 'Discount Voucher'}</p>
-                        <p><strong>Created:</strong> ${new Date(redemption.createdDate).toLocaleString()}</p>
-                        ${redemption.redeemedDate ? `
-                            <p><strong>Redeemed:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}</p>
-                            <p><strong>Redeemed By:</strong> ${redemption.redeemedBy}</p>
+                        <p><strong>Voucher:</strong> <span class="voucher-code">${voucher.code}</span></p>
+                        <p><strong>Discount:</strong> ${voucher.discountPercentage}%</p>
+                        <p><strong>Points Used:</strong> ${voucher.pointsUsed}</p>
+                        <p><strong>Created:</strong> ${new Date(voucher.createdDate).toLocaleDateString()}</p>
+                        <p><strong>Expires:</strong> ${new Date(voucher.expiryDate).toLocaleDateString()}</p>
+                        ${voucher.usedDate ? `
+                            <p><strong>Redeemed:</strong> ${new Date(voucher.usedDate).toLocaleDateString()}</p>
+                            <p><strong>Redeemed By:</strong> ${voucher.redeemedBy || 'system'}</p>
                         ` : ''}
-                        ${redemption.selectedOption.type === 'discount_voucher' ? `
-                            <p><strong>Discount:</strong> ${redemption.selectedOption.discountPercentage}%</p>
-                        ` : `
-                            <p><strong>Points Used:</strong> ${redemption.selectedOption.pointsEquivalent}</p>
-                        `}
                     </div>
                 `;
             }).join('');
+        }
+
+        async function refreshVouchers() {
+            showToast("Refreshing vouchers...", "info");
+            loadAllVouchers();
+            showToast("Vouchers refreshed!", "success");
         }
 
         async function requestPasswordReset() {
@@ -6617,6 +6341,7 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
             if (result.success) {
                 resetRequestResult.className = 'success-message';
                 resetRequestResult.textContent = result.message;
+                
                 document.getElementById('resetForm').classList.remove('hidden');
             } else {
                 resetRequestResult.className = 'error-message';
@@ -6635,13 +6360,13 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
                 return;
             }
             
-            if (newPassword !== confirmPassword) {
-                showToast("Passwords don't match", "error");
+            if (newPassword.length < 6) {
+                showToast("Password must be at least 6 characters", "error");
                 return;
             }
             
-            if (newPassword.length < 6) {
-                showToast("Password must be at least 6 characters", "error");
+            if (newPassword !== confirmPassword) {
+                showToast("Passwords do not match", "error");
                 return;
             }
             
@@ -6654,62 +6379,472 @@ I'll combine the best parts of both files. I'll keep the first file's camera sca
                 resetExecuteResult.className = 'success-message';
                 resetExecuteResult.textContent = result.message;
                 
+                document.getElementById('resetToken').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+                
                 setTimeout(() => {
+                    document.getElementById('resetForm').classList.add('hidden');
+                    resetExecuteResult.textContent = '';
                     showLoginScreen();
-                }, 2000);
+                }, 3000);
             } else {
                 resetExecuteResult.className = 'error-message';
                 resetExecuteResult.textContent = result.message;
             }
         }
 
-        function logout() {
-            const result = clubManager.logout();
-            showToast(result.message, "info");
-            showLoginScreen();
+        // QR Redemption Functions
+        let selectedOptionIndex = -1;
+        let currentRedemptionOptions = [];
+        let currentPurchaseAmount = 0;
+
+        async function calculateRedemptionOptions() {
+            const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
+            
+            if (!purchaseAmount || purchaseAmount <= 0) {
+                showToast("Please enter a valid purchase amount", "error");
+                return;
+            }
+            
+            currentPurchaseAmount = purchaseAmount;
+            
+            showToast("Calculating redemption options...", "info");
+            
+            if (!clubManager.currentMember) {
+                showToast("You must be logged in", "error");
+                return;
+            }
+            
+            const member = clubManager.currentMember;
+            const memberPoints = member.points || 0;
+            currentRedemptionOptions = qrRedemptionSystem.calculateRedemptionOptions(
+                clubManager.currentMember, 
+                purchaseAmount
+            );
+            
+            if (!currentRedemptionOptions || currentRedemptionOptions.length === 0) {
+                const redemptionOptions = document.getElementById('redemptionOptions');
+                redemptionOptions.innerHTML = `
+                    <div class="info-card">
+                        <p>No redemption options available for your purchase amount and tier.</p>
+                        <p><small>Pearl members only have discount voucher options. Higher tiers have pay-with-points options.</small></p>
+                        <p><small>You may need to:</small></p>
+                        <ul>
+                            <li>Have at least 10 points for discount vouchers</li>
+                            <li>Meet spending thresholds for pay-with-points (higher tiers)</li>
+                            <li>Earn more points through purchases</li>
+                        </ul>
+                    </div>
+                `;
+                selectedOptionIndex = -1;
+                return;
+            }
+            
+            const redemptionOptions = document.getElementById('redemptionOptions');
+            redemptionOptions.innerHTML = currentRedemptionOptions.map((option, index) => {
+                let optionHTML = '';
+                
+                if (option.type === 'points_redemption') {
+                    optionHTML = `
+                        <div class="redemption-option" onclick="selectRedemptionOption(${index})">
+                            <div class="option-header">
+                                <h4>💰 Pay with Points</h4>
+                                <span class="option-tier tier-${option.tier.toLowerCase()}">${option.tier}</span>
+                            </div>
+                            <p><strong>Available:</strong> ${option.maxRedemption.toLocaleString()} UGX</p>
+                            <p><strong>Points Equivalent:</strong> ${option.pointsEquivalent.toLocaleString()} points</p>
+                            <p><strong>Description:</strong> ${option.description}</p>
+                            <p><strong>Value:</strong> ${option.pointsValue} points multiplier</p>
+                            <p><small>Uses your accumulated points for purchase credit</small></p>
+                        </div>
+                    `;
+                } else if (option.type === 'discount_voucher') {
+                    optionHTML = `
+                        <div class="redemption-option" onclick="selectRedemptionOption(${index})">
+                            <div class="option-header">
+                                <h4>🎫 Discount Voucher</h4>
+                                <span class="option-tier tier-${option.tier.toLowerCase()}">${option.tier}</span>
+                            </div>
+                            <p><strong>Discount Amount:</strong> ${option.discountAmount.toLocaleString()} UGX</p>
+                            <p><strong>Discount Percentage:</strong> ${option.discountPercentage}%</p>
+                            <p><strong>Applicable Amount:</strong> ${option.applicableAmount.toLocaleString()} UGX</p>
+                            <p><strong>Points Required:</strong> ${option.pointsRequired.toLocaleString()} points</p>
+                            <p><small>Get a fixed discount voucher for future use</small></p>
+                        </div>
+                    `;
+                }
+                
+                return optionHTML;
+            }).join('');
+            
+            selectedOptionIndex = -1;
+            showToast(`${currentRedemptionOptions.length} redemption options available`, "success");
         }
 
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            initGoogleSignIn();
+        function selectRedemptionOption(index) {
+            selectedOptionIndex = index;
             
-            // Auto-show dashboard if already logged in
+            currentPurchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
+            
+            if (!currentPurchaseAmount || currentPurchaseAmount <= 0) {
+                showToast("Please enter a valid purchase amount first", "error");
+                return;
+            }
+            
+            currentRedemptionOptions = qrRedemptionSystem.calculateRedemptionOptions(
+                clubManager.currentMember, 
+                currentPurchaseAmount
+            );
+            
+            if (!currentRedemptionOptions || currentRedemptionOptions.length === 0) {
+                showToast("No redemption options available", "error");
+                return;
+            }
+            
+            if (index < 0 || index >= currentRedemptionOptions.length) {
+                showToast("Invalid option selected", "error");
+                return;
+            }
+            
+            document.querySelectorAll('.redemption-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            const allOptions = document.querySelectorAll('.redemption-option');
+            if (allOptions[index]) {
+                allOptions[index].classList.add('selected');
+            }
+            
+            const selectedOption = currentRedemptionOptions[index];
+            const selectedOptionDetails = document.getElementById('selectedOptionDetails');
+            
+            let detailsHTML = '';
+            if (selectedOption.type === 'points_redemption') {
+                detailsHTML = `
+                    <div class="selected-option-details">
+                        <h4>💰 Pay with Points Selected</h4>
+                        <p><strong>Tier:</strong> ${selectedOption.tier}</p>
+                        <p><strong>Maximum Redemption:</strong> ${selectedOption.maxRedemption.toLocaleString()} UGX</p>
+                        <p><strong>Points Required:</strong> ${selectedOption.pointsEquivalent.toLocaleString()} points</p>
+                        <p><strong>Description:</strong> ${selectedOption.description}</p>
+                        <p><strong>Your Points Balance:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
+                        <p><strong>Points After Redemption:</strong> ${(clubManager.currentMember.points - selectedOption.pointsEquivalent).toLocaleString()} points</p>
+                        <button class="btn" onclick="generateQRCode()" style="margin-top: 15px;">
+                            Generate QR Code
+                        </button>
+                    </div>
+                `;
+            } else if (selectedOption.type === 'discount_voucher') {
+                detailsHTML = `
+                    <div class="selected-option-details">
+                        <h4>🎫 Discount Voucher Selected</h4>
+                        <p><strong>Discount Amount:</strong> ${selectedOption.discountAmount.toLocaleString()} UGX</p>
+                        <p><strong>Discount Percentage:</strong> ${selectedOption.discountPercentage}%</p>
+                        <p><strong>Applicable Purchase:</strong> ${selectedOption.applicableAmount.toLocaleString()} UGX</p>
+                        <p><strong>Points Required:</strong> ${selectedOption.pointsRequired.toLocaleString()} points</p>
+                        <p><strong>Your Points Balance:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
+                        <p><strong>Points After Redemption:</strong> ${(clubManager.currentMember.points - selectedOption.pointsRequired).toLocaleString()} points</p>
+                        <button class="btn" onclick="generateQRCode()" style="margin-top: 15px;">
+                            Generate QR Code
+                        </button>
+                    </div>
+                `;
+            }
+            
+            selectedOptionDetails.innerHTML = detailsHTML;
+        }
+
+        async function generateQRCode() {
+            try {
+                if (selectedOptionIndex === -1) {
+                    showToast("Please select a redemption option first", "error");
+                    return { success: false, message: "No option selected" };
+                }
+                
+                if (!clubManager.currentMember) {
+                    showToast("You must be logged in", "error");
+                    return { success: false, message: "Not logged in" };
+                }
+                
+                const selectedOption = currentRedemptionOptions[selectedOptionIndex];
+                const purchaseAmount = currentPurchaseAmount;
+                
+                const memberPoints = clubManager.currentMember.points || 0;
+                let pointsNeeded = 0;
+                
+                if (selectedOption.type === 'points_redemption') {
+                    pointsNeeded = selectedOption.pointsEquivalent || 0;
+                } else if (selectedOption.type === 'discount_voucher') {
+                    pointsNeeded = selectedOption.pointsRequired || 0;
+                }
+                
+                if (memberPoints < pointsNeeded) {
+                    const errorMsg = `❌ Insufficient points! You have ${memberPoints.toLocaleString()} points, but need ${pointsNeeded.toLocaleString()} points for this redemption.`;
+                    showToast(errorMsg, "error");
+                    
+                    selectedOptionIndex = -1;
+                    document.querySelectorAll('.redemption-option').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    document.getElementById('selectedOptionDetails').innerHTML = `
+                        <div class="info-card">
+                            <p style="color: #dc3545;">${errorMsg}</p>
+                            <p>Please select a different option or add more points to your account.</p>
+                        </div>
+                    `;
+                    
+                    return { success: false, message: errorMsg };
+                }
+                
+                showToast("Generating QR code...", "info");
+                
+                const redemption = qrRedemptionSystem.createRedemption(
+                    clubManager.currentMember,
+                    selectedOption,
+                    purchaseAmount
+                );
+                
+                if (!redemption) {
+                    showToast("Failed to create redemption", "error");
+                    return { success: false, message: "Redemption creation failed" };
+                }
+                
+                const oldPoints = clubManager.currentMember.points;
+                const currentTier = clubManager.currentMember.tier;
+                
+                clubManager.currentMember.points -= pointsNeeded;
+                clubManager.currentMember.tier = currentTier;
+                
+                clubManager.currentMember.activityLog.unshift({
+                    type: 'points_redemption_qr',
+                    description: `QR redemption: ${selectedOption.description}`,
+                    date: new Date().toISOString(),
+                    points: -pointsNeeded
+                });
+                
+                const saved = await clubManager.db.saveMember(clubManager.currentMember);
+                if (!saved) {
+                    clubManager.currentMember.points = oldPoints;
+                    showToast("Failed to save points deduction", "error");
+                    return { success: false, message: "Database save failed" };
+                }
+                
+                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(redemption.qrCodeData)}`;
+                
+                const qrCodeContainer = document.getElementById('qrCodeContainer');
+                qrCodeContainer.innerHTML = `
+                    <div class="qr-code-container">
+                        <h4>🎉 Redemption QR Code</h4>
+                        <img src="${qrCodeUrl}" alt="Redemption QR Code" style="max-width: 250px; margin: 15px 0;">
+                        <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
+                        <p><strong>Amount:</strong> ${purchaseAmount.toLocaleString()} UGX</p>
+                        <p><strong>Option:</strong> ${selectedOption.description}</p>
+                        <p><strong>Points Deducted:</strong> ${pointsNeeded.toLocaleString()}</p>
+                        <p><strong>Remaining Points:</strong> ${clubManager.currentMember.points.toLocaleString()}</p>
+                        <p><strong>Your Tier:</strong> ${currentTier} (unchanged)</p>
+                        <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                            Show this QR code to our staff at checkout. It's valid for 24 hours.
+                        </p>
+                    </div>
+                `;
+                
+                showToast("QR code generated successfully! Show this to staff.", "success");
+                
+                document.getElementById('qrRedemptionResult').innerHTML = `
+                    <div class="success-card">
+                        <h4>✅ QR Redemption Created!</h4>
+                        <p>Your QR code has been generated successfully. Show it to our staff at checkout.</p>
+                        <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
+                        <p><strong>Status:</strong> Pending redemption</p>
+                        <p><strong>Points Deducted:</strong> ${pointsNeeded.toLocaleString()}</p>
+                        <p><strong>Remaining Points:</strong> ${clubManager.currentMember.points.toLocaleString()}</p>
+                        <p><strong>Your Tier:</strong> ${currentTier} (no downgrade)</p>
+                        <button class="btn" onclick="showDashboard(clubManager.currentMember)" style="margin-top: 10px;">
+                            Back to Dashboard
+                        </button>
+                    </div>
+                `;
+                
+                selectedOptionIndex = -1;
+                document.querySelectorAll('.redemption-option').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                document.getElementById('selectedOptionDetails').innerHTML = `
+                    <div class="info-card">
+                        <p>Please calculate new options for another redemption.</p>
+                    </div>
+                `;
+                
+                return { success: true, redemption: redemption };
+                
+            } catch (error) {
+                console.error("Error generating QR code:", error);
+                showToast("Error generating QR code: " + error.message, "error");
+                return { success: false, message: error.message };
+            }
+        }
+
+        function loadQRRedemptionData() {
+            const stats = qrRedemptionSystem.getRedemptionStats();
+            document.getElementById('qrRedemptionStats').innerHTML = `
+                <div class="info-card">
+                    <h4>Redemption Statistics</h4>
+                    <p><strong>Total Redemptions:</strong> ${stats.total}</p>
+                    <p><strong>Pending:</strong> ${stats.pending}</p>
+                    <p><strong>Completed:</strong> ${stats.completed}</p>
+                    <p><strong>Expired:</strong> ${stats.expired}</p>
+                    <p><strong>Completion Rate:</strong> ${stats.completionRate}</p>
+                    <p><strong>Total Value Redeemed:</strong> ${stats.totalValue.toLocaleString()} UGX</p>
+                </div>
+            `;
+            
+            const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+            const allRedemptionsList = document.getElementById('allRedemptionsList');
+            
+            if (allRedemptions.length === 0) {
+                allRedemptionsList.innerHTML = '<div class="activity-item">No redemptions yet</div>';
+                return;
+            }
+            
+            allRedemptionsList.innerHTML = allRedemptions.map(redemption => {
+                const statusClass = redemption.status === 'completed' ? 'status-active' : 
+                                  redemption.status === 'expired' ? 'status-expired' : 'status-used';
+                const statusText = redemption.status === 'completed' ? 'COMPLETED' :
+                                 redemption.status === 'expired' ? 'EXPIRED' : 'PENDING';
+                
+                return `
+                    <div class="redemption-item">
+                        <div class="option-header">
+                            <h4>${redemption.memberName} (${redemption.memberJCId})</h4>
+                            <span class="redemption-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <p><strong>Redemption ID:</strong> <span class="redemption-id">${redemption.redemptionId}</span></p>
+                        <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
+                        <p><strong>Option:</strong> ${redemption.selectedOption.description}</p>
+                        <p><strong>Created:</strong> ${new Date(redemption.createdDate).toLocaleString()}</p>
+                        ${redemption.redeemedDate ? `
+                            <p><strong>Redeemed:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}</p>
+                            <p><strong>Redeemed By:</strong> ${redemption.redeemedBy}</p>
+                        ` : ''}
+                        ${redemption.status === 'pending' ? `
+                            <p><strong>QR Code:</strong> ${redemption.qrCodeData.substring(0, 50)}...</p>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+         
+        // Toast notification system
+        function showToast(message, type = "info") {
+            const existingToasts = document.querySelectorAll('.toast');
+            existingToasts.forEach(toast => toast.remove());
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                max-width: 400px;
+                word-wrap: break-word;
+            `;
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Add CSS for toast animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize on load
+        window.onload = function() {
+            if (typeof google !== 'undefined') {
+                setTimeout(initGoogleSignIn, 1000);
+            }
+            
             if (clubManager.currentMember) {
                 showDashboard(clubManager.currentMember);
             } else {
                 showSignupScreen();
             }
             
-            // Handle search input focus
-            document.getElementById('searchInput').addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    const searchResults = document.querySelectorAll('.search-result-item');
-                    if (searchResults.length > 0) {
-                        searchResults[0].click();
-                    }
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'salesperson') {
+                if (clubManager.isAdmin) {
+                    showAdminPanel();
+                } else {
+                    showAdminLogin();
                 }
-            });
+            }
             
-            // Initialize camera scanner status
-            updateScanStatus("Ready to scan - Point camera at QR code", "info");
-            
-            // Set current year in footer
-            document.querySelector('.footer-bottom p').innerHTML = 
-                document.querySelector('.footer-bottom p').innerHTML.replace('2026', new Date().getFullYear());
-        });
+            // Start voucher cleanup
+            setTimeout(() => {
+                voucherSystem.cleanupExpiredVouchers();
+            }, 5000);
+        };
 
-        // Handle page visibility change to stop camera
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                closeCameraScanner();
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === '/') {
+                e.preventDefault();
+                showAdminLogin();
+            }
+            
+            if (e.key === 'Escape') {
+                if (!document.getElementById('loginSection').classList.contains('hidden')) {
+                    showSignupScreen();
+                } else if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
+                } else if (!document.getElementById('adminSection').classList.contains('hidden')) {
+                    showLoginScreen();
+                } else if (!document.querySelector('.info-page:not(.hidden)')) {
+                    showDashboardSection();
+                }
+            }
+            
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                showSearch();
+            }
+            
+            // Quick camera shortcut for admins
+            if (e.ctrlKey && e.key === 's' && clubManager.isAdmin) {
+                e.preventDefault();
+                openCameraScanner();
             }
         });
 
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', function() {
-            closeCameraScanner();
-        });
-
+        // Export functionality for testing
+        window.jeansClubManager = clubManager;
+        window.voucherSystem = voucherSystem;
+        window.qrRedemptionSystem = qrRedemptionSystem;
+        window.showToast = showToast;
+        window.openCameraScanner = openCameraScanner;
+        window.closeCameraScanner = closeCameraScanner;
+        window.processScan = processScan;
     </script>
 </body>
-</html> 
+</html>
