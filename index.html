@@ -1551,33 +1551,83 @@
     </div>
 
     <!-- Camera Scanner Modal -->
-    <div class="camera-scanner-modal" id="cameraScannerModal">
-        <div class="camera-container">
-            <div class="scan-status" id="scanStatus">
-                Point camera at QR code
+    <!-- PROFESSIONAL CAMERA SCANNER MODAL -->
+<div class="camera-scanner-modal" id="cameraScannerModal">
+    <div class="camera-container">
+        <!-- Scanner Header -->
+        <div class="scanner-header">
+            <div class="scanner-title">
+                <span class="scanner-icon">📷</span>
+                <span class="scanner-text">QR CODE SCANNER</span>
             </div>
-            <div class="camera-viewport">
-                <div class="camera-overlay">
-                    <div class="scan-frame">
-                        <div class="scan-line"></div>
-                    </div>
+            <div class="scanner-subtitle">Point camera at any Jeans Club QR code</div>
+        </div>
+        
+        <!-- Camera Viewport -->
+        <div class="camera-viewport">
+            <!-- Status Indicator -->
+            <div class="scanner-status" id="scannerStatus">
+                <div class="status-dot"></div>
+                <span class="status-text" id="statusText">READY</span>
+            </div>
+            
+            <!-- Camera Video -->
+            <video id="cameraVideo" playsinline autoplay></video>
+            
+            <!-- Scanning Frame -->
+            <div class="scan-overlay">
+                <div class="scan-frame">
+                    <div class="scan-guide-top"></div>
+                    <div class="scan-guide-right"></div>
+                    <div class="scan-guide-bottom"></div>
+                    <div class="scan-guide-left"></div>
+                    <div class="scan-line"></div>
                 </div>
-                <video id="cameraVideo" playsinline autoplay></video>
-                <canvas id="cameraCanvas" style="display: none;"></canvas>
+                <div class="scan-hint">Align QR code within frame</div>
             </div>
-            <div class="camera-controls">
-                <button class="camera-btn close-btn" onclick="closeCameraScanner()">
-                    ×
+        </div>
+        
+        <!-- Scanner Controls -->
+        <div class="scanner-controls">
+            <div class="control-group">
+                <button class="control-btn primary" onclick="switchCamera()" id="switchCameraBtn">
+                    <span class="btn-icon">🔄</span>
+                    <span class="btn-text">Switch Camera</span>
                 </button>
-                <button class="camera-btn" onclick="switchCamera()" id="switchCameraBtn">
-                    ↻
+                <button class="control-btn secondary" onclick="toggleFlash()" id="flashBtn">
+                    <span class="btn-icon">⚡</span>
+                    <span class="btn-text">Flash</span>
                 </button>
-                <button class="camera-btn" onclick="toggleFlash()" id="flashBtn">
-                    ⚡
+                <button class="control-btn danger" onclick="closeCameraScanner()">
+                    <span class="btn-icon">✕</span>
+                    <span class="btn-text">Close</span>
                 </button>
+            </div>
+            
+            <!-- Manual Entry Option -->
+            <div class="manual-entry">
+                <div class="manual-label">Or enter code manually:</div>
+                <div class="manual-input-group">
+                    <input type="text" id="manualQRInput" placeholder="Enter QR code or Redemption ID">
+                    <button class="manual-btn" onclick="processManualEntry()">Process</button>
+                </div>
+                <div class="manual-note">Works with: QR codes, Redemption IDs (RED...), Voucher codes, JC IDs</div>
+            </div>
+        </div>
+        
+        <!-- Scan Results Display -->
+        <div class="scan-results-panel" id="scanResultsPanel">
+            <div class="results-header">
+                <span class="results-icon">✓</span>
+                <span class="results-title">SCAN SUCCESSFUL</span>
+                <button class="results-close" onclick="closeResults()">✕</button>
+            </div>
+            <div class="results-content" id="resultsContent">
+                <!-- Results will appear here -->
             </div>
         </div>
     </div>
+</div>
 
     <!-- Mercedes-Benz Inspired Header -->
     <header class="mercedes-header">
@@ -2501,549 +2551,760 @@
         // CAMERA SCANNER FUNCTIONALITY - IMPROVED VERSION
         // ===========================
         
-        let currentStream = null;
-        let facingMode = 'environment';
-        let flashOn = false;
-        let html5QrCode = null;
-        let isScanning = false;
-        let currentScanner = null;
+      // ===========================
+// PROFESSIONAL QR SCANNER SYSTEM
+// ===========================
 
-        // Open camera scanner
-        function openCameraScanner() {
-            if (!clubManager.isAdmin) {
-                showToast("Please login as staff first", "error");
-                return;
-            }
+let currentStream = null;
+let facingMode = 'environment';
+let flashOn = false;
+let html5QrCode = null;
+let isScanning = false;
 
-            const modal = document.getElementById('cameraScannerModal');
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-            
-            startCamera();
+// Open professional scanner
+function openCameraScanner() {
+    if (!clubManager.isAdmin) {
+        showToast("Please login as staff first", "error");
+        return;
+    }
+
+    const modal = document.getElementById('cameraScannerModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    updateScannerStatus("Starting camera...", "warning");
+    
+    // Start camera with delay for smoother UX
+    setTimeout(() => {
+        startProfessionalCamera();
+    }, 300);
+}
+
+// Professional camera starter
+async function startProfessionalCamera() {
+    try {
+        console.log("🚀 Starting professional camera...");
+        
+        const videoElement = document.getElementById('cameraVideo');
+        if (!videoElement) {
+            throw new Error("Camera video element not found");
         }
-
-        // Start camera with improved scanning
-        async function startCamera() {
-            try {
-                console.log("Starting camera...");
-                
-                // Stop any existing scanner
-                if (html5QrCode) {
-                    try {
-                        await html5QrCode.stop();
-                    } catch (e) {
-                        // Ignore stopping errors
-                    }
-                    html5QrCode = null;
-                }
-
-                const videoElement = document.getElementById('cameraVideo');
-                const scanStatus = document.getElementById('scanStatus');
-                
-                scanStatus.textContent = "Starting camera...";
-                scanStatus.className = 'scan-status scan-processing';
-
-                // Check if camera is available
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error("Camera API not supported in this browser");
-                }
-
-                // Set up constraints
-                const constraints = {
-                    video: {
-                        facingMode: facingMode,
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    },
-                    audio: false
-                };
-
-                // Request camera access
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                currentStream = stream;
-                
-                // Set video source
-                videoElement.srcObject = stream;
-                
-                // Wait for video to be ready
-                await new Promise((resolve) => {
-                    videoElement.onloadedmetadata = () => {
-                        videoElement.play();
-                        resolve();
-                    };
-                });
-
-                scanStatus.textContent = "Camera ready - Point at QR code";
-                scanStatus.className = 'scan-status';
-
-                // Initialize QR Scanner using html5-qrcode library
-                const config = {
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 },
-                    rememberLastUsedCamera: true,
-                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-                };
-
-                html5QrCode = new Html5Qrcode("cameraVideo");
-                
-                const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-                    if (isScanning) {
-                        handleQRScan(decodedText);
-                    }
-                };
-                
-                const qrCodeErrorCallback = (errorMessage) => {
-                    // Quietly ignore scanning errors during normal operation
-                    console.debug("QR scanning:", errorMessage);
-                };
-
-                // Start scanning
-                await html5QrCode.start(
-                    { facingMode: facingMode },
-                    config,
-                    qrCodeSuccessCallback,
-                    qrCodeErrorCallback
-                );
-
-                isScanning = true;
-                console.log("✅ Camera and QR scanner started successfully");
-
-            } catch (error) {
-                console.error("Camera error:", error);
-                updateScanStatus("Camera error: " + error.message, "error");
-                
-                let errorMessage = "Camera access failed: ";
-                
-                if (error.name === 'NotAllowedError') {
-                    errorMessage += "Please allow camera access in your browser settings";
-                } else if (error.name === 'NotFoundError') {
-                    errorMessage += "No camera found on this device";
-                } else if (error.name === 'NotSupportedError') {
-                    errorMessage += "Camera not supported on this browser";
-                } else if (error.name === 'NotReadableError') {
-                    errorMessage += "Camera is being used by another application";
-                } else {
-                    errorMessage += error.message;
-                }
-                
-                updateScanStatus(errorMessage, "error");
-                
-                // Fallback after delay
-                setTimeout(() => {
-                    closeCameraScanner();
-                    document.getElementById('voucherCodeInput').focus();
-                    showToast("Using manual input instead", "info");
-                }, 3000);
-            }
-        }
-
-        // Stop camera function
-        function stopCamera() {
-            console.log("Stopping camera...");
-            isScanning = false;
-            
-            // Stop QR scanner
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    console.log("QR scanner stopped");
-                    html5QrCode.clear();
-                    html5QrCode = null;
-                }).catch(error => {
-                    console.log("Error stopping QR scanner:", error);
-                    html5QrCode = null;
-                });
-            }
-            
-            // Stop video stream
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => {
-                    track.stop();
-                });
-                currentStream = null;
-            }
-            
-            // Clear video element
-            const videoElement = document.getElementById('cameraVideo');
-            if (videoElement) {
-                videoElement.srcObject = null;
-                videoElement.load();
-            }
-        }
-
-        // Close camera scanner
-        function closeCameraScanner() {
-            console.log("Closing camera scanner...");
-            const modal = document.getElementById('cameraScannerModal');
-            modal.classList.remove('active');
-            document.body.style.overflow = 'auto';
-            
-            stopCamera();
-            resetScanStatus();
-        }
-
-        // Switch between front/back camera
-        async function switchCamera() {
-            facingMode = facingMode === 'environment' ? 'user' : 'environment';
-            
-            updateScanStatus("Switching camera...", "info");
-            
-            // Stop current camera
-            stopCamera();
-            
-            // Start new camera after a short delay
-            setTimeout(() => {
-                startCamera();
-            }, 500);
-        }
-
-        // Toggle flash (if available)
-        async function toggleFlash() {
-            if (!currentStream) return;
-            
-            try {
-                const track = currentStream.getVideoTracks()[0];
-                const capabilities = track.getCapabilities();
-                
-                if (capabilities.torch) {
-                    await track.applyConstraints({
-                        advanced: [{ torch: !flashOn }]
-                    });
-                    flashOn = !flashOn;
-                    
-                    const flashBtn = document.getElementById('flashBtn');
-                    flashBtn.style.background = flashOn ? '#ffc107' : '#00AFF0';
-                    flashBtn.style.color = flashOn ? '#333' : 'white';
-                    
-                    updateScanStatus(flashOn ? "Flash ON" : "Flash OFF", "info");
-                } else {
-                    showToast("Flash not available on this device", "info");
-                }
-            } catch (error) {
-                console.error("Flash error:", error);
-                showToast("Flash not supported", "error");
-            }
-        }
-
-        // Handle QR scan result
-        async function handleQRScan(qrData) {
-            if (!isScanning) return;
-            
-            console.log("QR Code detected:", qrData);
-            
-            // Temporarily stop scanning
-            isScanning = false;
-            if (html5QrCode) {
-                html5QrCode.pause();
-            }
-            
-            updateScanStatus("✓ QR Code detected!", "success");
-            
-            // Add beep sound effect
-            try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.frequency.value = 800;
-                oscillator.type = 'sine';
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-                
-                oscillator.start();
-                oscillator.stop(audioContext.currentTime + 0.5);
-            } catch (e) {
-                // Sound not critical
-            }
-            
-            // Auto-fill the input field
-            const inputField = document.getElementById('voucherCodeInput');
+        
+        // Stop any existing camera
+        await stopCamera();
+        
+        // Request camera access
+        const constraints = {
+            video: {
+                facingMode: facingMode,
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                frameRate: { ideal: 30 }
+            },
+            audio: false
+        };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        currentStream = stream;
+        
+        // Apply to video element
+        videoElement.srcObject = stream;
+        
+        // Wait for video to play
+        await videoElement.play();
+        
+        console.log("✅ Camera started successfully");
+        console.log("Video dimensions:", videoElement.videoWidth, "x", videoElement.videoHeight);
+        
+        updateScannerStatus("READY - Point at QR code", "success");
+        
+        // Initialize QR scanner
+        initializeProfessionalScanner();
+        
+        // Apply visual feedback
+        videoElement.style.border = '2px solid #28a745';
+        videoElement.style.boxShadow = '0 0 20px rgba(40, 167, 69, 0.3)';
+        
+    } catch (error) {
+        console.error("❌ Camera error:", error);
+        updateScannerStatus("Camera error: " + error.message, "error");
+        
+        // Fallback to manual input
+        setTimeout(() => {
+            const inputField = document.getElementById('manualQRInput');
             if (inputField) {
-                inputField.value = qrData;
+                inputField.focus();
+                showToast("Using manual input instead", "info");
             }
-            
-            // Process the scan
-            await processScanFromCamera(qrData);
-        }
+        }, 2000);
+    }
+}
 
-        // Process scan from camera
-        async function processScanFromCamera(qrData) {
-            const salespersonName = document.getElementById('salespersonName').value.trim();
-            
-            if (!salespersonName) {
-                updateScanStatus("Please enter your name first", "error");
-                
-                setTimeout(() => {
-                    closeCameraScanner();
-                    const nameField = document.getElementById('salespersonName');
-                    if (nameField) {
-                        nameField.focus();
-                    }
-                    showToast("Please enter your name first", "error");
-                }, 1000);
-                
-                return;
-            }
-            
-            // Process the scan
-            const result = await processScanData(qrData, salespersonName);
-            
-            // Visual feedback
-            if (result.success) {
-                // Green success effect
-                updateScanStatus("✓ Scan Successful!", "success");
-                
-                // Show detailed results
-                displayScanResults(result, true);
-                
-                // Close camera after successful scan
-                setTimeout(() => {
-                    closeCameraScanner();
-                    showToast("Scan processed successfully!", "success");
-                }, 2000);
-            } else {
-                // Red error effect
-                updateScanStatus("✗ " + result.message, "error");
-                
-                // Show error results
-                displayScanResults(result, false);
-                
-                // Resume scanning after delay
-                setTimeout(() => {
-                    updateScanStatus("Ready to scan", "info");
-                    
-                    if (html5QrCode) {
-                        html5QrCode.resume();
-                        isScanning = true;
-                    }
-                }, 3000);
-            }
+// Initialize professional QR scanner
+async function initializeProfessionalScanner() {
+    try {
+        // Check if library loaded
+        if (typeof Html5Qrcode === 'undefined') {
+            throw new Error("QR Scanner library not loaded");
         }
-
-        // Process scan data
-        async function processScanData(qrData, salespersonName) {
+        
+        // Stop existing scanner
+        if (html5QrCode) {
             try {
-                // Try voucher first
-                const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
-                if (voucherResult.success) {
-                    return {
-                        success: true,
-                        type: 'voucher',
-                        message: voucherResult.message,
-                        data: voucherResult.voucher
-                    };
-                }
-                
-                // Try QR redemption
-                const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
-                if (redemptionResult.success) {
-                    return {
-                        success: true,
-                        type: 'redemption',
-                        message: redemptionResult.message,
-                        data: redemptionResult.redemption
-                    };
-                }
-                
-                // Check if it's a JC ID
-                if (qrData.startsWith('JC')) {
-                    const member = await clubManager.db.getMemberByJCId(qrData);
-                    if (member) {
-                        return {
-                            success: true,
-                            type: 'member',
-                            message: `Member found: ${member.name}`,
-                            data: member
-                        };
-                    }
-                }
-                
-                return {
-                    success: false,
-                    message: "Invalid QR code. Please scan a valid Jeans Club voucher or redemption QR code."
-                };
-                
-            } catch (error) {
-                console.error("Scan processing error:", error);
-                return {
-                    success: false,
-                    message: "Error processing QR code: " + error.message
-                };
+                await html5QrCode.stop();
+                html5QrCode.clear();
+            } catch (e) {
+                console.log("Cleaning old scanner...");
             }
+            html5QrCode = null;
         }
+        
+        // Create new scanner
+        html5QrCode = new Html5Qrcode("cameraVideo");
+        
+        // Configure scanner
+        const config = {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
+            disableFlip: false,
+            rememberLastUsedCamera: true
+        };
+        
+        // Start scanning
+        await html5QrCode.start(
+            { facingMode: facingMode },
+            config,
+            handleQRDetection,  // Detection callback
+            () => {}           // Quiet error handler
+        );
+        
+        isScanning = true;
+        console.log("✅ QR Scanner initialized and active");
+        updateScannerStatus("SCANNING...", "scanning");
+        
+    } catch (error) {
+        console.error("❌ Scanner initialization error:", error);
+        updateScannerStatus("Scanner error", "error");
+    }
+}
 
-        // Update scan status display
-        function updateScanStatus(message, type) {
-            const statusElement = document.getElementById('scanStatus');
-            if (!statusElement) return;
-            
-            statusElement.textContent = message;
-            
-            // Remove all classes
-            statusElement.classList.remove('scan-success', 'scan-error', 'scan-processing');
-            
-            // Add appropriate class
-            if (type === 'success') {
-                statusElement.classList.add('scan-success');
-            } else if (type === 'error') {
-                statusElement.classList.add('scan-error');
-            } else if (type === 'processing') {
-                statusElement.classList.add('scan-processing');
-            }
+// Handle QR code detection
+function handleQRDetection(decodedText) {
+    console.log("🎯 QR Code detected:", decodedText);
+    
+    // Stop scanning temporarily
+    if (html5QrCode && isScanning) {
+        html5QrCode.pause();
+        isScanning = false;
+    }
+    
+    // Show scan success feedback
+    showScanSuccessFeedback();
+    
+    // Process the scan
+    processQRCode(decodedText);
+}
+
+// Universal QR code processor
+async function processQRCode(code) {
+    console.log("Processing code:", code);
+    
+    let result = null;
+    let type = "unknown";
+    
+    // Determine code type and process accordingly
+    if (code.startsWith('JC') && code.length > 5) {
+        // Could be JC ID, Voucher, or Redemption ID
+        if (code.startsWith('JCRED') || code.startsWith('RED') || code.includes('REDEMPTION')) {
+            // Redemption ID
+            result = await processRedemptionCode(code);
+            type = "redemption";
+        } else if (code.startsWith('JCVOUCHER') || code.includes('VOUCHER')) {
+            // Voucher code
+            result = await processVoucherCode(code);
+            type = "voucher";
+        } else if (code.startsWith('JC') && code.length <= 10) {
+            // JC ID
+            result = await processJCID(code);
+            type = "member";
+        } else {
+            // Generic QR data
+            result = await processGenericQR(code);
+            type = "generic";
         }
-
-        // Reset scan status
-        function resetScanStatus() {
-            updateScanStatus("Point camera at QR code", "info");
+    } else if (code.startsWith('RED') && code.length > 5) {
+        // Redemption ID
+        result = await processRedemptionCode(code);
+        type = "redemption";
+    } else {
+        // Try all processors
+        result = await tryAllProcessors(code);
+        if (result) {
+            type = result.type || "processed";
         }
+    }
+    
+    // Show results
+    showScanResults(result, type, code);
+    
+    // Resume scanning after delay
+    setTimeout(() => {
+        if (html5QrCode && !isScanning) {
+            html5QrCode.resume();
+            isScanning = true;
+            updateScannerStatus("SCANNING...", "scanning");
+        }
+    }, 3000);
+}
 
-        // Display scan results
-        function displayScanResults(result, success) {
-            const resultsDiv = document.getElementById('scanResults');
-            if (!resultsDiv) return;
-            
-            resultsDiv.classList.remove('hidden');
-            
-            if (success) {
-                resultsDiv.className = 'scan-results success';
-                
-                let detailsHtml = '';
-                if (result.type === 'voucher') {
-                    const voucher = result.data;
-                    detailsHtml = `
-                        <h4>✅ Voucher Redeemed Successfully!</h4>
-                        <div class="details-grid">
-                            <div class="detail-item">
-                                <strong>Voucher Code</strong>
-                                <div>${voucher.code}</div>
+// Process redemption code (RED... or JCRED...)
+async function processRedemptionCode(code) {
+    console.log("Processing redemption code:", code);
+    
+    const salespersonName = document.getElementById('salespersonName')?.value?.trim() || "Staff";
+    
+    try {
+        // Try QR redemption system
+        const redemptionResult = qrRedemptionSystem.processRedemption(code, salespersonName);
+        if (redemptionResult.success) {
+            return {
+                success: true,
+                type: 'redemption',
+                message: "Redemption processed successfully!",
+                data: redemptionResult.redemption,
+                action: "Points redeemed for purchase"
+            };
+        }
+        
+        // Try voucher system (some codes might be vouchers)
+        const voucherResult = voucherSystem.redeemVoucher(code, salespersonName);
+        if (voucherResult.success) {
+            return {
+                success: true,
+                type: 'voucher',
+                message: "Voucher redeemed successfully!",
+                data: voucherResult.voucher,
+                action: `Apply ${voucherResult.voucher.discountPercentage}% discount`
+            };
+        }
+        
+        // Try to find member by JC ID
+        const member = await clubManager.db.getMemberByJCId(code);
+        if (member) {
+            return {
+                success: true,
+                type: 'member',
+                message: "Member found!",
+                data: member,
+                action: "Member account accessed"
+            };
+        }
+        
+        return {
+            success: false,
+            message: "Code not found in system. Please check and try again."
+        };
+        
+    } catch (error) {
+        console.error("Redemption processing error:", error);
+        return {
+            success: false,
+            message: "Error processing code: " + error.message
+        };
+    }
+}
+
+// Process voucher code
+async function processVoucherCode(code) {
+    console.log("Processing voucher code:", code);
+    
+    const salespersonName = document.getElementById('salespersonName')?.value?.trim() || "Staff";
+    
+    try {
+        const result = voucherSystem.redeemVoucher(code, salespersonName);
+        
+        if (result.success) {
+            return {
+                success: true,
+                type: 'voucher',
+                message: "Voucher redeemed successfully!",
+                data: result.voucher,
+                action: `Apply ${result.voucher.discountPercentage}% discount`
+            };
+        }
+        
+        return {
+            success: false,
+            message: result.message
+        };
+        
+    } catch (error) {
+        return {
+            success: false,
+            message: "Voucher processing error: " + error.message
+        };
+    }
+}
+
+// Process JC ID
+async function processJCID(jcId) {
+    console.log("Processing JC ID:", jcId);
+    
+    try {
+        const member = await clubManager.db.getMemberByJCId(jcId);
+        
+        if (member) {
+            return {
+                success: true,
+                type: 'member',
+                message: "Member found!",
+                data: member,
+                action: "Member account details loaded"
+            };
+        }
+        
+        return {
+            success: false,
+            message: "Member not found with JC ID: " + jcId
+        };
+        
+    } catch (error) {
+        return {
+            success: false,
+            message: "Member lookup error: " + error.message
+        };
+    }
+}
+
+// Try all processors
+async function tryAllProcessors(code) {
+    console.log("Trying all processors for:", code);
+    
+    const salespersonName = document.getElementById('salespersonName')?.value?.trim() || "Staff";
+    
+    // Try voucher first
+    const voucherResult = voucherSystem.redeemVoucher(code, salespersonName);
+    if (voucherResult.success) {
+        return {
+            success: true,
+            type: 'voucher',
+            message: "Voucher redeemed!",
+            data: voucherResult.voucher
+        };
+    }
+    
+    // Try redemption
+    const redemptionResult = qrRedemptionSystem.processRedemption(code, salespersonName);
+    if (redemptionResult.success) {
+        return {
+            success: true,
+            type: 'redemption',
+            message: "Redemption processed!",
+            data: redemptionResult.redemption
+        };
+    }
+    
+    // Try JC ID (if starts with JC)
+    if (code.startsWith('JC')) {
+        const member = await clubManager.db.getMemberByJCId(code);
+        if (member) {
+            return {
+                success: true,
+                type: 'member',
+                message: "Member found!",
+                data: member
+            };
+        }
+    }
+    
+    // Try as generic QR data (for backward compatibility)
+    const genericResult = await processGenericQR(code);
+    if (genericResult.success) {
+        return genericResult;
+    }
+    
+    return {
+        success: false,
+        message: "Could not process this QR code. Please try a valid Jeans Club code."
+    };
+}
+
+// Process generic QR data
+async function processGenericQR(code) {
+    try {
+        // Try to parse as JSON (encrypted QR data)
+        const parsed = JSON.parse(code);
+        
+        if (parsed.type === 'jeansclub_redemption') {
+            return await processRedemptionCode(parsed.redemptionId || code);
+        } else if (parsed.type === 'jeansclub_voucher') {
+            return await processVoucherCode(parsed.code || code);
+        }
+        
+        return {
+            success: false,
+            message: "Unrecognized QR code format"
+        };
+        
+    } catch (e) {
+        // Not JSON, try as plain text
+        if (code.includes('voucher') || code.includes('VOUCHER')) {
+            return await processVoucherCode(code);
+        } else if (code.includes('redemption') || code.includes('REDEMPTION')) {
+            return await processRedemptionCode(code);
+        }
+        
+        return {
+            success: false,
+            message: "Invalid QR code format"
+        };
+    }
+}
+
+// Show scan success feedback
+function showScanSuccessFeedback() {
+    // Play beep sound
+    playScanBeep();
+    
+    // Create success overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'scan-success-overlay';
+    document.body.appendChild(overlay);
+    
+    // Add camera flash effect
+    const video = document.getElementById('cameraVideo');
+    if (video) {
+        video.style.filter = 'brightness(1.5)';
+        setTimeout(() => {
+            video.style.filter = 'brightness(1)';
+        }, 300);
+    }
+    
+    // Remove overlay
+    setTimeout(() => {
+        if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+    }, 500);
+    
+    // Update scanner status
+    updateScannerStatus("✓ SCAN SUCCESS!", "success");
+}
+
+// Play scan beep sound
+function playScanBeep() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {
+        console.log("Audio not available");
+    }
+}
+
+// Show scan results
+function showScanResults(result, type, originalCode) {
+    const panel = document.getElementById('scanResultsPanel');
+    const content = document.getElementById('resultsContent');
+    
+    if (!panel || !content) return;
+    
+    if (result.success) {
+        let resultHTML = '';
+        
+        switch(type) {
+            case 'voucher':
+                const voucher = result.data;
+                resultHTML = `
+                    <div class="result-card voucher-card">
+                        <div class="result-icon">🎫</div>
+                        <h3>Discount Voucher</h3>
+                        <div class="result-details">
+                            <div class="detail-row">
+                                <span class="detail-label">Code:</span>
+                                <span class="detail-value code">${voucher.code}</span>
                             </div>
-                            <div class="detail-item">
-                                <strong>Member</strong>
-                                <div>${voucher.memberName} (${voucher.memberJCId})</div>
+                            <div class="detail-row">
+                                <span class="detail-label">Member:</span>
+                                <span class="detail-value">${voucher.memberName} (${voucher.memberJCId})</span>
                             </div>
-                            <div class="detail-item">
-                                <strong>Discount</strong>
-                                <div>${voucher.discountPercentage}% off</div>
+                            <div class="detail-row">
+                                <span class="detail-label">Discount:</span>
+                                <span class="detail-value highlight">${voucher.discountPercentage}% OFF</span>
                             </div>
-                            <div class="detail-item">
-                                <strong>Status</strong>
-                                <div style="color: #28a745; font-weight: bold;">REDEEMED</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Redeemed By</strong>
-                                <div>${voucher.redeemedBy}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Date</strong>
-                                <div>${new Date(voucher.usedDate).toLocaleString()}</div>
+                            <div class="detail-row">
+                                <span class="detail-label">Status:</span>
+                                <span class="detail-value status-success">✓ REDEEMED</span>
                             </div>
                         </div>
-                    `;
-                } else if (result.type === 'redemption') {
-                    const redemption = result.data;
-                    detailsHtml = `
-                        <h4>✅ QR Redemption Successful!</h4>
-                        <div class="details-grid">
-                            <div class="detail-item">
-                                <strong>Redemption ID</strong>
-                                <div>${redemption.redemptionId}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Member</strong>
-                                <div>${redemption.memberName} (${redemption.memberJCId})</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Purchase Amount</strong>
-                                <div>${redemption.purchaseAmount.toLocaleString()} UGX</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Redemption Type</strong>
-                                <div>${redemption.selectedOption.type === 'points_redemption' ? 'Pay with Points' : 'Discount Voucher'}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Status</strong>
-                                <div style="color: #28a745; font-weight: bold;">COMPLETED</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Redeemed By</strong>
-                                <div>${redemption.redeemedBy}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Date</strong>
-                                <div>${new Date(redemption.redeemedDate).toLocaleString()}</div>
-                            </div>
+                        <div class="result-action">
+                            <p class="action-text">${result.action}</p>
+                            <button class="action-btn" onclick="closeResults()">OK</button>
                         </div>
-                    `;
-                } else if (result.type === 'member') {
-                    const member = result.data;
-                    detailsHtml = `
-                        <h4>✅ Member Found!</h4>
-                        <div class="details-grid">
-                            <div class="detail-item">
-                                <strong>JC ID</strong>
-                                <div>${member.jcId}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Name</strong>
-                                <div>${member.name}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Tier</strong>
-                                <div>${member.tier}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Points</strong>
-                                <div>${member.points?.toLocaleString() || 0}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Total Spent</strong>
-                                <div>${(member.totalSpent || 0).toLocaleString()} UGX</div>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                resultsDiv.innerHTML = detailsHtml;
-            } else {
-                resultsDiv.className = 'scan-results error';
-                resultsDiv.innerHTML = `
-                    <h4>❌ Scan Failed</h4>
-                    <p><strong>Error:</strong> ${result.message}</p>
-                    <p>Please try again or enter the code manually.</p>
+                    </div>
                 `;
-            }
+                break;
+                
+            case 'redemption':
+                const redemption = result.data;
+                resultHTML = `
+                    <div class="result-card redemption-card">
+                        <div class="result-icon">💰</div>
+                        <h3>Points Redemption</h3>
+                        <div class="result-details">
+                            <div class="detail-row">
+                                <span class="detail-label">ID:</span>
+                                <span class="detail-value code">${redemption.redemptionId}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Member:</span>
+                                <span class="detail-value">${redemption.memberName} (${redemption.memberJCId})</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Amount:</span>
+                                <span class="detail-value highlight">${(redemption.purchaseAmount || 0).toLocaleString()} UGX</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Status:</span>
+                                <span class="detail-value status-success">✓ COMPLETED</span>
+                            </div>
+                        </div>
+                        <div class="result-action">
+                            <p class="action-text">${result.action}</p>
+                            <button class="action-btn" onclick="closeResults()">OK</button>
+                        </div>
+                    </div>
+                `;
+                break;
+                
+            case 'member':
+                const member = result.data;
+                resultHTML = `
+                    <div class="result-card member-card">
+                        <div class="result-icon">👤</div>
+                        <h3>Member Account</h3>
+                        <div class="result-details">
+                            <div class="detail-row">
+                                <span class="detail-label">JC ID:</span>
+                                <span class="detail-value code">${member.jcId}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Name:</span>
+                                <span class="detail-value">${member.name}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Tier:</span>
+                                <span class="detail-value tier-${member.tier.toLowerCase()}">${member.tier}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Points:</span>
+                                <span class="detail-value highlight">${(member.points || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div class="result-action">
+                            <button class="action-btn" onclick="addPurchaseForMember('${member.jcId}')">Add Purchase</button>
+                            <button class="action-btn secondary" onclick="closeResults()">Close</button>
+                        </div>
+                    </div>
+                `;
+                break;
         }
+        
+        content.innerHTML = resultHTML;
+        
+    } else {
+        // Error result
+        content.innerHTML = `
+            <div class="result-card error-card">
+                <div class="result-icon">❌</div>
+                <h3>Scan Failed</h3>
+                <div class="error-message">
+                    ${result.message}
+                </div>
+                <div class="error-details">
+                    <p><strong>Code scanned:</strong> <code>${originalCode}</code></p>
+                    <p>Please try:</p>
+                    <ul>
+                        <li>Scanning again</li>
+                        <li>Entering code manually</li>
+                        <li>Checking if code is valid</li>
+                    </ul>
+                </div>
+                <div class="result-action">
+                    <button class="action-btn" onclick="closeResults()">OK</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Show the results panel
+    panel.classList.add('active');
+}
 
-        // Process scan manually
-        async function processScan() {
-            const qrData = document.getElementById('voucherCodeInput').value.trim();
-            const salespersonName = document.getElementById('salespersonName').value.trim();
-            
-            if (!qrData) {
-                showToast("Please enter a voucher code or QR data", "error");
-                return;
-            }
-            
-            if (!salespersonName) {
-                showToast("Please enter your name", "error");
-                return;
-            }
-            
-            showToast("Processing scan...", "info");
-            
-            const result = await processScanData(qrData, salespersonName);
-            
-            if (result.success) {
-                showToast(result.message, "success");
-                displayScanResults(result, true);
-            } else {
-                showToast(result.message, "error");
-                displayScanResults(result, false);
-            }
+// Update scanner status
+function updateScannerStatus(text, status) {
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.querySelector('.status-dot');
+    
+    if (statusText) statusText.textContent = text;
+    
+    if (statusDot) {
+        switch(status) {
+            case 'success':
+                statusDot.style.background = '#28a745';
+                statusDot.style.animation = 'none';
+                break;
+            case 'warning':
+                statusDot.style.background = '#ffc107';
+                statusDot.style.animation = 'pulse 1s infinite';
+                break;
+            case 'error':
+                statusDot.style.background = '#dc3545';
+                statusDot.style.animation = 'pulse 0.5s infinite';
+                break;
+            case 'scanning':
+                statusDot.style.background = '#2196F3';
+                statusDot.style.animation = 'pulse 1.5s infinite';
+                break;
         }
+    }
+}
 
+// Manual entry processing
+function processManualEntry() {
+    const input = document.getElementById('manualQRInput');
+    const code = input.value.trim();
+    
+    if (!code) {
+        showToast("Please enter a code", "error");
+        return;
+    }
+    
+    console.log("Manual entry processing:", code);
+    
+    // Show processing status
+    updateScannerStatus("Processing...", "warning");
+    
+    // Process the code
+    processQRCode(code);
+    
+    // Clear input
+    input.value = '';
+}
+
+// Close results panel
+function closeResults() {
+    const panel = document.getElementById('scanResultsPanel');
+    if (panel) {
+        panel.classList.remove('active');
+    }
+}
+
+// Stop camera
+async function stopCamera() {
+    console.log("Stopping camera...");
+    isScanning = false;
+    
+    // Stop QR scanner
+    if (html5QrCode) {
+        try {
+            await html5QrCode.stop();
+            html5QrCode.clear();
+        } catch (e) {
+            console.log("Scanner stopped");
+        }
+        html5QrCode = null;
+    }
+    
+    // Stop video stream
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+    }
+    
+    // Clear video element
+    const videoElement = document.getElementById('cameraVideo');
+    if (videoElement) {
+        videoElement.srcObject = null;
+        videoElement.load();
+    }
+    
+    // Reset status
+    updateScannerStatus("READY", "success");
+}
+
+// Close scanner
+function closeCameraScanner() {
+    console.log("Closing scanner...");
+    
+    const modal = document.getElementById('cameraScannerModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+    
+    document.body.style.overflow = 'auto';
+    
+    // Stop camera
+    stopCamera();
+    
+    // Close results panel
+    closeResults();
+}
+
+// Switch camera
+async function switchCamera() {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    updateScannerStatus("Switching camera...", "warning");
+    await stopCamera();
+    setTimeout(startProfessionalCamera, 500);
+}
+
+// Toggle flash
+function toggleFlash() {
+    if (!currentStream) return;
+    
+    // Implementation for devices with flash support
+    const flashBtn = document.getElementById('flashBtn');
+    flashOn = !flashOn;
+    
+    if (flashOn) {
+        flashBtn.style.background = '#ffc107';
+        flashBtn.style.color = '#333';
+        flashBtn.querySelector('.btn-text').textContent = 'Flash ON';
+    } else {
+        flashBtn.style.background = '#6c757d';
+        flashBtn.style.color = 'white';
+        flashBtn.querySelector('.btn-text').textContent = 'Flash';
+    }
+    
+    showToast(flashOn ? "Flash ON" : "Flash OFF", "info");
+}
+
+// Add purchase for member (helper function)
+function addPurchaseForMember(jcId) {
+    closeCameraScanner();
+    
+    // Populate purchase form in admin panel
+    const purchaseJCId = document.getElementById('purchaseJCId');
+    if (purchaseJCId) {
+        purchaseJCId.value = jcId;
+        purchaseJCId.focus();
+    }
+    
+    showToast(`Ready to add purchase for ${jcId}`, "info");
+}
         // ===========================
         // VOUCHER CLEANUP FUNCTION
         // ===========================
@@ -6836,7 +7097,23 @@
                 openCameraScanner();
             }
         });
+// Run this complete test
+console.log("=== QR SCANNER DIAGNOSIS ===");
+console.log("1. Page loaded:", document.readyState);
+console.log("2. testQRScanner function exists:", typeof testQRScanner);
+console.log("3. playBeepSound function exists:", typeof playBeepSound);
+console.log("4. Camera API available:", !!navigator.mediaDevices);
+console.log("5. Current page protocol:", window.location.protocol);
 
+// Test visual
+setTimeout(() => {
+    testQRScanner();
+    setTimeout(() => {
+        playBeepSound();
+        console.log("=== TESTS COMPLETE ===");
+        console.log("If you saw green ✓ and heard beep ✓, scanner should work!");
+    }, 1000);
+}, 500);
         // Export functionality for testing
         window.jeansClubManager = clubManager;
         window.voucherSystem = voucherSystem;
@@ -6845,6 +7122,7 @@
         window.openCameraScanner = openCameraScanner;
         window.closeCameraScanner = closeCameraScanner;
         window.processScan = processScan;
+ window.testQRScanner = testQRScanner; // Add this line
     </script>
 </body>
 </html>
