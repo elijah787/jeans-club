@@ -2287,13 +2287,6 @@
                     </button>
                     <p style="color: #666; font-size: 14px; margin-top: 10px;">OR enter code manually below</p>
                 </div>
-
-                
-               <div style="text-align: center; margin-bottom: 15px;">
-        <button class="btn" onclick="testQRScan()" style="background: #ff9800;">
-            🧪 Test QR Scan (Debug)
-        </button>
-    </div>
                 
                 <div class="form-group">
                     <label for="voucherCodeInput">Voucher Code or QR Data</label>
@@ -2530,120 +2523,119 @@
         }
 
         // Start camera with improved scanning
-          // Fixed camera scanner function
-async function startCamera() {
-    try {
-        console.log("Starting camera...");
-        
-        const videoElement = document.getElementById('cameraVideo');
-        const scanStatus = document.getElementById('scanStatus');
-        
-        scanStatus.textContent = "Starting camera...";
-        scanStatus.className = 'scan-status scan-processing';
-
-        // Check if camera is available
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error("Camera API not supported in this browser");
-        }
-
-        // Stop any existing scanner first
-        if (html5QrCode) {
+        async function startCamera() {
             try {
-                await html5QrCode.stop();
-            } catch (e) {
-                console.log("Error stopping existing scanner:", e);
+                console.log("Starting camera...");
+                
+                // Stop any existing scanner
+                if (html5QrCode) {
+                    try {
+                        await html5QrCode.stop();
+                    } catch (e) {
+                        // Ignore stopping errors
+                    }
+                    html5QrCode = null;
+                }
+
+                const videoElement = document.getElementById('cameraVideo');
+                const scanStatus = document.getElementById('scanStatus');
+                
+                scanStatus.textContent = "Starting camera...";
+                scanStatus.className = 'scan-status scan-processing';
+
+                // Check if camera is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Camera API not supported in this browser");
+                }
+
+                // Set up constraints
+                const constraints = {
+                    video: {
+                        facingMode: facingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+
+                // Request camera access
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                currentStream = stream;
+                
+                // Set video source
+                videoElement.srcObject = stream;
+                
+                // Wait for video to be ready
+                await new Promise((resolve) => {
+                    videoElement.onloadedmetadata = () => {
+                        videoElement.play();
+                        resolve();
+                    };
+                });
+
+                scanStatus.textContent = "Camera ready - Point at QR code";
+                scanStatus.className = 'scan-status';
+
+                // Initialize QR Scanner using html5-qrcode library
+                const config = {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 },
+                    rememberLastUsedCamera: true,
+                    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+                };
+
+                html5QrCode = new Html5Qrcode("cameraVideo");
+                
+                const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                    if (isScanning) {
+                        handleQRScan(decodedText);
+                    }
+                };
+                
+                const qrCodeErrorCallback = (errorMessage) => {
+                    // Quietly ignore scanning errors during normal operation
+                    console.debug("QR scanning:", errorMessage);
+                };
+
+                // Start scanning
+                await html5QrCode.start(
+                    { facingMode: facingMode },
+                    config,
+                    qrCodeSuccessCallback,
+                    qrCodeErrorCallback
+                );
+
+                isScanning = true;
+                console.log("✅ Camera and QR scanner started successfully");
+
+            } catch (error) {
+                console.error("Camera error:", error);
+                updateScanStatus("Camera error: " + error.message, "error");
+                
+                let errorMessage = "Camera access failed: ";
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += "Please allow camera access in your browser settings";
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += "No camera found on this device";
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage += "Camera not supported on this browser";
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += "Camera is being used by another application";
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                updateScanStatus(errorMessage, "error");
+                
+                // Fallback after delay
+                setTimeout(() => {
+                    closeCameraScanner();
+                    document.getElementById('voucherCodeInput').focus();
+                    showToast("Using manual input instead", "info");
+                }, 3000);
             }
-            html5QrCode = null;
         }
-
-        // Clear video element
-        videoElement.srcObject = null;
-        
-        // Set up constraints
-        const constraints = {
-            video: {
-                facingMode: facingMode,
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: false
-        };
-
-        // Request camera access
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        currentStream = stream;
-        
-        // Set video source
-        videoElement.srcObject = stream;
-        
-        // Wait for video to be ready
-        await new Promise((resolve) => {
-            videoElement.onloadedmetadata = () => {
-                videoElement.play().then(resolve).catch(resolve);
-            };
-        });
-
-        scanStatus.textContent = "Camera ready - Point at QR code";
-        scanStatus.className = 'scan-status';
-
-        // Initialize HTML5 QR Code scanner
-        html5QrCode = new Html5Qrcode("cameraVideo");
-        
-        // Configure scanner
-        const config = {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0,
-            rememberLastUsedCamera: true,
-            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-        };
-
-        // Start scanning
-        await html5QrCode.start(
-            { facingMode: facingMode },
-            config,
-            (decodedText, decodedResult) => {
-                // Success callback
-                console.log("QR Code detected:", decodedText);
-                handleQRScan(decodedText);
-            },
-            (errorMessage) => {
-                // Error callback - just log quietly
-                // console.debug("QR scanning:", errorMessage);
-            }
-        );
-
-        isScanning = true;
-        console.log("✅ Camera and QR scanner started successfully");
-
-    } catch (error) {
-        console.error("Camera error:", error);
-        updateScanStatus("Camera error: " + error.message, "error");
-        
-        let errorMessage = "Camera access failed: ";
-        
-        if (error.name === 'NotAllowedError') {
-            errorMessage += "Please allow camera access in your browser settings";
-        } else if (error.name === 'NotFoundError') {
-            errorMessage += "No camera found on this device";
-        } else if (error.name === 'NotSupportedError') {
-            errorMessage += "Camera not supported on this browser";
-        } else if (error.name === 'NotReadableError') {
-            errorMessage += "Camera is being used by another application";
-        } else {
-            errorMessage += error.message;
-        }
-        
-        updateScanStatus(errorMessage, "error");
-        
-        // Fallback after delay
-        setTimeout(() => {
-            closeCameraScanner();
-            document.getElementById('voucherCodeInput').focus();
-            showToast("Using manual input instead", "info");
-        }, 3000);
-    }
-}
 
         // Stop camera function
         function stopCamera() {
@@ -2679,121 +2671,31 @@ async function startCamera() {
         }
 
         // Close camera scanner
-           function closeCameraScanner() {
-    console.log("Closing camera scanner...");
-    const modal = document.getElementById('cameraScannerModal');
-    modal.classList.remove('active');
-    document.body.style.overflow = 'auto';
-    
-    isScanning = false;
-    
-    // Stop HTML5 QR scanner
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-            console.log("QR scanner stopped");
-            html5QrCode.clear();
-            html5QrCode = null;
-        }).catch(error => {
-            console.log("Error stopping QR scanner:", error);
-            html5QrCode = null;
-        });
-    }
-    
-    // Stop video stream
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => {
-            track.stop();
-        });
-        currentStream = null;
-    }
-        
-
-    // Clear video element
-    const videoElement = document.getElementById('cameraVideo');
-    if (videoElement) {
-        videoElement.srcObject = null;
-        videoElement.load();
-    }
-    
-    resetScanStatus();
-}
-// Add this function to your JavaScript
-function testQRScan() {
-    // Test with a sample QR code data
-    const testQRData = "RED12345678";
-    
-    console.log("Testing QR scan with:", testQRData);
-    
-    // Make sure we're in admin mode
-    if (!clubManager.isAdmin) {
-        showToast("Please login as admin first", "error");
-        return;
-    }
-    
-    // Fill the fields
-    const inputField = document.getElementById('voucherCodeInput');
-    const nameField = document.getElementById('salespersonName');
-    
-    if (inputField) {
-        inputField.value = testQRData;
-    }
-    
-    if (nameField && !nameField.value) {
-        nameField.value = "Test User";
-    }
-    
-    // Show toast
-    showToast("Testing QR scan with: " + testQRData, "info");
-    
-    // Process the scan
-    if (typeof processScanFromCamera === 'function') {
-        processScanFromCamera(testQRData);
-    } else if (typeof processScan === 'function') {
-        processScan();
-    } else {
-        showToast("Scan function not found", "error");
-    }
-}
-
-
-
-
+        function closeCameraScanner() {
+            console.log("Closing camera scanner...");
+            const modal = document.getElementById('cameraScannerModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+            
+            stopCamera();
+            resetScanStatus();
+        }
 
         // Switch between front/back camera
-          async function switchCamera() {
-    facingMode = facingMode === 'environment' ? 'user' : 'environment';
-    
-    updateScanStatus("Switching camera...", "info");
-    
-    // Stop current camera and scanner
-    if (html5QrCode) {
-        try {
-            await html5QrCode.stop();
-            html5QrCode.clear();
-            html5QrCode = null;
-        } catch (e) {
-            console.log("Error stopping scanner:", e);
+        async function switchCamera() {
+            facingMode = facingMode === 'environment' ? 'user' : 'environment';
+            
+            updateScanStatus("Switching camera...", "info");
+            
+            // Stop current camera
+            stopCamera();
+            
+            // Start new camera after a short delay
+            setTimeout(() => {
+                startCamera();
+            }, 500);
         }
-    }
-    
-    // Stop video stream
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-        currentStream = null;
-    }
-    
-    // Clear video element
-    const videoElement = document.getElementById('cameraVideo');
-    if (videoElement) {
-        videoElement.srcObject = null;
-        videoElement.load();
-    }
-    
-    // Start new camera after a short delay
-    setTimeout(() => {
-        startCamera();
-    }, 500);
-}
+
         // Toggle flash (if available)
         async function toggleFlash() {
             if (!currentStream) return;
@@ -2823,54 +2725,48 @@ function testQRScan() {
         }
 
         // Handle QR scan result
-          async function handleQRScan(qrData) {
-    if (!isScanning) return;
-    
-    console.log("QR Code detected:", qrData);
-    
-    // Temporarily stop scanning to prevent multiple scans
-    isScanning = false;
-    
-    try {
-        if (html5QrCode) {
-            await html5QrCode.stop();
+        async function handleQRScan(qrData) {
+            if (!isScanning) return;
+            
+            console.log("QR Code detected:", qrData);
+            
+            // Temporarily stop scanning
+            isScanning = false;
+            if (html5QrCode) {
+                html5QrCode.pause();
+            }
+            
+            updateScanStatus("✓ QR Code detected!", "success");
+            
+            // Add beep sound effect
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } catch (e) {
+                // Sound not critical
+            }
+            
+            // Auto-fill the input field
+            const inputField = document.getElementById('voucherCodeInput');
+            if (inputField) {
+                inputField.value = qrData;
+            }
+            
+            // Process the scan
+            await processScanFromCamera(qrData);
         }
-    } catch (e) {
-        console.log("Error stopping scanner:", e);
-    }
-    
-    updateScanStatus("✓ QR Code detected!", "success");
-    
-    // Play beep sound
-    try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (e) {
-        // Sound not critical
-    }
-    
-    // Auto-fill the input field
-    const inputField = document.getElementById('voucherCodeInput');
-    if (inputField) {
-        inputField.value = qrData;
-        inputField.dispatchEvent(new Event('input'));
-    }
-    
-    // Process the scan
-    await processScanFromCamera(qrData);
-}
 
         // Process scan from camera
         async function processScanFromCamera(qrData) {
@@ -2927,85 +2823,56 @@ function testQRScan() {
         }
 
         // Process scan data
-       async function processScanData(qrData, salespersonName) {
-    try {
-        // Trim and clean the QR data
-        qrData = qrData.trim();
-        
-        console.log("Processing QR data:", qrData);
-        
-        // Check if it's a redemption ID (starts with RED)
-        if (qrData.startsWith('RED')) {
-            console.log("Detected redemption ID:", qrData);
-            const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
-            if (redemptionResult.success) {
+        async function processScanData(qrData, salespersonName) {
+            try {
+                // Try voucher first
+                const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
+                if (voucherResult.success) {
+                    return {
+                        success: true,
+                        type: 'voucher',
+                        message: voucherResult.message,
+                        data: voucherResult.voucher
+                    };
+                }
+                
+                // Try QR redemption
+                const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                if (redemptionResult.success) {
+                    return {
+                        success: true,
+                        type: 'redemption',
+                        message: redemptionResult.message,
+                        data: redemptionResult.redemption
+                    };
+                }
+                
+                // Check if it's a JC ID
+                if (qrData.startsWith('JC')) {
+                    const member = await clubManager.db.getMemberByJCId(qrData);
+                    if (member) {
+                        return {
+                            success: true,
+                            type: 'member',
+                            message: `Member found: ${member.name}`,
+                            data: member
+                        };
+                    }
+                }
+                
                 return {
-                    success: true,
-                    type: 'redemption',
-                    message: redemptionResult.message,
-                    data: redemptionResult.redemption
+                    success: false,
+                    message: "Invalid QR code. Please scan a valid Jeans Club voucher or redemption QR code."
+                };
+                
+            } catch (error) {
+                console.error("Scan processing error:", error);
+                return {
+                    success: false,
+                    message: "Error processing QR code: " + error.message
                 };
             }
         }
-        
-        // Try voucher first (usually starts with JC)
-        if (qrData.startsWith('JC')) {
-            console.log("Detected voucher code:", qrData);
-            const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
-            if (voucherResult.success) {
-                return {
-                    success: true,
-                    type: 'voucher',
-                    message: voucherResult.message,
-                    data: voucherResult.voucher
-                };
-            }
-        }
-        
-        // Check if it's a JC ID for member lookup
-        if (qrData.startsWith('JC') && qrData.length > 8) {
-            console.log("Detected JC ID:", qrData);
-            const member = await clubManager.db.getMemberByJCId(qrData);
-            if (member) {
-                return {
-                    success: true,
-                    type: 'member',
-                    message: `Member found: ${member.name}`,
-                    data: member
-                };
-            }
-        }
-        
-        // Try to decrypt as encrypted QR code data
-        try {
-            console.log("Trying to decrypt as QR code data...");
-            const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
-            if (redemptionResult.success) {
-                return {
-                    success: true,
-                    type: 'redemption',
-                    message: redemptionResult.message,
-                    data: redemptionResult.redemption
-                };
-            }
-        } catch (decryptError) {
-            console.log("Not an encrypted QR code:", decryptError.message);
-        }
-        
-        return {
-            success: false,
-            message: "Invalid QR code. Please scan a valid Jeans Club voucher or redemption QR code."
-        };
-        
-    } catch (error) {
-        console.error("Scan processing error:", error);
-        return {
-            success: false,
-            message: "Error processing QR code: " + error.message
-        };
-    }
-}
-                     
 
         // Update scan status display
         function updateScanStatus(message, type) {
@@ -4542,8 +4409,7 @@ function testQRScan() {
         // QR Code Redemption System Implementation
         class QRRedemptionSystem {
             constructor() {
-                 this.supabase = createClient('https://uoyzsyxjrfygrsfzhlao.supabase.co', 'sb_publishable__gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA');
-        this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
+                this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
                 this.encryptionKey = 'jeansclub_qr_2024_secret';
                 this.tierRules = {
                     PEARL: { 
@@ -4845,11 +4711,6 @@ function testQRScan() {
 
                 redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
 
-               // Initialize redemptions array if it doesn't exist
-    if (!this.redemptions) {
-        this.redemptions = [];
-    }
-    
                 this.redemptions.push(redemptionData);
                 this.saveRedemptions();
 
@@ -4857,137 +4718,114 @@ function testQRScan() {
             }
 
             processRedemption(qrCodeData, salespersonName) {
-    console.log("Processing redemption with data length:", qrCodeData?.length);
-    console.log("QR Data:", qrCodeData);
-    
-    if (!salespersonName || salespersonName.trim() === '') {
-        return { success: false, message: "Salesperson name is required" };
-    }
+                console.log("Processing redemption with data length:", qrCodeData?.length);
+                
+                if (!salespersonName || salespersonName.trim() === '') {
+                    return { success: false, message: "Salesperson name is required" };
+                }
 
-    // Make sure redemptions array exists
-    if (!this.redemptions) {
-        this.redemptions = [];
-    }
+                if (qrCodeData.startsWith('RED')) {
+                    const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
+                    if (redemption) {
+                        if (redemption.status === 'completed') {
+                            return { success: false, message: "Redemption has already been completed" };
+                        }
+                        
+                        if (redemption.status === 'expired') {
+                            return { success: false, message: "Redemption has expired" };
+                        }
+                        
+                        redemption.status = 'completed';
+                        redemption.redeemedBy = salespersonName.trim();
+                        redemption.redeemedDate = new Date().toISOString();
+                        this.saveRedemptions();
+                        
+                        return {
+                            success: true,
+                            message: `Redemption completed successfully by ${salespersonName}`,
+                            redemption: redemption
+                        };
+                    }
+                }
+                
+                let redemptionData;
+                try {
+                    redemptionData = this.decryptData(qrCodeData);
+                    console.log("Decrypted data:", redemptionData);
+                } catch (error) {
+                    console.error("Decryption failed:", error);
+                    return { 
+                        success: false, 
+                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+                    };
+                }
+                
+                if (!redemptionData) {
+                    return { 
+                        success: false, 
+                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+                    };
+                }
+                
+                if (!redemptionData.readable) {
+                    return { 
+                        success: false, 
+                        message: "QR code is not readable. Please use a valid Jeans Club QR code." 
+                    };
+                }
 
-    // Check if it's a redemption ID (starts with RED)
-    if (qrCodeData && qrCodeData.startsWith('RED')) {
-        console.log("Processing as redemption ID:", qrCodeData);
-        const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
-        
-        if (!redemption) {
-            return { success: false, message: `Redemption ${qrCodeData} not found` };
-        }
-        
-        if (redemption.status === 'completed') {
-            return { success: false, message: "Redemption has already been completed" };
-        }
-        
-        if (redemption.status === 'expired') {
-            return { success: false, message: "Redemption has expired" };
-        }
-        
-        redemption.status = 'completed';
-        redemption.redeemedBy = salespersonName.trim();
-        redemption.redeemedDate = new Date().toISOString();
-        this.saveRedemptions();
-        
-        return {
-            success: true,
-            message: `Redemption completed successfully by ${salespersonName}`,
-            redemption: redemption
-        };
-    }
-    
-    // Try to decrypt QR code data (if it's encrypted)
-    console.log("Attempting to decrypt QR data...");
-    let redemptionData;
-    try {
-        // First, try to parse as JSON directly (might be plain JSON)
-        try {
-            redemptionData = JSON.parse(qrCodeData);
-            console.log("Parsed as direct JSON:", redemptionData);
-        } catch (parseError) {
-            // If not JSON, try to decrypt
-            console.log("Not JSON, attempting decryption...");
-            redemptionData = this.decryptData(qrCodeData);
-            console.log("Decrypted data:", redemptionData);
-        }
-    } catch (error) {
-        console.error("Decryption/parsing failed:", error);
-        return { 
-            success: false, 
-            message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
-        };
-    }
-    
-    if (!redemptionData) {
-        return { 
-            success: false, 
-            message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
-        };
-    }
-    
-    if (!redemptionData.readable) {
-        return { 
-            success: false, 
-            message: "QR code is not readable. Please use a valid Jeans Club QR code." 
-        };
-    }
+                if (redemptionData.type !== 'jeansclub_redemption') {
+                    return { 
+                        success: false, 
+                        message: "Invalid QR code type. Please scan a Jeans Club redemption QR code." 
+                    };
+                }
 
-    if (redemptionData.type !== 'jeansclub_redemption') {
-        return { 
-            success: false, 
-            message: "Invalid QR code type. Please scan a Jeans Club redemption QR code." 
-        };
-    }
+                if (redemptionData.validation && redemptionData.validation.expiryDate) {
+                    const expiryDate = new Date(redemptionData.validation.expiryDate);
+                    const now = new Date();
+                    if (now > expiryDate) {
+                        return { 
+                            success: false, 
+                            message: "QR code has expired. Please generate a new one." 
+                        };
+                    }
+                }
 
-    if (redemptionData.validation && redemptionData.validation.expiryDate) {
-        const expiryDate = new Date(redemptionData.validation.expiryDate);
-        const now = new Date();
-        if (now > expiryDate) {
-            return { 
-                success: false, 
-                message: "QR code has expired. Please generate a new one." 
-            };
-        }
-    }
+                const redemption = this.redemptions.find(r => r.redemptionId === redemptionData.redemptionId);
+                if (!redemption) {
+                    return { 
+                        success: false, 
+                        message: "Redemption not found in the system" 
+                    };
+                }
 
-    // Find the redemption by ID
-    const redemption = this.redemptions.find(r => r.redemptionId === redemptionData.redemptionId);
-    if (!redemption) {
-        return { 
-            success: false, 
-            message: "Redemption not found in the system" 
-        };
-    }
+                if (redemption.status === 'completed') {
+                    return { 
+                        success: false, 
+                        message: "Redemption has already been completed" 
+                    };
+                }
 
-    if (redemption.status === 'completed') {
-        return { 
-            success: false, 
-            message: "Redemption has already been completed" 
-        };
-    }
+                if (redemption.status === 'expired') {
+                    return { 
+                        success: false, 
+                        message: "Redemption has expired" 
+                    };
+                }
 
-    if (redemption.status === 'expired') {
-        return { 
-            success: false, 
-            message: "Redemption has expired" 
-        };
-    }
+                redemption.status = 'completed';
+                redemption.redeemedBy = salespersonName.trim();
+                redemption.redeemedDate = new Date().toISOString();
+                this.saveRedemptions();
 
-    redemption.status = 'completed';
-    redemption.redeemedBy = salespersonName.trim();
-    redemption.redeemedDate = new Date().toISOString();
-    this.saveRedemptions();
+                return {
+                    success: true,
+                    message: `Redemption completed successfully by ${salespersonName}`,
+                    redemption: redemption
+                };
+            }
 
-    return {
-        success: true,
-        message: `Redemption completed successfully by ${salespersonName}`,
-        redemption: redemption
-    };
-}
-
-            
             getMemberRedemptions(memberJCId) {
                 return this.redemptions
                     .filter(r => r.memberJCId === memberJCId)
@@ -7009,4 +6847,4 @@ function testQRScan() {
         window.processScan = processScan;
     </script>
 </body>
-</html> 
+</html>
