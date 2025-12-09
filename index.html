@@ -2823,56 +2823,57 @@
         }
 
         // Process scan data
-        async function processScanData(qrData, salespersonName) {
-            try {
-                // Try voucher first
-                const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
-                if (voucherResult.success) {
-                    return {
-                        success: true,
-                        type: 'voucher',
-                        message: voucherResult.message,
-                        data: voucherResult.voucher
-                    };
-                }
-                
-                // Try QR redemption
-                const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
-                if (redemptionResult.success) {
-                    return {
-                        success: true,
-                        type: 'redemption',
-                        message: redemptionResult.message,
-                        data: redemptionResult.redemption
-                    };
-                }
-                
-                // Check if it's a JC ID
-                if (qrData.startsWith('JC')) {
-                    const member = await clubManager.db.getMemberByJCId(qrData);
-                    if (member) {
-                        return {
-                            success: true,
-                            type: 'member',
-                            message: `Member found: ${member.name}`,
-                            data: member
-                        };
-                    }
-                }
-                
+            async function processScanData(qrData, salespersonName) {
+    try {
+        // Try voucher first
+        const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
+        if (voucherResult.success) {
+            return {
+                success: true,
+                type: 'voucher',
+                message: voucherResult.message,
+                data: voucherResult.voucher
+            };
+        }
+        
+        // Try QR redemption
+        const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
+        if (redemptionResult.success) {
+            return {
+                success: true,
+                type: 'redemption',
+                message: redemptionResult.message,
+                data: redemptionResult.redemption
+            };
+        }
+        
+        // Check if it's a JC ID - FIX THIS LINE
+        if (qrData.startsWith('JC')) {
+            // Use clubManager.db instead of clubManager directly
+            const member = await clubManager.db.getMemberByJCId(qrData);
+            if (member) {
                 return {
-                    success: false,
-                    message: "Invalid QR code. Please scan a valid Jeans Club voucher or redemption QR code."
-                };
-                
-            } catch (error) {
-                console.error("Scan processing error:", error);
-                return {
-                    success: false,
-                    message: "Error processing QR code: " + error.message
+                    success: true,
+                    type: 'member',
+                    message: `Member found: ${member.name}`,
+                    data: member
                 };
             }
         }
+        
+        return {
+            success: false,
+            message: "Invalid QR code. Please scan a valid Jeans Club voucher or redemption QR code."
+        };
+        
+    } catch (error) {
+        console.error("Scan processing error:", error);
+        return {
+            success: false,
+            message: "Error processing QR code: " + error.message
+        };
+    }
+}
 
         // Update scan status display
         function updateScanStatus(message, type) {
@@ -4407,18 +4408,14 @@
 
         // QR Code Redemption System Implementation - UPDATED VERSION
         class QRRedemptionSystem {
-           
-    constructor(clubManager = null) { // Add clubManager parameter
+    constructor() {
         this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
-        // Initialize Supabase client if clubManager is provided
-        this.supabase = clubManager?.db?.supabase || null;
-        
-        // Load from Supabase if available
-        if (this.supabase) {
-            this.loadFromSupabase();
-        }
-                // REMOVED: this.encryptionKey = 'jeansclub_qr_2024_secret';
-                this.tierRules = {
+        this.supabase = null;
+        this._clubManager = null;
+    
+    
+
+              this.tierRules = {
                     PEARL: { 
                         payWithPoints: false,
                         discountVoucherOnly: true,
@@ -4528,6 +4525,14 @@
                     }
                 };
             }
+// Add this new method
+    setClubManager(clubManager) {
+        this._clubManager = clubManager;
+        this.supabase = clubManager?.db?.supabase || null;
+        if (this.supabase) {
+            this.loadFromSupabase();
+        }
+    }
 
   // NEW: Add Supabase loading method
     async loadFromSupabase() {
@@ -4949,7 +4954,7 @@
         }
 
         // Initialize QR redemption system
-        const qrRedemptionSystem = new QRRedemptionSystem(clubManager);
+        
 
         // Jeans Club Configuration
         const jeansClubConfig = {
@@ -5790,6 +5795,13 @@
 
         // Initialize Jeans Club Manager
         const clubManager = new JeansClubManager();
+        
+
+// Initialize QR redemption system
+const qrRedemptionSystem = new QRRedemptionSystem();
+qrRedemptionSystem.setClubManager(clubManager);
+
+// Initialize voucher system
 
         // Google Sign-In Initialization
         function initGoogleSignIn() {
