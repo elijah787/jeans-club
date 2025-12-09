@@ -2826,7 +2826,7 @@
         async function processScanData(qrData, salespersonName) {
             try {
                 // Try voucher first
-                const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
+                const voucherResult = await voucherSystem.redeemVoucher(qrData, salespersonName);
                 if (voucherResult.success) {
                     return {
                         success: true,
@@ -2837,7 +2837,7 @@
                 }
                 
                 // Try QR redemption
-                const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
                 if (redemptionResult.success) {
                     return {
                         success: true,
@@ -2862,7 +2862,7 @@
                 
                 // Check if it's a redemption ID (starts with RED)
                 if (qrData.startsWith('RED')) {
-                    const redemption = qrRedemptionSystem.getRedemptionById(qrData);
+                    const redemption = await qrRedemptionSystem.getRedemptionById(qrData);
                     if (redemption) {
                         return {
                             success: true,
@@ -3004,7 +3004,7 @@
                             </div>
                             <div class="detail-item">
                                 <strong>Tier</strong>
-                                <div>${member.tier}</div>
+                                <div>${member.tier} (Highest: ${member.highestTierAchieved || member.tier})</div>
                             </div>
                             <div class="detail-item">
                                 <strong>Points</strong>
@@ -3058,379 +3058,14 @@
         }
 
         // ===========================
-        // VOUCHER CLEANUP FUNCTION
+        // FIXED SUPABASE VOUCHER SYSTEM
         // ===========================
         
-        function cleanupExpiredVouchers() {
-            const now = new Date();
-            const vouchers = voucherSystem.getAllVouchers();
-            let removedCount = 0;
-            
-            // Remove vouchers expired more than 30 days ago
-            vouchers.forEach((voucher, index) => {
-                if (voucher.status === 'expired') {
-                    const expiryDate = new Date(voucher.expiryDate);
-                    const daysSinceExpiry = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
-                    
-                    if (daysSinceExpiry > 30) {
-                        // Remove from array
-                        voucherSystem.vouchers.splice(index, 1);
-                        removedCount++;
-                    }
-                }
-            });
-            
-            if (removedCount > 0) {
-                voucherSystem.saveVouchers();
-                console.log(`Cleaned up ${removedCount} expired vouchers`);
-            }
-            
-            // Schedule next cleanup in 24 hours
-            setTimeout(cleanupExpiredVouchers, 24 * 60 * 60 * 1000);
-        }
-
-        // ===========================
-        // REMAINING EXISTING CODE WITH FIXES
-        // ===========================
-        
-        // Search Functionality
-        function showSearch() {
-            const modal = document.getElementById('searchModal');
-            modal.classList.add('active');
-            document.getElementById('searchInput').focus();
-        }
-
-        function hideSearch() {
-            const modal = document.getElementById('searchModal');
-            modal.classList.remove('active');
-            document.getElementById('searchInput').value = '';
-            document.getElementById('searchResults').innerHTML = '';
-        }
-
-        // Enhanced search functionality
-        document.getElementById('searchInput').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            const resultsContainer = document.getElementById('searchResults');
-            
-            if (searchTerm.length < 2) {
-                resultsContainer.innerHTML = '<div class="search-result-item">Type at least 2 characters to search</div>';
-                return;
-            }
-            
-            performSearch(searchTerm).then(results => {
-                if (results.length === 0) {
-                    resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
-                    return;
-                }
-                
-                resultsContainer.innerHTML = results.map(result => `
-                    <div class="search-result-item" onclick="handleSearchResult('${result.type}', '${result.id}')">
-                        <strong>${result.title}</strong>
-                        <div style="font-size: 12px; opacity: 0.8;">${result.description}</div>
-                        <div style="font-size: 11px; margin-top: 5px; color: #00AFF0;">${result.type.toUpperCase()}</div>
-                    </div>
-                `).join('');
-            });
-        });
-
-        async function performSearch(term) {
-            const results = [];
-            
-            try {
-                // Search members
-                const allMembers = await clubManager.db.getAllMembers();
-                allMembers.forEach(member => {
-                    if (
-                        member.jcId.toLowerCase().includes(term) ||
-                        member.name.toLowerCase().includes(term) ||
-                        member.email.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'member',
-                            id: member.jcId,
-                            title: `${member.name} (${member.jcId})`,
-                            description: `Tier: ${member.tier} | Points: ${member.points || 0} | Email: ${member.email}`
-                        });
-                    }
-                });
-                
-                // Search vouchers
-                const allVouchers = voucherSystem.getAllVouchers();
-                allVouchers.forEach(voucher => {
-                    if (
-                        voucher.code.toLowerCase().includes(term) ||
-                        voucher.memberJCId.toLowerCase().includes(term) ||
-                        voucher.memberName.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'voucher',
-                            id: voucher.code,
-                            title: `Voucher: ${voucher.code}`,
-                            description: `Member: ${voucher.memberName} (${voucher.memberJCId}) | Discount: ${voucher.discountPercentage}% | Status: ${voucher.status}`
-                        });
-                    }
-                });
-                
-                // Search QR redemptions
-                const allRedemptions = qrRedemptionSystem.getAllRedemptions();
-                allRedemptions.forEach(redemption => {
-                    if (
-                        redemption.redemptionId.toLowerCase().includes(term) ||
-                        redemption.memberJCId.toLowerCase().includes(term) ||
-                        redemption.memberName.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'redemption',
-                            id: redemption.redemptionId,
-                            title: `Redemption: ${redemption.redemptionId}`,
-                            description: `Member: ${redemption.memberName} | Amount: ${redemption.purchaseAmount} UGX | Status: ${redemption.status}`
-                        });
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Search error:', error);
-            }
-            
-            return results.slice(0, 20);
-        }
-
-        function handleSearchResult(type, id) {
-            hideSearch();
-            
-            switch(type) {
-                case 'member':
-                    if (clubManager.isAdmin) {
-                        showAdminPanel();
-                        showToast(`Member: ${id} selected`, 'info');
-                    }
-                    break;
-                    
-                case 'voucher':
-                    if (clubManager.isAdmin) {
-                        showAdminPanel();
-                        document.getElementById('voucherCodeInput').value = id;
-                        showToast(`Voucher: ${id} selected`, 'info');
-                    }
-                    break;
-                    
-                case 'redemption':
-                    if (clubManager.isAdmin) {
-                        showQRRedemptionManagementPanel();
-                        showToast(`Redemption: ${id} selected`, 'info');
-                    }
-                    break;
-            }
-        }
-
-        // Information Page Functions
-        function showMembershipInfo() {
-            hideAllSections();
-            document.getElementById('membershipInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showBenefits() {
-            hideAllSections();
-            document.getElementById('benefitsInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showTiers() {
-            hideAllSections();
-            document.getElementById('tiersInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showContact() {
-            hideAllSections();
-            document.getElementById('contactInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showRewards() {
-            showQRRedemptionPanel();
-            toggleMobileMenu();
-        }
-
-        function hideAllSections() {
-            const sections = document.querySelectorAll('.card:not(.qr-share-section)');
-            sections.forEach(section => section.classList.add('hidden'));
-            
-            const infoPages = document.querySelectorAll('.info-page');
-            infoPages.forEach(page => page.classList.add('hidden'));
-        }
-
-        // Header and Navigation Functions
-        function toggleMobileMenu() {
-            const navLinks = document.getElementById('navLinks');
-            navLinks.classList.toggle('active');
-        }
-
-        function toggleUserMenu() {
-            if (clubManager.currentMember) {
-                showDashboard(clubManager.currentMember);
-            } else {
-                showLoginScreen();
-            }
-        }
-
-        // Navigation link handlers
-        function showDashboardSection() {
-            if (clubManager.currentMember) {
-                showDashboard(clubManager.currentMember);
-            } else {
-                showLoginScreen();
-            }
-            toggleMobileMenu();
-        }
-
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
-            const navLinks = document.getElementById('navLinks');
-            const menuToggle = document.querySelector('.menu-toggle');
-            
-            if (!menuToggle.contains(event.target) && !navLinks.contains(event.target)) {
-                navLinks.classList.remove('active');
-            }
-            
-            const searchModal = document.getElementById('searchModal');
-            if (searchModal.classList.contains('active') && 
-                !searchModal.contains(event.target) && 
-                event.target !== document.querySelector('.search-icon')) {
-                hideSearch();
-            }
-        });
-
-        // Close search with Escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                const searchModal = document.getElementById('searchModal');
-                if (searchModal.classList.contains('active')) {
-                    hideSearch();
-                }
-                
-                const cameraModal = document.getElementById('cameraScannerModal');
-                if (cameraModal.classList.contains('active')) {
-                    closeCameraScanner();
-                }
-            }
-        });
-
-        // Enhanced email validation function
-        function isValidEmail(email) {
-            if (!email || typeof email !== 'string') return false;
-            
-            const trimmedEmail = email.trim();
-            if (trimmedEmail.length < 8) return false;
-            
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(trimmedEmail)) return false;
-            
-            const [localPart, domain] = trimmedEmail.toLowerCase().split('@');
-            if (localPart.length === 0 || localPart.length > 64) return false;
-            
-            const localPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
-            if (!localPartRegex.test(localPart)) return false;
-            
-            if (domain.length < 4) return false;
-            const domainParts = domain.split('.');
-            if (domainParts.length < 2) return false;
-            
-            for (const part of domainParts) {
-                if (part.length === 0 || part.length > 63) return false;
-                if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(part)) return false;
-            }
-            
-            const commonDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com'];
-            const domainWithoutTld = domain.slice(0, domain.lastIndexOf('.'));
-            
-            for (const commonDomain of commonDomains) {
-                const commonDomainWithoutTld = commonDomain.slice(0, commonDomain.lastIndexOf('.'));
-                if (domainWithoutTld === commonDomainWithoutTld) {
-                    const expectedTld = commonDomain.slice(commonDomain.lastIndexOf('.') + 1);
-                    const actualTld = domainParts[domainParts.length - 1];
-                    
-                    if (actualTld !== expectedTld) {
-                        return false;
-                    }
-                }
-            }
-            
-            const tld = domainParts[domainParts.length - 1];
-            const validCommonTlds = ['com', 'org', 'net', 'edu', 'gov', 'mil', 'io', 'co', 'uk', 'us', 
-                                   'ca', 'au', 'de', 'fr', 'jp', 'cn', 'in', 'br', 'ru', 'it', 'es', 
-                                   'mx', 'kr', 'za', 'ng', 'ke', 'tz', 'ug'];
-            
-            if (tld.length <= 2 && !validCommonTlds.includes(tld.toLowerCase())) {
-                return false;
-            }
-            
-            if (tld.length < 2) return false;
-            
-            const fakePatterns = [
-                'test@', 'example@', 'fake@', 'admin@', 'user@', 'temp@', 'dummy@',
-                'a@a.a', 'aa@aa.aa', 'aaa@aaa.aaa',
-                'con', 'c', 'com',
-            ];
-            
-            const lowerEmail = trimmedEmail.toLowerCase();
-            for (const pattern of fakePatterns) {
-                if (lowerEmail.includes(pattern) && trimmedEmail.length < 10) {
-                    return false;
-                }
-            }
-            
-            if (trimmedEmail.includes('..')) return false;
-            if (trimmedEmail.includes('@@')) return false;
-            if (trimmedEmail.startsWith('.') || trimmedEmail.endsWith('.')) return false;
-            if (trimmedEmail.startsWith('@') || trimmedEmail.endsWith('@')) return false;
-            
-            if (/(\w)\1\1/.test(localPart)) {
-                return false;
-            }
-            
-            return true;
-        }
-
-        // VOUCHER SYSTEM IMPLEMENTATION - FIXED VERSION
         class VoucherSystem {
             constructor() {
-                this.vouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
+                this.db = new SupabaseDB();
+                this.localVouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
                 this.voucherActivity = JSON.parse(localStorage.getItem('jeansClubVoucherActivity') || '[]');
-                this.cleanupInterval = null;
-                this.startAutoCleanup();
-            }
-
-            startAutoCleanup() {
-                // Cleanup expired vouchers on startup
-                this.cleanupExpiredVouchers();
-                
-                // Schedule cleanup every 24 hours
-                this.cleanupInterval = setInterval(() => {
-                    this.cleanupExpiredVouchers();
-                }, 24 * 60 * 60 * 1000);
-            }
-
-            cleanupExpiredVouchers() {
-                const now = new Date();
-                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
-                
-                // Filter out vouchers that expired more than 30 days ago
-                const originalCount = this.vouchers.length;
-                this.vouchers = this.vouchers.filter(voucher => {
-                    if (voucher.status === 'expired') {
-                        const expiryDate = new Date(voucher.expiryDate);
-                        return expiryDate > thirtyDaysAgo; // Keep if expired less than 30 days ago
-                    }
-                    return true; // Keep active and used vouchers
-                });
-                
-                const removedCount = originalCount - this.vouchers.length;
-                if (removedCount > 0) {
-                    this.saveVouchers();
-                    console.log(`Cleaned up ${removedCount} old expired vouchers`);
-                }
             }
 
             generateVoucherCode() {
@@ -3443,7 +3078,6 @@
             }
 
             generateQRCodeData(voucherCode) {
-                // Simple JSON string for voucher - no encryption to avoid issues
                 return JSON.stringify({
                     code: voucherCode,
                     timestamp: Date.now(),
@@ -3453,7 +3087,7 @@
                 });
             }
 
-            createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
+            async createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
                 const voucherCode = this.generateVoucherCode();
                 const createdDate = new Date();
                 const expiryDate = new Date();
@@ -3470,32 +3104,69 @@
                     expiryDate: expiryDate.toISOString(),
                     status: 'active',
                     usedDate: null,
+                    redeemedBy: null,
                     qrCodeData: this.generateQRCodeData(voucherCode)
                 };
 
-                this.vouchers.push(voucher);
-                this.saveVouchers();
+                // Save to Supabase
+                await this.db.saveVoucher(voucher);
+                
+                // Also save locally
+                this.localVouchers.push(voucher);
+                this.saveLocalVouchers();
 
                 this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
 
                 return voucher;
             }
 
-            getMemberVouchers(memberJCId) {
-                return this.vouchers.filter(v => v.memberJCId === memberJCId)
-                    .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            async getMemberVouchers(memberJCId) {
+                try {
+                    // First try Supabase
+                    const supabaseVouchers = await this.db.getMemberVouchers(memberJCId);
+                    
+                    // Fallback to local storage if Supabase fails
+                    if (!supabaseVouchers || supabaseVouchers.length === 0) {
+                        return this.localVouchers
+                            .filter(v => v.memberJCId === memberJCId)
+                            .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+                    }
+                    
+                    return supabaseVouchers;
+                } catch (error) {
+                    console.error('Error getting member vouchers:', error);
+                    return this.localVouchers
+                        .filter(v => v.memberJCId === memberJCId)
+                        .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+                }
             }
 
-            getAllVouchers() {
-                return this.vouchers.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            async getAllVouchers() {
+                try {
+                    const supabaseVouchers = await this.db.getAllVouchers();
+                    if (supabaseVouchers && supabaseVouchers.length > 0) {
+                        return supabaseVouchers;
+                    }
+                } catch (error) {
+                    console.error('Error getting all vouchers from Supabase:', error);
+                }
+                
+                return this.localVouchers.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
             }
 
-            getVoucherByCode(code) {
-                return this.vouchers.find(v => v.code === code);
+            async getVoucherByCode(code) {
+                try {
+                    const voucher = await this.db.getVoucherByCode(code);
+                    if (voucher) return voucher;
+                } catch (error) {
+                    console.error('Error getting voucher from Supabase:', error);
+                }
+                
+                return this.localVouchers.find(v => v.code === code);
             }
 
-            redeemVoucher(voucherCode, redeemedBy = 'system') {
-                const voucher = this.getVoucherByCode(voucherCode);
+            async redeemVoucher(voucherCode, redeemedBy = 'system') {
+                const voucher = await this.getVoucherByCode(voucherCode);
                 if (!voucher) {
                     return { success: false, message: "Voucher not found" };
                 }
@@ -3510,14 +3181,15 @@
 
                 if (new Date() > new Date(voucher.expiryDate)) {
                     voucher.status = 'expired';
-                    this.saveVouchers();
+                    await this.saveVoucher(voucher);
                     return { success: false, message: "Voucher has expired" };
                 }
 
                 voucher.status = 'used';
                 voucher.usedDate = new Date().toISOString();
                 voucher.redeemedBy = redeemedBy;
-                this.saveVouchers();
+                
+                await this.saveVoucher(voucher);
 
                 this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
 
@@ -3528,31 +3200,32 @@
                 };
             }
 
-            updateVoucherStatuses() {
-                const now = new Date();
-                let updated = false;
-
-                this.vouchers.forEach(voucher => {
-                    if (voucher.status === 'active' && new Date(voucher.expiryDate) < now) {
-                        voucher.status = 'expired';
-                        updated = true;
-                    }
-                });
-
-                if (updated) {
-                    this.saveVouchers();
+            async saveVoucher(voucher) {
+                try {
+                    await this.db.saveVoucher(voucher);
+                } catch (error) {
+                    console.error('Error saving voucher to Supabase:', error);
                 }
+                
+                // Update local storage
+                const index = this.localVouchers.findIndex(v => v.code === voucher.code);
+                if (index !== -1) {
+                    this.localVouchers[index] = voucher;
+                } else {
+                    this.localVouchers.push(voucher);
+                }
+                this.saveLocalVouchers();
             }
 
-            getVoucherStats() {
-                this.updateVoucherStatuses();
+            async getVoucherStats() {
+                const vouchers = await this.getAllVouchers();
                 
-                const total = this.vouchers.length;
-                const active = this.vouchers.filter(v => v.status === 'active').length;
-                const used = this.vouchers.filter(v => v.status === 'used').length;
-                const expired = this.vouchers.filter(v => v.status === 'expired').length;
+                const total = vouchers.length;
+                const active = vouchers.filter(v => v.status === 'active').length;
+                const used = vouchers.filter(v => v.status === 'used').length;
+                const expired = vouchers.filter(v => v.status === 'expired').length;
                 
-                const totalDiscount = this.vouchers
+                const totalDiscount = vouchers
                     .filter(v => v.status === 'used')
                     .reduce((sum, v) => sum + v.discountPercentage, 0);
                 
@@ -3584,16 +3257,499 @@
                 localStorage.setItem('jeansClubVoucherActivity', JSON.stringify(this.voucherActivity));
             }
 
-            saveVouchers() {
-                localStorage.setItem('jeansClubVouchers', JSON.stringify(this.vouchers));
+            saveLocalVouchers() {
+                localStorage.setItem('jeansClubVouchers', JSON.stringify(this.localVouchers));
+            }
+
+            cleanupExpiredVouchers() {
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+                
+                const originalCount = this.localVouchers.length;
+                this.localVouchers = this.localVouchers.filter(voucher => {
+                    if (voucher.status === 'expired') {
+                        const expiryDate = new Date(voucher.expiryDate);
+                        return expiryDate > thirtyDaysAgo;
+                    }
+                    return true;
+                });
+                
+                const removedCount = originalCount - this.localVouchers.length;
+                if (removedCount > 0) {
+                    this.saveLocalVouchers();
+                    console.log(`Cleaned up ${removedCount} old expired vouchers`);
+                }
             }
         }
-const voucherSystem = new VoucherSystem();
 
-        // Import Supabase
-        const { createClient } = supabase;
+        // Initialize voucher system
+        const voucherSystem = new VoucherSystem();
 
-        // Supabase Database Manager
+        // ===========================
+        // FIXED SUPABASE QR REDEMPTION SYSTEM
+        // ===========================
+        
+        class QRRedemptionSystem {
+            constructor() {
+                this.db = new SupabaseDB();
+                this.localRedemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
+                
+                this.tierRules = {
+                    PEARL: { 
+                        payWithPoints: false,
+                        discountVoucherOnly: true,
+                        description: "Basic membership - use points for discount vouchers only"
+                    },
+                    BRONZE: { 
+                        months: 2, 
+                        percentage: 0.08,
+                        multiplier: 1.0,
+                        minSpendingThreshold: 300000,
+                        maxRedemptionCap: 50000,
+                        description: "Redeem 8% of your last 2 months spending as points",
+                        pointsPer100UGX: 100
+                    },
+                    SILVER: { 
+                        months: 3, 
+                        percentage: 0.10,
+                        multiplier: 1.1,
+                        minSpendingThreshold: 500000,
+                        maxRedemptionCap: 100000,
+                        description: "Redeem 10% of your last 3 months spending as points",
+                        pointsPer100UGX: 90
+                    },
+                    RUBY: { 
+                        months: 4, 
+                        percentage: 0.12,
+                        multiplier: 1.3,
+                        minSpendingThreshold: 1000000,
+                        maxRedemptionCap: 200000,
+                        description: "Redeem 12% of your last 4 months spending as points",
+                        pointsPer100UGX: 80
+                    },
+                    GOLD: { 
+                        months: 5, 
+                        percentage: 0.15,
+                        multiplier: 1.4,
+                        minSpendingThreshold: 2000000,
+                        maxRedemptionCap: 300000,
+                        description: "Redeem 15% of your last 5 months spending as points",
+                        pointsPer100UGX: 70
+                    },
+                    SAPPHIRE: { 
+                        months: 6, 
+                        percentage: 0.18,
+                        lifetimeBonus: 0.02,
+                        multiplier: 1.5,
+                        minSpendingThreshold: 4000000,
+                        maxRedemptionCap: 500000,
+                        description: "Redeem 18% of last 6 months + 2% lifetime bonus as points",
+                        pointsPer100UGX: 60
+                    },
+                    PLATINUM: { 
+                        months: 12, 
+                        percentage: 0.25,
+                        lifetimeBonus: 0.05,
+                        multiplier: 1.6,
+                        minSpendingThreshold: 8000000,
+                        maxRedemptionCap: 1000000,
+                        canChooseAny: true,
+                        description: "Redeem 25% of last 12 months + 5% lifetime bonus as points",
+                        pointsPer100UGX: 50
+                    }
+                };
+                
+                this.discountVoucherLimits = {
+                    PEARL: { 
+                        min: 1000, 
+                        max: 5000, 
+                        maxPercentage: 5,
+                        pointsPerDiscount: 100
+                    },
+                    BRONZE: { 
+                        min: 2000, 
+                        max: 10000, 
+                        maxPercentage: 8,
+                        pointsPerDiscount: 100
+                    },
+                    SILVER: { 
+                        min: 3000, 
+                        max: 15000, 
+                        maxPercentage: 10,
+                        pointsPerDiscount: 100
+                    },
+                    RUBY: { 
+                        min: 5000, 
+                        max: 25000, 
+                        maxPercentage: 12,
+                        pointsPerDiscount: 100
+                    },
+                    GOLD: { 
+                        min: 10000, 
+                        max: 50000, 
+                        maxPercentage: 15,
+                        pointsPerDiscount: 100
+                    },
+                    SAPPHIRE: { 
+                        min: 20000, 
+                        max: 100000, 
+                        maxPercentage: 18,
+                        pointsPerDiscount: 100
+                    },
+                    PLATINUM: { 
+                        min: 50000, 
+                        max: 250000, 
+                        maxPercentage: 25,
+                        pointsPerDiscount: 100
+                    }
+                };
+            }
+
+            calculateSpendingHistory(member, months) {
+                const cutoffDate = new Date();
+                cutoffDate.setMonth(cutoffDate.getMonth() - months);
+                
+                let totalSpent = 0;
+                if (member.purchaseHistory) {
+                    member.purchaseHistory.forEach(purchase => {
+                        const purchaseDate = new Date(purchase.date);
+                        if (purchaseDate >= cutoffDate) {
+                            totalSpent += purchase.amount || 0;
+                        }
+                    });
+                }
+                
+                return totalSpent;
+            }
+
+            calculateLifetimeSpending(member) {
+                return member.totalSpent || 0;
+            }
+
+            calculateRedemptionOptions(member, purchaseAmount) {
+                const tier = member.tier;
+                const options = [];
+                const memberPoints = member.points || 0;
+                
+                if (tier === 'PEARL') {
+                    return this.getDiscountVoucherOptions(member, purchaseAmount).filter(option => 
+                        memberPoints >= option.pointsRequired
+                    );
+                }
+                
+                const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
+                
+                eligibleTiers.forEach(tierType => {
+                    const rule = this.tierRules[tierType];
+                    if (!rule || !rule.months) return;
+                    
+                    const monthsSpending = this.calculateSpendingHistory(member, rule.months);
+                    
+                    if (monthsSpending < rule.minSpendingThreshold) {
+                        return;
+                    }
+                    
+                    let totalRedemption = monthsSpending * rule.percentage;
+                    
+                    if (rule.lifetimeBonus) {
+                        const lifetimeSpending = this.calculateLifetimeSpending(member);
+                        totalRedemption += lifetimeSpending * rule.lifetimeBonus;
+                    }
+                    
+                    totalRedemption = Math.min(totalRedemption, rule.maxRedemptionCap);
+                    
+                    if (totalRedemption > 0) {
+                        const pointsEquivalent = Math.floor(totalRedemption / 100 * rule.pointsPer100UGX);
+                        
+                        if (memberPoints >= pointsEquivalent) {
+                            options.push({
+                                type: 'points_redemption',
+                                tier: tierType,
+                                description: rule.description,
+                                monthsSpending: monthsSpending,
+                                totalAmount: totalRedemption,
+                                maxRedemption: Math.min(totalRedemption, purchaseAmount),
+                                pointsEquivalent: pointsEquivalent,
+                                pointsValue: rule.pointsPer100UGX + ' points per 100 UGX',
+                                eligibility: `Spent ${monthsSpending.toLocaleString()} UGX in last ${rule.months} months`,
+                                requiresSufficientPoints: true,
+                                memberHasPoints: true
+                            });
+                        }
+                    }
+                });
+                
+                const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount)
+                    .filter(option => memberPoints >= option.pointsRequired);
+                
+                options.push(...voucherOptions);
+                
+                return options.sort((a, b) => (b.maxRedemption || 0) - (a.maxRedemption || 0));
+            }
+
+            getDiscountVoucherOptions(member, purchaseAmount) {
+                const tier = member.tier;
+                const limits = this.discountVoucherLimits[tier] || this.discountVoucherLimits.PEARL;
+                
+                const options = [];
+                
+                const discountAmounts = [1000, 2000, 3000, 5000, 10000, 15000, 20000, 25000, 30000, 50000];
+                
+                discountAmounts.forEach(amount => {
+                    if (amount >= limits.min && amount <= limits.max && amount <= purchaseAmount) {
+                        const discountPercentage = ((amount / purchaseAmount) * 100).toFixed(1);
+                        if (discountPercentage <= 100) {
+                            options.push({
+                                type: 'discount_voucher',
+                                tier: tier,
+                                description: `${amount.toLocaleString()} UGX Discount Voucher`,
+                                discountAmount: amount,
+                                discountPercentage: discountPercentage,
+                                applicableAmount: purchaseAmount,
+                                pointsRequired: Math.floor(amount / 100)
+                            });
+                        }
+                    }
+                });
+                
+                return options;
+            }
+
+            generateQRCodeData(redemptionData) {
+                return `JCRED|${redemptionData.redemptionId}|${redemptionData.memberJCId}|${Date.now()}`;
+            }
+
+            parseQRCodeData(qrString) {
+                try {
+                    const parts = qrString.split('|');
+                    if (parts[0] !== 'JCRED') {
+                        return null;
+                    }
+                    
+                    return {
+                        redemptionId: parts[1],
+                        memberJCId: parts[2],
+                        timestamp: parseInt(parts[3]),
+                        type: 'jeansclub_redemption'
+                    };
+                } catch (error) {
+                    console.error("Parse error:", error);
+                    return null;
+                }
+            }
+
+            async getRedemptionById(redemptionId) {
+                try {
+                    const redemption = await this.db.getRedemptionById(redemptionId);
+                    if (redemption) return redemption;
+                } catch (error) {
+                    console.error('Error getting redemption from Supabase:', error);
+                }
+                
+                return this.localRedemptions.find(r => r.redemptionId === redemptionId);
+            }
+
+            async createRedemption(member, selectedOption, purchaseAmount) {
+                const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
+                
+                const redemptionData = {
+                    redemptionId: redemptionId,
+                    memberJCId: member.jcId,
+                    memberName: member.name,
+                    memberTier: member.tier,
+                    purchaseAmount: purchaseAmount,
+                    selectedOption: selectedOption,
+                    createdDate: new Date().toISOString(),
+                    status: 'pending',
+                    redeemedBy: null,
+                    redeemedDate: null,
+                    qrCodeData: null
+                };
+
+                redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
+
+                // Save to Supabase
+                await this.db.saveRedemption(redemptionData);
+                
+                // Save locally
+                this.localRedemptions.push(redemptionData);
+                this.saveLocalRedemptions();
+
+                return redemptionData;
+            }
+
+            async processRedemption(qrCodeData, salespersonName) {
+                console.log("Processing redemption with data:", qrCodeData);
+                
+                if (!salespersonName || salespersonName.trim() === '') {
+                    return { success: false, message: "Salesperson name is required" };
+                }
+
+                // Check if it's a redemption ID directly
+                if (qrCodeData.startsWith('RED')) {
+                    const redemption = await this.getRedemptionById(qrCodeData);
+                    if (redemption) {
+                        if (redemption.status === 'completed') {
+                            return { success: false, message: "Redemption has already been completed" };
+                        }
+                        
+                        if (redemption.status === 'expired') {
+                            return { success: false, message: "Redemption has expired" };
+                        }
+                        
+                        redemption.status = 'completed';
+                        redemption.redeemedBy = salespersonName.trim();
+                        redemption.redeemedDate = new Date().toISOString();
+                        
+                        await this.saveRedemption(redemption);
+                        
+                        return {
+                            success: true,
+                            message: `Redemption completed successfully by ${salespersonName}`,
+                            redemption: redemption
+                        };
+                    }
+                }
+                
+                // Try to parse as QR code data
+                const redemptionData = this.parseQRCodeData(qrCodeData);
+                if (!redemptionData) {
+                    return { 
+                        success: false, 
+                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+                    };
+                }
+                
+                // Check expiry (24 hours)
+                const now = Date.now();
+                if (now - redemptionData.timestamp > 24 * 60 * 60 * 1000) {
+                    return { 
+                        success: false, 
+                        message: "QR code has expired. Please generate a new one." 
+                    };
+                }
+
+                const redemption = await this.getRedemptionById(redemptionData.redemptionId);
+                if (!redemption) {
+                    return { 
+                        success: false, 
+                        message: "Redemption not found in the system" 
+                    };
+                }
+
+                if (redemption.status === 'completed') {
+                    return { 
+                        success: false, 
+                        message: "Redemption has already been completed" 
+                    };
+                }
+
+                if (redemption.status === 'expired') {
+                    return { 
+                        success: false, 
+                        message: "Redemption has expired" 
+                    };
+                }
+
+                redemption.status = 'completed';
+                redemption.redeemedBy = salespersonName.trim();
+                redemption.redeemedDate = new Date().toISOString();
+                
+                await this.saveRedemption(redemption);
+
+                return {
+                    success: true,
+                    message: `Redemption completed successfully by ${salespersonName}`,
+                    redemption: redemption
+                };
+            }
+
+            async saveRedemption(redemption) {
+                try {
+                    await this.db.saveRedemption(redemption);
+                } catch (error) {
+                    console.error('Error saving redemption to Supabase:', error);
+                }
+                
+                // Update local storage
+                const index = this.localRedemptions.findIndex(r => r.redemptionId === redemption.redemptionId);
+                if (index !== -1) {
+                    this.localRedemptions[index] = redemption;
+                } else {
+                    this.localRedemptions.push(redemption);
+                }
+                this.saveLocalRedemptions();
+            }
+
+            async getMemberRedemptions(memberJCId) {
+                try {
+                    const redemptions = await this.db.getMemberRedemptions(memberJCId);
+                    if (redemptions && redemptions.length > 0) {
+                        return redemptions;
+                    }
+                } catch (error) {
+                    console.error('Error getting member redemptions from Supabase:', error);
+                }
+                
+                return this.localRedemptions
+                    .filter(r => r.memberJCId === memberJCId)
+                    .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            async getAllRedemptions() {
+                try {
+                    const redemptions = await this.db.getAllRedemptions();
+                    if (redemptions && redemptions.length > 0) {
+                        return redemptions;
+                    }
+                } catch (error) {
+                    console.error('Error getting all redemptions from Supabase:', error);
+                }
+                
+                return this.localRedemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            saveLocalRedemptions() {
+                localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.localRedemptions));
+            }
+
+            async getRedemptionStats() {
+                const redemptions = await this.getAllRedemptions();
+                
+                const total = redemptions.length;
+                const pending = redemptions.filter(r => r.status === 'pending').length;
+                const completed = redemptions.filter(r => r.status === 'completed').length;
+                const expired = redemptions.filter(r => r.status === 'expired').length;
+                
+                const totalValue = redemptions
+                    .filter(r => r.status === 'completed')
+                    .reduce((sum, r) => {
+                        if (r.selectedOption && r.selectedOption.type === 'points_redemption') {
+                            return sum + (r.selectedOption.maxRedemption || 0);
+                        } else if (r.selectedOption && r.selectedOption.type === 'discount_voucher') {
+                            return sum + (r.selectedOption.discountAmount || 0);
+                        }
+                        return sum;
+                    }, 0);
+                
+                return {
+                    total,
+                    pending,
+                    completed,
+                    expired,
+                    totalValue,
+                    completionRate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%'
+                };
+            }
+        }
+
+        // Initialize QR redemption system
+        const qrRedemptionSystem = new QRRedemptionSystem();
+
+        // ===========================
+        // ENHANCED SUPABASE DB WITH VOUCHERS AND REDEMPTIONS
+        // ===========================
+        
         class SupabaseDB {
             constructor() {
                 this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
@@ -3661,58 +3817,59 @@ const voucherSystem = new VoucherSystem();
             }
 
             async saveMember(member) {
-            try {
-                console.log('💾 Saving member to Supabase:', member.jcId);
-                
-                const memberData = {
-                    jcId: member.jcId,
-                    id: member.id || 'member_' + Date.now(),
-                    email: member.email,
-                    name: member.name,
-                    password: member.password || null,
-                    googleId: member.googleId || null,
-                    loginMethod: member.loginMethod || 'email',
-                    points: member.points || 0,
-                    tier: member.tier || 'PEARL',
-                    referralCode: member.referralCode,
-                    referredBy: member.referredBy || null,
-                    purchaseHistory: member.purchaseHistory || [],
-                    activityLog: member.activityLog || [],
-                    joinedDate: member.joinedDate || new Date().toISOString(),
-                    totalSpent: member.totalSpent || 0,
-                    challenges: member.challenges || [],
-                    referrals: member.referrals || [],
-                    resetToken: member.resetToken || null,
-                    resetTokenExpiry: member.resetTokenExpiry || null,
-                    highestTierAchieved: member.highestTierAchieved || 'PEARL' // NEW: Track highest tier
-                };
+                try {
+                    console.log('💾 Saving member to Supabase:', member.jcId);
+                    
+                    const memberData = {
+                        jcId: member.jcId,
+                        id: member.id || 'member_' + Date.now(),
+                        email: member.email,
+                        name: member.name,
+                        password: member.password || null,
+                        googleId: member.googleId || null,
+                        loginMethod: member.loginMethod || 'email',
+                        points: member.points || 0,
+                        tier: member.tier || 'PEARL',
+                        highestTierAchieved: member.highestTierAchieved || 'PEARL',
+                        referralCode: member.referralCode,
+                        referredBy: member.referredBy || null,
+                        purchaseHistory: member.purchaseHistory || [],
+                        activityLog: member.activityLog || [],
+                        joinedDate: member.joinedDate || new Date().toISOString(),
+                        totalSpent: member.totalSpent || 0,
+                        challenges: member.challenges || [],
+                        referrals: member.referrals || [],
+                        resetToken: member.resetToken || null,
+                        resetTokenExpiry: member.resetTokenExpiry || null,
+                        newsletterSubscribed: member.newsletterSubscribed !== false
+                    };
 
-                const { data, error } = await this.supabase
-                    .from('members')
-                    .upsert(memberData, { 
-                        onConflict: 'jcId'
-                    });
+                    const { data, error } = await this.supabase
+                        .from('members')
+                        .upsert(memberData, { 
+                            onConflict: 'jcId'
+                        });
 
-                if (error) {
-                    console.error('❌ Supabase save error:', error);
-                    throw error;
+                    if (error) {
+                        console.error('❌ Supabase save error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Member saved successfully to Supabase');
+                    
+                    const cache = this.getCache();
+                    if (cache) {
+                        cache.lastSync = 0;
+                        this.setCache(cache);
+                    }
+
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to save member to Supabase:', error);
+                    return false;
                 }
-
-                console.log('✅ Member saved successfully to Supabase');
-                
-                const cache = this.getCache();
-                if (cache) {
-                    cache.lastSync = 0;
-                    this.setCache(cache);
-                }
-
-                return true;
-
-            } catch (error) {
-                console.error('❌ Failed to save member to Supabase:', error);
-                return false;
             }
-        }
 
             async deleteMember(jcId) {
                 try {
@@ -3802,6 +3959,177 @@ const voucherSystem = new VoucherSystem();
                 }
             }
 
+            // Voucher Methods
+            async saveVoucher(voucher) {
+                try {
+                    const { data, error } = await this.supabase
+                        .from('vouchers')
+                        .upsert(voucher, { 
+                            onConflict: 'code'
+                        });
+
+                    if (error) {
+                        console.error('❌ Supabase voucher save error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Voucher saved successfully to Supabase');
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to save voucher to Supabase:', error);
+                    return false;
+                }
+            }
+
+            async getMemberVouchers(memberJCId) {
+                try {
+                    const { data: vouchers, error } = await this.supabase
+                        .from('vouchers')
+                        .select('*')
+                        .eq('memberJCId', memberJCId)
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase vouchers fetch error:', error);
+                        throw error;
+                    }
+
+                    return vouchers || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch vouchers from Supabase:', error);
+                    return [];
+                }
+            }
+
+            async getAllVouchers() {
+                try {
+                    const { data: vouchers, error } = await this.supabase
+                        .from('vouchers')
+                        .select('*')
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase all vouchers fetch error:', error);
+                        throw error;
+                    }
+
+                    return vouchers || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch all vouchers from Supabase:', error);
+                    return [];
+                }
+            }
+
+            async getVoucherByCode(code) {
+                try {
+                    const { data: voucher, error } = await this.supabase
+                        .from('vouchers')
+                        .select('*')
+                        .eq('code', code)
+                        .single();
+
+                    if (error && error.code !== 'PGRST116') {
+                        console.error('❌ Supabase voucher fetch error:', error);
+                        throw error;
+                    }
+
+                    return voucher || null;
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch voucher from Supabase:', error);
+                    return null;
+                }
+            }
+
+            // Redemption Methods
+            async saveRedemption(redemption) {
+                try {
+                    const { data, error } = await this.supabase
+                        .from('redemptions')
+                        .upsert(redemption, { 
+                            onConflict: 'redemptionId'
+                        });
+
+                    if (error) {
+                        console.error('❌ Supabase redemption save error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Redemption saved successfully to Supabase');
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to save redemption to Supabase:', error);
+                    return false;
+                }
+            }
+
+            async getRedemptionById(redemptionId) {
+                try {
+                    const { data: redemption, error } = await this.supabase
+                        .from('redemptions')
+                        .select('*')
+                        .eq('redemptionId', redemptionId)
+                        .single();
+
+                    if (error && error.code !== 'PGRST116') {
+                        console.error('❌ Supabase redemption fetch error:', error);
+                        throw error;
+                    }
+
+                    return redemption || null;
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch redemption from Supabase:', error);
+                    return null;
+                }
+            }
+
+            async getMemberRedemptions(memberJCId) {
+                try {
+                    const { data: redemptions, error } = await this.supabase
+                        .from('redemptions')
+                        .select('*')
+                        .eq('memberJCId', memberJCId)
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase redemptions fetch error:', error);
+                        throw error;
+                    }
+
+                    return redemptions || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch redemptions from Supabase:', error);
+                    return [];
+                }
+            }
+
+            async getAllRedemptions() {
+                try {
+                    const { data: redemptions, error } = await this.supabase
+                        .from('redemptions')
+                        .select('*')
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase all redemptions fetch error:', error);
+                        throw error;
+                    }
+
+                    return redemptions || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch all redemptions from Supabase:', error);
+                    return [];
+                }
+            }
+
+            // Newsletter Methods
             async subscribeToNewsletter(email, name = null) {
                 try {
                     console.log('📧 Subscribing to newsletter:', email);
@@ -3905,7 +4233,7 @@ const voucherSystem = new VoucherSystem();
             }
         }
 
-        // Google Apps Script Email Service - FIXED VERSION
+        // Google Apps Script Email Service (keep as is)
         class GoogleAppsEmailService {
             constructor() {
                 this.scriptURL = 'https://script.google.com/macros/s/AKfycbwPycPrQFn5hux5eHrbAg1KIc8aO96HwrEI-KUZG7YmITm1ACyqIDQJcWGP5pqq9kun/exec';
@@ -4180,7 +4508,6 @@ const voucherSystem = new VoucherSystem();
             }
 
             // Other email template methods (purchase, discount, referral, password_reset, etc.)
-            // They remain the same as in your original code
             buildPurchaseEmail(memberData, extraData) {
                 return `<div>Purchase email content...</div>`;
             }
@@ -4335,501 +4662,6 @@ const voucherSystem = new VoucherSystem();
             }
         }
 
-        // Legacy Central Storage (for fallback)
-        class CentralStorage {
-            constructor() {
-                this.storageKey = 'jeansClubCentralData';
-                this.init();
-            }
-
-            async init() {
-                if (!this.getData()) {
-                    this.setData({
-                        members: [],
-                        lastUpdate: new Date().toISOString(),
-                        version: '1.0'
-                    });
-                }
-            }
-
-            getData() {
-                try {
-                    return JSON.parse(localStorage.getItem(this.storageKey));
-                } catch (error) {
-                    console.error('Error reading storage:', error);
-                    return null;
-                }
-            }
-
-            setData(data) {
-                try {
-                    localStorage.setItem(this.storageKey, JSON.stringify(data));
-                    return true;
-                } catch (error) {
-                    console.error('Error writing to storage:', error);
-                    return false;
-                }
-            }
-
-            getAllMembers() {
-                const data = this.getData();
-                return data ? data.members : [];
-            }
-
-            saveMember(member) {
-                const data = this.getData();
-                if (!data) return false;
-
-                const existingIndex = data.members.findIndex(m => m.jcId === member.jcId);
-                
-                if (existingIndex >= 0) {
-                    data.members[existingIndex] = member;
-                } else {
-                    data.members.push(member);
-                }
-
-                data.lastUpdate = new Date().toISOString();
-                return this.setData(data);
-            }
-
-            deleteMember(jcId) {
-                const data = this.getData();
-                if (!data) return false;
-
-                data.members = data.members.filter(m => m.jcId !== jcId);
-                data.lastUpdate = new Date().toISOString();
-                return this.setData(data);
-            }
-
-            getMemberByJCId(jcId) {
-                const data = this.getData();
-                if (!data) return null;
-                return data.members.find(m => m.jcId === jcId);
-            }
-
-            getMemberByEmail(email) {
-                const data = this.getData();
-                if (!data) return null;
-                return data.members.find(m => m.email === email);
-            }
-        }
-
-        // Google OAuth Configuration
-        const googleConfig = {
-            clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
-        };
-
-        // QR Code Redemption System Implementation - FIXED VERSION
-        class QRRedemptionSystem {
-            constructor() {
-                this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
-                this.encryptionKey = 'jeansclub_qr_2024_secret_key!';
-                this.tierRules = {
-                    PEARL: { 
-                        payWithPoints: false,
-                        discountVoucherOnly: true,
-                        description: "Basic membership - use points for discount vouchers only"
-                    },
-                    BRONZE: { 
-                        months: 2, 
-                        percentage: 0.08,
-                        multiplier: 1.0,
-                        minSpendingThreshold: 300000,
-                        maxRedemptionCap: 50000,
-                        description: "Redeem 8% of your last 2 months spending as points",
-                        pointsPer100UGX: 100
-                    },
-                    SILVER: { 
-                        months: 3, 
-                        percentage: 0.10,
-                        multiplier: 1.1,
-                        minSpendingThreshold: 500000,
-                        maxRedemptionCap: 100000,
-                        description: "Redeem 10% of your last 3 months spending as points",
-                        pointsPer100UGX: 90
-                    },
-                    RUBY: { 
-                        months: 4, 
-                        percentage: 0.12,
-                        multiplier: 1.3,
-                        minSpendingThreshold: 1000000,
-                        maxRedemptionCap: 200000,
-                        description: "Redeem 12% of your last 4 months spending as points",
-                        pointsPer100UGX: 80
-                    },
-                    GOLD: { 
-                        months: 5, 
-                        percentage: 0.15,
-                        multiplier: 1.4,
-                        minSpendingThreshold: 2000000,
-                        maxRedemptionCap: 300000,
-                        description: "Redeem 15% of your last 5 months spending as points",
-                        pointsPer100UGX: 70
-                    },
-                    SAPPHIRE: { 
-                        months: 6, 
-                        percentage: 0.18,
-                        lifetimeBonus: 0.02,
-                        multiplier: 1.5,
-                        minSpendingThreshold: 4000000,
-                        maxRedemptionCap: 500000,
-                        description: "Redeem 18% of last 6 months + 2% lifetime bonus as points",
-                        pointsPer100UGX: 60
-                    },
-                    PLATINUM: { 
-                        months: 12, 
-                        percentage: 0.25,
-                        lifetimeBonus: 0.05,
-                        multiplier: 1.6,
-                        minSpendingThreshold: 8000000,
-                        maxRedemptionCap: 1000000,
-                        canChooseAny: true,
-                        description: "Redeem 25% of last 12 months + 5% lifetime bonus as points",
-                        pointsPer100UGX: 50
-                    }
-                };
-                
-                this.discountVoucherLimits = {
-                    PEARL: { 
-                        min: 1000, 
-                        max: 5000, 
-                        maxPercentage: 5,
-                        pointsPerDiscount: 100
-                    },
-                    BRONZE: { 
-                        min: 2000, 
-                        max: 10000, 
-                        maxPercentage: 8,
-                        pointsPerDiscount: 100
-                    },
-                    SILVER: { 
-                        min: 3000, 
-                        max: 15000, 
-                        maxPercentage: 10,
-                        pointsPerDiscount: 100
-                    },
-                    RUBY: { 
-                        min: 5000, 
-                        max: 25000, 
-                        maxPercentage: 12,
-                        pointsPerDiscount: 100
-                    },
-                    GOLD: { 
-                        min: 10000, 
-                        max: 50000, 
-                        maxPercentage: 15,
-                        pointsPerDiscount: 100
-                    },
-                    SAPPHIRE: { 
-                        min: 20000, 
-                        max: 100000, 
-                        maxPercentage: 18,
-                        pointsPerDiscount: 100
-                    },
-                    PLATINUM: { 
-                        min: 50000, 
-                        max: 250000, 
-                        maxPercentage: 25,
-                        pointsPerDiscount: 100
-                    }
-                };
-            }
-
-            calculateSpendingHistory(member, months) {
-                const cutoffDate = new Date();
-                cutoffDate.setMonth(cutoffDate.getMonth() - months);
-                
-                let totalSpent = 0;
-                if (member.purchaseHistory) {
-                    member.purchaseHistory.forEach(purchase => {
-                        const purchaseDate = new Date(purchase.date);
-                        if (purchaseDate >= cutoffDate) {
-                            totalSpent += purchase.amount || 0;
-                        }
-                    });
-                }
-                
-                return totalSpent;
-            }
-
-            calculateLifetimeSpending(member) {
-                return member.totalSpent || 0;
-            }
-
-            calculateRedemptionOptions(member, purchaseAmount) {
-                const tier = member.tier;
-                const options = [];
-                const memberPoints = member.points || 0;
-                
-                if (tier === 'PEARL') {
-                    return this.getDiscountVoucherOptions(member, purchaseAmount).filter(option => 
-                        memberPoints >= option.pointsRequired
-                    );
-                }
-                
-                const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
-                
-                eligibleTiers.forEach(tierType => {
-                    const rule = this.tierRules[tierType];
-                    if (!rule || !rule.months) return;
-                    
-                    const monthsSpending = this.calculateSpendingHistory(member, rule.months);
-                    
-                    if (monthsSpending < rule.minSpendingThreshold) {
-                        return;
-                    }
-                    
-                    let totalRedemption = monthsSpending * rule.percentage;
-                    
-                    if (rule.lifetimeBonus) {
-                        const lifetimeSpending = this.calculateLifetimeSpending(member);
-                        totalRedemption += lifetimeSpending * rule.lifetimeBonus;
-                    }
-                    
-                    totalRedemption = Math.min(totalRedemption, rule.maxRedemptionCap);
-                    
-                    if (totalRedemption > 0) {
-                        const pointsEquivalent = Math.floor(totalRedemption / 100 * rule.pointsPer100UGX);
-                        
-                        if (memberPoints >= pointsEquivalent) {
-                            options.push({
-                                type: 'points_redemption',
-                                tier: tierType,
-                                description: rule.description,
-                                monthsSpending: monthsSpending,
-                                totalAmount: totalRedemption,
-                                maxRedemption: Math.min(totalRedemption, purchaseAmount),
-                                pointsEquivalent: pointsEquivalent,
-                                pointsValue: rule.pointsPer100UGX + ' points per 100 UGX',
-                                eligibility: `Spent ${monthsSpending.toLocaleString()} UGX in last ${rule.months} months`,
-                                requiresSufficientPoints: true,
-                                memberHasPoints: true
-                            });
-                        }
-                    }
-                });
-                
-                const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount)
-                    .filter(option => memberPoints >= option.pointsRequired);
-                
-                options.push(...voucherOptions);
-                
-                return options.sort((a, b) => (b.maxRedemption || 0) - (a.maxRedemption || 0));
-            }
-
-            getDiscountVoucherOptions(member, purchaseAmount) {
-                const tier = member.tier;
-                const limits = this.discountVoucherLimits[tier] || this.discountVoucherLimits.PEARL;
-                
-                const options = [];
-                
-                const discountAmounts = [1000, 2000, 3000, 5000, 10000, 15000, 20000, 25000, 30000, 50000];
-                
-                discountAmounts.forEach(amount => {
-                    if (amount >= limits.min && amount <= limits.max && amount <= purchaseAmount) {
-                        const discountPercentage = ((amount / purchaseAmount) * 100).toFixed(1);
-                        if (discountPercentage <= 100) {
-                            options.push({
-                                type: 'discount_voucher',
-                                tier: tier,
-                                description: `${amount.toLocaleString()} UGX Discount Voucher`,
-                                discountAmount: amount,
-                                discountPercentage: discountPercentage,
-                                applicableAmount: purchaseAmount,
-                                pointsRequired: Math.floor(amount / 100)
-                            });
-                        }
-                    }
-                });
-                
-                return options;
-            }
-
-            // FIXED: Simple encoding instead of encryption to avoid issues
-            generateQRCodeData(redemptionData) {
-                // Create a simple readable string instead of encrypted JSON
-                const qrString = `JCRED|${redemptionData.redemptionId}|${redemptionData.memberJCId}|${Date.now()}`;
-                return qrString;
-            }
-
-            // FIXED: Parse the simple string instead of decrypting
-            parseQRCodeData(qrString) {
-                try {
-                    const parts = qrString.split('|');
-                    if (parts[0] !== 'JCRED') {
-                        return null;
-                    }
-                    
-                    return {
-                        redemptionId: parts[1],
-                        memberJCId: parts[2],
-                        timestamp: parseInt(parts[3]),
-                        type: 'jeansclub_redemption'
-                    };
-                } catch (error) {
-                    console.error("Parse error:", error);
-                    return null;
-                }
-            }
-
-            getRedemptionById(redemptionId) {
-                return this.redemptions.find(r => r.redemptionId === redemptionId);
-            }
-
-            createRedemption(member, selectedOption, purchaseAmount) {
-                const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
-                
-                const redemptionData = {
-                    redemptionId: redemptionId,
-                    memberJCId: member.jcId,
-                    memberName: member.name,
-                    memberTier: member.tier,
-                    purchaseAmount: purchaseAmount,
-                    selectedOption: selectedOption,
-                    createdDate: new Date().toISOString(),
-                    status: 'pending',
-                    redeemedBy: null,
-                    redeemedDate: null,
-                    qrCodeData: null
-                };
-
-                redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
-
-                this.redemptions.push(redemptionData);
-                this.saveRedemptions();
-
-                return redemptionData;
-            }
-
-            processRedemption(qrCodeData, salespersonName) {
-                console.log("Processing redemption with data:", qrCodeData);
-                
-                if (!salespersonName || salespersonName.trim() === '') {
-                    return { success: false, message: "Salesperson name is required" };
-                }
-
-                // Check if it's a redemption ID directly
-                if (qrCodeData.startsWith('RED')) {
-                    const redemption = this.getRedemptionById(qrCodeData);
-                    if (redemption) {
-                        if (redemption.status === 'completed') {
-                            return { success: false, message: "Redemption has already been completed" };
-                        }
-                        
-                        if (redemption.status === 'expired') {
-                            return { success: false, message: "Redemption has expired" };
-                        }
-                        
-                        redemption.status = 'completed';
-                        redemption.redeemedBy = salespersonName.trim();
-                        redemption.redeemedDate = new Date().toISOString();
-                        this.saveRedemptions();
-                        
-                        return {
-                            success: true,
-                            message: `Redemption completed successfully by ${salespersonName}`,
-                            redemption: redemption
-                        };
-                    }
-                }
-                
-                // Try to parse as QR code data
-                const redemptionData = this.parseQRCodeData(qrCodeData);
-                if (!redemptionData) {
-                    return { 
-                        success: false, 
-                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
-                    };
-                }
-                
-                // Check expiry (24 hours)
-                const now = Date.now();
-                if (now - redemptionData.timestamp > 24 * 60 * 60 * 1000) {
-                    return { 
-                        success: false, 
-                        message: "QR code has expired. Please generate a new one." 
-                    };
-                }
-
-                const redemption = this.getRedemptionById(redemptionData.redemptionId);
-                if (!redemption) {
-                    return { 
-                        success: false, 
-                        message: "Redemption not found in the system" 
-                    };
-                }
-
-                if (redemption.status === 'completed') {
-                    return { 
-                        success: false, 
-                        message: "Redemption has already been completed" 
-                    };
-                }
-
-                if (redemption.status === 'expired') {
-                    return { 
-                        success: false, 
-                        message: "Redemption has expired" 
-                    };
-                }
-
-                redemption.status = 'completed';
-                redemption.redeemedBy = salespersonName.trim();
-                redemption.redeemedDate = new Date().toISOString();
-                this.saveRedemptions();
-
-                return {
-                    success: true,
-                    message: `Redemption completed successfully by ${salespersonName}`,
-                    redemption: redemption
-                };
-            }
-
-            getMemberRedemptions(memberJCId) {
-                return this.redemptions
-                    .filter(r => r.memberJCId === memberJCId)
-                    .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-            }
-
-            getAllRedemptions() {
-                return this.redemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-            }
-
-            saveRedemptions() {
-                localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.redemptions));
-            }
-
-            getRedemptionStats() {
-                const total = this.redemptions.length;
-                const pending = this.redemptions.filter(r => r.status === 'pending').length;
-                const completed = this.redemptions.filter(r => r.status === 'completed').length;
-                const expired = this.redemptions.filter(r => r.status === 'expired').length;
-                
-                const totalValue = this.redemptions
-                    .filter(r => r.status === 'completed')
-                    .reduce((sum, r) => {
-                        if (r.selectedOption.type === 'points_redemption') {
-                            return sum + (r.selectedOption.maxRedemption || 0);
-                        } else if (r.selectedOption.type === 'discount_voucher') {
-                            return sum + (r.selectedOption.discountAmount || 0);
-                        }
-                        return sum;
-                    }, 0);
-                
-                return {
-                    total,
-                    pending,
-                    completed,
-                    expired,
-                    totalValue,
-                    completionRate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%'
-                };
-            }
-        }
-
-        // Initialize QR redemption system
-        const qrRedemptionSystem = new QRRedemptionSystem();
-
         // Jeans Club Configuration
         const jeansClubConfig = {
             pointValue: 750,
@@ -4903,7 +4735,10 @@ const voucherSystem = new VoucherSystem();
             }
         };
 
-        // Main JeansClubManager - FIXED VERSION
+        // ===========================
+        // FIXED JEANS CLUB MANAGER WITH CORRECT TIER PROGRESS
+        // ===========================
+        
         class JeansClubManager {
             constructor() {
                 this.db = new SupabaseDB();
@@ -4955,13 +4790,13 @@ const voucherSystem = new VoucherSystem();
                     id: memberId,
                     jcId: this.generateJCId(),
                     email: userData.email,
-                    name:userData.name,
+                    name: userData.name,
                     password: password,
                     googleId: null,
                     loginMethod: 'email',
                     points: startingPoints,
                     tier: 'PEARL',
-                    highestTierAchieved: 'PEARL', // Track highest tier
+                    highestTierAchieved: 'PEARL',
                     referralCode: this.generateReferralCode(),
                     referredBy: referralCode || null,
                     purchaseHistory: [],
@@ -4979,7 +4814,7 @@ const voucherSystem = new VoucherSystem();
                     referrals: [],
                     resetToken: null,
                     resetTokenExpiry: null,
-                    newsletterSubscribed: userData.newsletter || true
+                    newsletterSubscribed: userData.newsletter !== false
                 };
 
                 const saved = await this.db.saveMember(newMember);
@@ -4998,7 +4833,7 @@ const voucherSystem = new VoucherSystem();
                     // Send welcome email
                     await this.emailService.sendWelcomeEmail(newMember.email, newMember);
                     
-                    // FIXED: Send newsletter welcome email if subscribed
+                    // Send newsletter welcome email if subscribed
                     if (userData.newsletter !== false) {
                         console.log('📧 Sending newsletter welcome email to:', newMember.email);
                         await this.emailService.sendNewsletterWelcomeEmail(newMember.email, newMember.name);
@@ -5039,6 +4874,18 @@ const voucherSystem = new VoucherSystem();
                             date: new Date().toISOString(),
                             points: 100
                         });
+                        
+                        // Check if referral bonus should trigger tier upgrade
+                        const highestTier = this.calculateHighestTier(referrer.points, referrer.highestTierAchieved);
+                        if (highestTier !== referrer.highestTierAchieved) {
+                            referrer.tier = highestTier;
+                            referrer.highestTierAchieved = highestTier;
+                            referrer.activityLog.unshift({
+                                type: 'tier_upgrade',
+                                description: `Tier upgraded to ${highestTier} through referral bonus`,
+                                date: new Date().toISOString()
+                            });
+                        }
                         
                         await this.db.saveMember(referrer);
                         
@@ -5120,7 +4967,7 @@ const voucherSystem = new VoucherSystem();
                         loginMethod: 'google',
                         points: 10,
                         tier: 'PEARL',
-                        highestTierAchieved: 'PEARL', // Track highest tier
+                        highestTierAchieved: 'PEARL',
                         referralCode: this.generateReferralCode(),
                         referredBy: null,
                         purchaseHistory: [],
@@ -5143,7 +4990,6 @@ const voucherSystem = new VoucherSystem();
                     
                     try {
                         await this.emailService.sendWelcomeEmail(member.email, member);
-                        // FIXED: Send newsletter welcome email for Google signups
                         await this.emailService.sendNewsletterWelcomeEmail(member.email, member.name);
                         await this.db.subscribeToNewsletter(member.email, member.name);
                     } catch (emailError) {
@@ -5210,7 +5056,6 @@ const voucherSystem = new VoucherSystem();
                 try {
                     if (subscribe) {
                         await this.db.subscribeToNewsletter(email, this.currentMember?.name);
-                        // FIXED: Send newsletter welcome email when subscribing
                         await this.emailService.sendNewsletterWelcomeEmail(email, this.currentMember?.name);
                     } else {
                         await this.db.unsubscribeFromNewsletter(email);
@@ -5344,7 +5189,7 @@ const voucherSystem = new VoucherSystem();
                 
                 const currentTier = this.currentMember.tier;
                 this.currentMember.points -= points;
-                // DO NOT change tier based on points reduction
+                
                 // Update highest tier if current tier is higher
                 const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
                 const currentTierIndex = tierOrder.indexOf(currentTier);
@@ -5361,7 +5206,7 @@ const voucherSystem = new VoucherSystem();
                     points: -points
                 });
                 
-                const voucher = voucherSystem.createVoucher(
+                const voucher = await voucherSystem.createVoucher(
                     this.currentMember.jcId,
                     this.currentMember.name,
                     points,
@@ -5392,7 +5237,7 @@ const voucherSystem = new VoucherSystem();
             }
 
             async redeemVoucher(voucherCode, redeemedBy = 'staff') {
-                const result = voucherSystem.redeemVoucher(voucherCode, redeemedBy);
+                const result = await voucherSystem.redeemVoucher(voucherCode, redeemedBy);
                 
                 if (result.success) {
                     const member = await this.db.getMemberByJCId(result.voucher.memberJCId);
@@ -5445,21 +5290,16 @@ const voucherSystem = new VoucherSystem();
                     points: pointsEarned
                 });
                 
-                // Calculate new tier based on points
-                const newTierInfo = this.calculateTierFromPoints(member.points);
-                const newTier = newTierInfo.name;
+                // Calculate new highest tier based on points
+                const newHighestTier = this.calculateHighestTier(member.points, member.highestTierAchieved);
                 
-                // Update tier if it's higher than current tier
-                const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
-                const currentTierIndex = tierOrder.indexOf(member.tier);
-                const newTierIndex = tierOrder.indexOf(newTier);
-                
-                if (newTierIndex > currentTierIndex) {
-                    member.tier = newTier;
-                    member.highestTierAchieved = newTier; // Update highest tier
+                // Only update if the new highest tier is higher than current
+                if (newHighestTier !== member.highestTierAchieved) {
+                    member.tier = newHighestTier;
+                    member.highestTierAchieved = newHighestTier;
                     member.activityLog.unshift({
                         type: 'tier_upgrade',
-                        description: `Tier upgraded from ${member.tier} to ${newTier}`,
+                        description: `Tier upgraded to ${newHighestTier} through purchase`,
                         date: new Date().toISOString()
                     });
                 }
@@ -5506,15 +5346,14 @@ const voucherSystem = new VoucherSystem();
                 return { success: false, message: "Failed to delete member" };
             }
 
+            // FIXED: Calculate tier based on highest achieved, never go down
             getTier(member) {
-                const points = member.points || 0;
                 const highestTier = member.highestTierAchieved || 'PEARL';
                 
-                // Always use the highest tier achieved, never downgrade
+                // Always use the highest tier achieved
                 const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
                 let currentTier = jeansClubConfig.tiers.PEARL;
                 
-                // Find the highest tier the member has achieved
                 for (const [tierName, tierConfig] of Object.entries(jeansClubConfig.tiers)) {
                     if (tierOrder.indexOf(tierName) <= tierOrder.indexOf(highestTier)) {
                         currentTier = { ...tierConfig, name: tierName };
@@ -5524,33 +5363,35 @@ const voucherSystem = new VoucherSystem();
                 return currentTier;
             }
 
-            calculateTierFromPoints(points) {
-                let currentTier = jeansClubConfig.tiers.PEARL;
+            // FIXED: Calculate highest tier based on points, but never go below current highest
+            calculateHighestTier(points, currentHighestTier = 'PEARL') {
+                const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
+                const currentHighestIndex = tierOrder.indexOf(currentHighestTier);
+                
+                let newHighestTier = currentHighestTier;
                 
                 for (const [tierName, tierConfig] of Object.entries(jeansClubConfig.tiers)) {
-                    if (points >= tierConfig.minPoints && points <= tierConfig.maxPoints) {
-                        currentTier = { ...tierConfig, name: tierName };
-                        break;
+                    const tierIndex = tierOrder.indexOf(tierName);
+                    if (points >= tierConfig.minPoints && points <= tierConfig.maxPoints && tierIndex > currentHighestIndex) {
+                        newHighestTier = tierName;
                     }
                 }
                 
-                return currentTier;
+                return newHighestTier;
             }
 
-            // FIXED: Get tier progress that shows progress to next tier only
+            // FIXED: Tier progress that shows progress to next tier from current highest tier
             getTierProgress(member) {
-                const currentTierObj = this.getTier(member);
+                const highestTier = member.highestTierAchieved || 'PEARL';
                 const points = member.points || 0;
                 const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
-                const currentTierIndex = tierOrder.indexOf(currentTierObj.name);
+                const currentTierIndex = tierOrder.indexOf(highestTier);
                 
                 // If at max tier, show 100% progress
                 if (currentTierIndex === tierOrder.length - 1) {
                     return {
-                        currentTier: currentTierObj.name,
+                        currentTier: highestTier,
                         currentPoints: points,
-                        minPoints: currentTierObj.minPoints,
-                        maxPoints: currentTierObj.maxPoints,
                         nextTier: null,
                         progress: 100,
                         pointsToNext: 0,
@@ -5561,17 +5402,18 @@ const voucherSystem = new VoucherSystem();
                 // Get next tier
                 const nextTierName = tierOrder[currentTierIndex + 1];
                 const nextTier = jeansClubConfig.tiers[nextTierName];
+                const currentTier = jeansClubConfig.tiers[highestTier];
                 
                 // Calculate progress within current tier range
-                const tierRange = currentTierObj.maxPoints - currentTierObj.minPoints;
-                const progressInTier = points - currentTierObj.minPoints;
+                const tierRange = currentTier.maxPoints - currentTier.minPoints;
+                const progressInTier = points - currentTier.minPoints;
                 const progressPercentage = Math.min((progressInTier / tierRange) * 100, 100);
                 
                 return {
-                    currentTier: currentTierObj.name,
+                    currentTier: highestTier,
                     currentPoints: points,
-                    minPoints: currentTierObj.minPoints,
-                    maxPoints: currentTierObj.maxPoints,
+                    minPoints: currentTier.minPoints,
+                    maxPoints: currentTier.maxPoints,
                     nextTier: nextTierName,
                     progress: progressPercentage,
                     pointsToNext: Math.max(nextTier.minPoints - points, 0),
@@ -5655,7 +5497,7 @@ const voucherSystem = new VoucherSystem();
                     return { success: false, message: "You must be logged in" };
                 }
                 
-                const redemption = qrRedemptionSystem.createRedemption(
+                const redemption = await qrRedemptionSystem.createRedemption(
                     this.currentMember,
                     selectedOption,
                     purchaseAmount
@@ -5664,7 +5506,7 @@ const voucherSystem = new VoucherSystem();
                 if (selectedOption.type === 'points_redemption') {
                     this.currentMember.points -= selectedOption.pointsEquivalent;
                     
-                    // Update highest tier if needed
+                    // Update highest tier if needed (tier never goes down)
                     const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
                     const currentTierIndex = tierOrder.indexOf(this.currentMember.tier);
                     const highestTierIndex = tierOrder.indexOf(this.currentMember.highestTierAchieved || 'PEARL');
@@ -5705,204 +5547,11 @@ const voucherSystem = new VoucherSystem();
         // Initialize Jeans Club Manager
         const clubManager = new JeansClubManager();
 
-        // Google Sign-In Initialization
-        function initGoogleSignIn() {
-            google.accounts.id.initialize({
-                client_id: googleConfig.clientId,
-                callback: handleGoogleSignIn,
-                auto_select: false,
-                cancel_on_tap_outside: true
-            });
-
-            google.accounts.id.renderButton(
-                document.querySelector('.google-signin-button'),
-                {
-                    theme: "outline",
-                    size: "large",
-                    text: "signup_with",
-                    shape: "rectangular",
-                    logo_alignment: "left"
-                }
-            );
-
-            google.accounts.id.renderButton(
-                document.querySelector('.google-login-button'),
-                {
-                    theme: "outline",
-                    size: "large",
-                    text: "signin_with",
-                    shape: "rectangular",
-                    logo_alignment: "left"
-                }
-            );
-        }
-
-        async function handleGoogleSignIn(response) {
-            try {
-                const user = jwt_decode(response.credential);
-                
-                const result = await clubManager.loginWithGoogle(response);
-                
-                if (result.success) {
-                    showDashboard(result.member);
-                    showToast("Google login successful! 🎉", "success");
-                } else {
-                    showToast(result.message, "error");
-                }
-            } catch (error) {
-                console.error('Google sign-in error:', error);
-                showToast("Google sign-in failed. Please try again.", "error");
-            }
-        }
-
-        // UI Functions
-        function showSignupScreen() {
-            hideAllSections();
-            document.getElementById('signupSection').classList.remove('hidden');
-        }
-
-        function showLoginScreen() {
-            hideAllSections();
-            document.getElementById('loginSection').classList.remove('hidden');
-        }
-
-        function showPasswordResetScreen() {
-            hideAllSections();
-            document.getElementById('passwordResetSection').classList.remove('hidden');
-        }
-
-        function showDashboard(member = null) {
-            hideAllSections();
-            document.getElementById('dashboardSection').classList.remove('hidden');
-            
-            if (member) {
-                updateDashboard(member);
-            } else if (clubManager.currentMember) {
-                updateDashboard(clubManager.currentMember);
-            }
-        }
-
-        function showAdminPanel() {
-            hideAllSections();
-            document.getElementById('adminSection').classList.remove('hidden');
-            loadAdminData();
-        }
-
-        function showDeleteMemberSection() {
-            hideAllSections();
-            document.getElementById('deleteMemberSection').classList.remove('hidden');
-        }
-
-        function showVoucherManagementPanel() {
-            hideAllSections();
-            document.getElementById('voucherManagementSection').classList.remove('hidden');
-            loadAllVouchers();
-        }
-
-        function showQRRedemptionPanel() {
-            hideAllSections();
-            document.getElementById('qrRedemptionSection').classList.remove('hidden');
-        }
-
-        function showQRRedemptionManagementPanel() {
-            hideAllSections();
-            document.getElementById('qrRedemptionManagementSection').classList.remove('hidden');
-            loadQRRedemptionData();
-        }
-
-        async function signUpWithEmail() {
-            const name = document.getElementById('userName').value.trim();
-            const email = document.getElementById('userEmail').value.trim();
-            const password = document.getElementById('userPassword').value;
-            const referralCode = document.getElementById('referralCode').value.trim();
-            const newsletter = document.getElementById('newsletterSignup').checked;
-
-            if (!name || !email || !password) {
-                showToast("Please fill in all required fields", "error");
-                return;
-            }
-
-            if (!isValidEmail(email)) {
-                showToast("Please enter a valid email address (e.g., name@domain.com)", "error");
-                return;
-            }
-
-            const fakeEmails = ['test@test.com', 'example@example.com', 'user@user.com'];
-            if (fakeEmails.includes(email.toLowerCase())) {
-                showToast("Please use your real email address", "error");
-                return;
-            }
-
-            if (password.length < 6) {
-                showToast("Password must be at least 6 characters", "error");
-                return;
-            }
-
-            showToast("Creating account...", "info");
-
-            try {
-                const result = await clubManager.createAccount(
-                    { name, email, newsletter },
-                    password,
-                    referralCode
-                );
-
-                if (result.success) {
-                    showDashboard(result.member);
-                    showToast("Account created successfully! Welcome to Jeans Club! 🎉", "success");
-                    
-                    document.getElementById('userName').value = '';
-                    document.getElementById('userEmail').value = '';
-                    document.getElementById('userPassword').value = '';
-                    document.getElementById('referralCode').value = '';
-                    
-                } else {
-                    showToast(result.message, "error");
-                }
-            } catch (error) {
-                console.error('Signup error:', error);
-                showToast("An error occurred. Please try again.", "error");
-            }
-        }
-
-        async function loginWithCredentials() {
-            const jcId = document.getElementById('loginJCId').value.trim();
-            const password = document.getElementById('loginPassword').value;
-
-            if (!jcId || !password) {
-                showToast("Please enter JC ID and password", "error");
-                return;
-            }
-
-            showToast("Logging in...", "info");
-
-            const result = await clubManager.loginWithCredentials(jcId, password);
-
-            if (result.success) {
-                showDashboard(result.member);
-                showToast("Login successful! 🎉", "success");
-            } else {
-                showToast(result.message, "error");
-            }
-        }
-
-        async function showAdminLogin() {
-            const adminCode = prompt("Enter admin code:");
-            if (!adminCode) return;
-
-            showToast("Logging in as admin...", "info");
-
-            const result = await clubManager.adminLogin(adminCode);
-
-            if (result.success) {
-                showAdminPanel();
-                showToast("Admin login successful! 👑", "success");
-            } else {
-                showToast(result.message, "error");
-            }
-        }
-
-        // Update dashboard with improved mobile card display
+        // ===========================
+        // UI FUNCTIONS WITH FIXES
+        // ===========================
+        
+        // Update dashboard with correct tier display
         function updateDashboard(member) {
             document.getElementById('memberJcId').textContent = member.jcId;
             document.getElementById('memberName').textContent = member.name;
@@ -5912,17 +5561,23 @@ const voucherSystem = new VoucherSystem();
             document.getElementById('totalSpent').textContent = (member.totalSpent || 0).toLocaleString() + ' UGX';
             document.getElementById('memberReferralCode').textContent = member.referralCode;
             
+            // FIXED: Show current tier and highest tier correctly
             const tier = clubManager.getTier(member);
             document.getElementById('memberTier').textContent = `${tier.name} (Highest: ${member.highestTierAchieved || tier.name})`;
             
+            // FIXED: Use correct tier progress calculation
             const progress = clubManager.getTierProgress(member);
             document.getElementById('progressFill').style.width = progress.progress + '%';
-            document.getElementById('tierProgressText').innerHTML = 
-                progress.nextTier 
-                ? `Progress to <strong>${progress.nextTier}</strong>: ${progress.currentPoints.toLocaleString()}/${progress.maxPoints.toLocaleString()} points<br>
-                   <small>${progress.pointsToNext.toLocaleString()} points to reach ${progress.nextTier} tier</small>`
-                : `<strong>🎉 You've reached the highest tier! 🎉</strong><br>
-                   <small>${progress.message}</small>`;
+            
+            if (progress.nextTier) {
+                document.getElementById('tierProgressText').innerHTML = 
+                    `Progress to <strong>${progress.nextTier}</strong>: ${progress.currentPoints.toLocaleString()}/${progress.maxPoints.toLocaleString()} points<br>
+                     <small>${progress.pointsToNext.toLocaleString()} points to reach ${progress.nextTier} tier</small>`;
+            } else {
+                document.getElementById('tierProgressText').innerHTML = 
+                    `<strong>🎉 You've reached the highest tier! 🎉</strong><br>
+                     <small>${progress.message}</small>`;
+            }
             
             const newsletterBtn = document.getElementById('newsletterToggle');
             if (member.newsletterSubscribed !== false) {
@@ -5942,7 +5597,7 @@ const voucherSystem = new VoucherSystem();
             updateMemberVouchers(member.jcId);
         }
 
-        // Improved mobile card display
+        // Update member card
         function updateMemberCard(member) {
             const card = document.getElementById('memberCard');
             const tier = member.tier.toLowerCase();
@@ -5965,27 +5620,9 @@ const voucherSystem = new VoucherSystem();
             document.getElementById('cardDate').textContent = `${month}/${year}`;
         }
 
-        function updateActivityLog(member) {
-            const activityLog = document.getElementById('activityLog');
-            const activities = member.activityLog || [];
-            
-            if (activities.length === 0) {
-                activityLog.innerHTML = '<div class="activity-item">No activity yet</div>';
-                return;
-            }
-            
-            activityLog.innerHTML = activities.slice(0, 10).map(activity => `
-                <div class="activity-item">
-                    <strong>${activity.type}</strong>: ${activity.description}
-                    ${activity.points ? ` (${activity.points > 0 ? '+' : ''}${activity.points} points)` : ''}
-                    <br><small>${new Date(activity.date).toLocaleString()}</small>
-                </div>
-            `).join('');
-        }
-
-        function updateMemberVouchers(memberJCId) {
+        async function updateMemberVouchers(memberJCId) {
             const vouchersList = document.getElementById('vouchersList');
-            const vouchers = voucherSystem.getMemberVouchers(memberJCId);
+            const vouchers = await voucherSystem.getMemberVouchers(memberJCId);
             
             if (vouchers.length === 0) {
                 vouchersList.innerHTML = '<div class="activity-item">No vouchers yet. Redeem your points for a discount voucher!</div>';
@@ -6022,259 +5659,11 @@ const voucherSystem = new VoucherSystem();
             }).join('');
         }
 
-        async function calculateDiscount() {
-            const pointsInput = document.getElementById('discountPoints');
-            const points = parseInt(pointsInput.value);
-            
-            if (!points || points < 10) {
-                showToast("Please enter at least 10 points", "error");
-                return;
-            }
-            
-            const result = clubManager.calculateDiscount(points);
-            
-            const discountResult = document.getElementById('discountResult');
-            if (result.success) {
-                discountResult.className = 'discount-result discount-success';
-                discountResult.innerHTML = `
-                    <h4>Discount Calculation</h4>
-                    <p><strong>Points to use:</strong> ${points} points</p>
-                    <p><strong>Discount:</strong> ${result.discountPercentage}% off</p>
-                    <p><strong>Value:</strong> ${result.value}</p>
-                    <p><strong>Tier Multiplier:</strong> ${result.tierMultiplier}x</p>
-                    <p><small>Minimum 10 points required, maximum 50% discount</small></p>
-                `;
-            } else {
-                discountResult.className = 'discount-result discount-error';
-                discountResult.textContent = result.message;
-            }
-        }
-
-        async function redeemPoints() {
-            const pointsInput = document.getElementById('discountPoints');
-            const points = parseInt(pointsInput.value);
-            
-            if (!points || points < 10) {
-                showToast("Please enter at least 10 points", "error");
-                return;
-            }
-            
-            showToast("Creating discount voucher...", "info");
-            
-            const result = await clubManager.createDiscountVoucher(points);
-            
-            if (result.success) {
-                showToast("Voucher created successfully! Check your email for details.", "success");
-                updateDashboard(clubManager.currentMember);
-                
-                const discountResult = document.getElementById('discountResult');
-                discountResult.className = 'discount-result discount-success';
-                discountResult.innerHTML = `
-                    <h4>🎉 Voucher Created!</h4>
-                    <p><strong>Voucher Code:</strong> <span class="voucher-code">${result.voucher.code}</span></p>
-                    <p><strong>Discount:</strong> ${result.voucher.discountPercentage}% off</p>
-                    <p><strong>Points Used:</strong> ${points} points</p>
-                    <p><strong>Expires:</strong> ${new Date(result.voucher.expiryDate).toLocaleDateString()}</p>
-                    <p><small>Check your email for QR code and details</small></p>
-                `;
-                
-                pointsInput.value = '';
-            } else {
-                showToast(result.message, "error");
-            }
-        }
-
-        async function toggleNewsletter() {
-            if (!clubManager.currentMember) return;
-            
-            const currentlySubscribed = clubManager.currentMember.newsletterSubscribed !== false;
-            const action = currentlySubscribed ? false : true;
-            
-            showToast("Updating newsletter preferences...", "info");
-            
-            const result = await clubManager.toggleNewsletter(
-                clubManager.currentMember.email,
-                action
-            );
-            
-            if (result.success) {
-                showToast(result.message, "success");
-                updateDashboard(clubManager.currentMember);
-            } else {
-                showToast(result.message, "error");
-            }
-        }
-
-        function shareReferral() {
-            if (!clubManager.currentMember) return;
-            
-            const referralCode = clubManager.currentMember.referralCode;
-            const message = `Join me on Jeans Club! Use my referral code ${referralCode} to get bonus points when you sign up. Sign up at https://elijah787.github.io/jeans-club`;
-            
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Join Jeans Club',
-                    text: message,
-                    url: 'https://elijah787.github.io/jeans-club'
-                });
-            } else {
-                navigator.clipboard.writeText(message);
-                showToast("Referral code copied to clipboard! 📋", "success");
-            }
-        }
-
-        function logout() {
-            clubManager.logout();
-            showLoginScreen();
-            showToast("Logged out successfully", "info");
-        }
-
-        async function refreshData() {
-            showToast("Refreshing data...", "info");
-            const updatedMember = await clubManager.refreshData();
-            if (updatedMember) {
-                updateDashboard(updatedMember);
-                showToast("Data refreshed!", "success");
-            } else {
-                showToast("Failed to refresh data", "error");
-            }
-        }
-
-        async function adminAddPurchase() {
-            const jcId = document.getElementById('purchaseJCId').value.trim();
-            const amount = parseFloat(document.getElementById('purchaseAmount').value);
-            const description = document.getElementById('purchaseDescription').value.trim();
-            
-            if (!jcId || !amount || !description) {
-                showToast("Please fill in all fields", "error");
-                return;
-            }
-            
-            if (amount <= 0) {
-                showToast("Amount must be positive", "error");
-                return;
-            }
-            
-            showToast("Recording purchase...", "info");
-            
-            const result = await clubManager.addPurchase(jcId, amount, description);
-            
-            const purchaseResult = document.getElementById('purchaseResult');
-            if (result.success) {
-                purchaseResult.className = 'success-message';
-                purchaseResult.innerHTML = `
-                    <strong>Success!</strong> ${result.message}<br>
-                    <small>Member: ${result.member.name} (${result.member.jcId})</small>
-                `;
-                
-                document.getElementById('purchaseJCId').value = '';
-                document.getElementById('purchaseAmount').value = '';
-                document.getElementById('purchaseDescription').value = '';
-                
-                loadAdminData();
-            } else {
-                purchaseResult.className = 'error-message';
-                purchaseResult.textContent = result.message;
-            }
-        }
-
-        async function sendNewsletter() {
-            const subject = document.getElementById('newsletterSubject').value.trim();
-            const content = document.getElementById('newsletterContent').value.trim();
-            
-            if (!subject || !content) {
-                showToast("Please fill in subject and content", "error");
-                return;
-            }
-            
-            if (!confirm(`Send newsletter to all subscribers? This will send to everyone subscribed to the newsletter.`)) {
-                return;
-            }
-            
-            showToast("Sending newsletter... This may take a moment.", "info");
-            
-            const result = await clubManager.sendNewsletter(subject, content);
-            
-            const newsletterResult = document.getElementById('newsletterResult');
-            if (result.success) {
-                newsletterResult.className = 'success-message';
-                newsletterResult.textContent = result.message;
-                
-                document.getElementById('newsletterSubject').value = '';
-                document.getElementById('newsletterContent').value = '';
-            } else {
-                newsletterResult.className = 'error-message';
-                newsletterResult.textContent = result.message;
-            }
-        }
-
-        async function loadAdminData() {
-            const adminContent = document.getElementById('adminContent');
-            adminContent.innerHTML = '<div class="activity-item">Loading members...</div>';
-            
-            try {
-                const members = await clubManager.db.getAllMembers();
-                
-                if (members.length === 0) {
-                    adminContent.innerHTML = '<div class="activity-item">No members yet</div>';
-                    return;
-                }
-                
-                adminContent.innerHTML = `
-                    <div class="info-card">
-                        <h3>All Members (${members.length})</h3>
-                        <div class="members-list">
-                            ${members.map(member => `
-                                <div class="admin-card">
-                                    <h4>${member.name} <small style="color: #666;">(${member.jcId})</small></h4>
-                                    <p><strong>Email:</strong> ${member.email}</p>
-                                    <p><strong>Tier:</strong> ${member.tier} (Highest: ${member.highestTierAchieved || member.tier})</p>
-                                    <p><strong>Points:</strong> ${member.points?.toLocaleString() || 0}</p>
-                                    <p><strong>Total Spent:</strong> ${(member.totalSpent || 0).toLocaleString()} UGX</p>
-                                    <p><strong>Joined:</strong> ${new Date(member.joinedDate).toLocaleDateString()}</p>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            } catch (error) {
-                console.error('Error loading admin data:', error);
-                adminContent.innerHTML = '<div class="activity-item error-message">Error loading members</div>';
-            }
-        }
-
-        async function confirmDeleteMember() {
-            const jcId = document.getElementById('deleteJCId').value.trim();
-            
-            if (!jcId) {
-                showToast("Please enter JC ID", "error");
-                return;
-            }
-            
-            if (!confirm(`Are you absolutely sure you want to delete member ${jcId}? This action cannot be undone!`)) {
-                return;
-            }
-            
-            showToast("Deleting member...", "info");
-            
-            const result = await clubManager.deleteMember(jcId);
-            
-            const deleteResult = document.getElementById('deleteResult');
-            if (result.success) {
-                deleteResult.className = 'success-message';
-                deleteResult.textContent = result.message;
-                document.getElementById('deleteJCId').value = '';
-            } else {
-                deleteResult.className = 'error-message';
-                deleteResult.textContent = result.message;
-            }
-        }
-
         async function loadAllVouchers() {
             const allVouchersList = document.getElementById('allVouchersList');
             allVouchersList.innerHTML = '<div class="activity-item">Loading vouchers...</div>';
             
-            const stats = voucherSystem.getVoucherStats();
+            const stats = await voucherSystem.getVoucherStats();
             document.getElementById('voucherStats').innerHTML = `
                 <p><strong>Total Vouchers:</strong> ${stats.total}</p>
                 <p><strong>Active:</strong> ${stats.active}</p>
@@ -6284,7 +5673,7 @@ const voucherSystem = new VoucherSystem();
                 <p><strong>Average Discount:</strong> ${stats.avgDiscount}%</p>
             `;
             
-            const vouchers = voucherSystem.getAllVouchers();
+            const vouchers = await voucherSystem.getAllVouchers();
             
             if (vouchers.length === 0) {
                 allVouchersList.innerHTML = '<div class="activity-item">No vouchers yet</div>';
@@ -6317,79 +5706,54 @@ const voucherSystem = new VoucherSystem();
             }).join('');
         }
 
-        async function refreshVouchers() {
-            showToast("Refreshing vouchers...", "info");
-            loadAllVouchers();
-            showToast("Vouchers refreshed!", "success");
-        }
-
-        async function requestPasswordReset() {
-            const jcId = document.getElementById('resetJCId').value.trim();
+        async function loadQRRedemptionData() {
+            const stats = await qrRedemptionSystem.getRedemptionStats();
+            document.getElementById('qrRedemptionStats').innerHTML = `
+                <div class="info-card">
+                    <h4>Redemption Statistics</h4>
+                    <p><strong>Total Redemptions:</strong> ${stats.total}</p>
+                    <p><strong>Pending:</strong> ${stats.pending}</p>
+                    <p><strong>Completed:</strong> ${stats.completed}</p>
+                    <p><strong>Expired:</strong> ${stats.expired}</p>
+                    <p><strong>Completion Rate:</strong> ${stats.completionRate}</p>
+                    <p><strong>Total Value Redeemed:</strong> ${stats.totalValue.toLocaleString()} UGX</p>
+                </div>
+            `;
             
-            if (!jcId) {
-                showToast("Please enter your JC ID", "error");
+            const allRedemptions = await qrRedemptionSystem.getAllRedemptions();
+            const allRedemptionsList = document.getElementById('allRedemptionsList');
+            
+            if (allRedemptions.length === 0) {
+                allRedemptionsList.innerHTML = '<div class="activity-item">No redemptions yet</div>';
                 return;
             }
             
-            showToast("Sending reset code...", "info");
-            
-            const result = await clubManager.requestPasswordReset(jcId);
-            
-            const resetRequestResult = document.getElementById('resetRequestResult');
-            if (result.success) {
-                resetRequestResult.className = 'success-message';
-                resetRequestResult.textContent = result.message;
+            allRedemptionsList.innerHTML = allRedemptions.map(redemption => {
+                const statusClass = redemption.status === 'completed' ? 'status-active' : 
+                                  redemption.status === 'expired' ? 'status-expired' : 'status-used';
+                const statusText = redemption.status === 'completed' ? 'COMPLETED' :
+                                 redemption.status === 'expired' ? 'EXPIRED' : 'PENDING';
                 
-                document.getElementById('resetForm').classList.remove('hidden');
-            } else {
-                resetRequestResult.className = 'error-message';
-                resetRequestResult.textContent = result.message;
-            }
-        }
-
-        async function executePasswordReset() {
-            const jcId = document.getElementById('resetJCId').value.trim();
-            const resetToken = document.getElementById('resetToken').value.trim();
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            
-            if (!jcId || !resetToken || !newPassword || !confirmPassword) {
-                showToast("Please fill in all fields", "error");
-                return;
-            }
-            
-            if (newPassword.length < 6) {
-                showToast("Password must be at least 6 characters", "error");
-                return;
-            }
-            
-            if (newPassword !== confirmPassword) {
-                showToast("Passwords do not match", "error");
-                return;
-            }
-            
-            showToast("Resetting password...", "info");
-            
-            const result = await clubManager.executePasswordReset(jcId, resetToken, newPassword);
-            
-            const resetExecuteResult = document.getElementById('resetExecuteResult');
-            if (result.success) {
-                resetExecuteResult.className = 'success-message';
-                resetExecuteResult.textContent = result.message;
-                
-                document.getElementById('resetToken').value = '';
-                document.getElementById('newPassword').value = '';
-                document.getElementById('confirmPassword').value = '';
-                
-                setTimeout(() => {
-                    document.getElementById('resetForm').classList.add('hidden');
-                    resetExecuteResult.textContent = '';
-                    showLoginScreen();
-                }, 3000);
-            } else {
-                resetExecuteResult.className = 'error-message';
-                resetExecuteResult.textContent = result.message;
-            }
+                return `
+                    <div class="redemption-item">
+                        <div class="option-header">
+                            <h4>${redemption.memberName} (${redemption.memberJCId})</h4>
+                            <span class="redemption-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <p><strong>Redemption ID:</strong> <span class="redemption-id">${redemption.redemptionId}</span></p>
+                        <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
+                        <p><strong>Option:</strong> ${redemption.selectedOption.description}</p>
+                        <p><strong>Created:</strong> ${new Date(redemption.createdDate).toLocaleString()}</p>
+                        ${redemption.redeemedDate ? `
+                            <p><strong>Redeemed:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}</p>
+                            <p><strong>Redeemed By:</strong> ${redemption.redeemedBy}</p>
+                        ` : ''}
+                        ${redemption.status === 'pending' ? `
+                            <p><strong>QR Code:</strong> ${redemption.qrCodeData?.substring(0, 50)}...</p>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
         }
 
         // QR Redemption Functions
@@ -6414,8 +5778,6 @@ const voucherSystem = new VoucherSystem();
                 return;
             }
             
-            const member = clubManager.currentMember;
-            const memberPoints = member.points || 0;
             currentRedemptionOptions = qrRedemptionSystem.calculateRedemptionOptions(
                 clubManager.currentMember, 
                 purchaseAmount
@@ -6597,36 +5959,14 @@ const voucherSystem = new VoucherSystem();
                 
                 showToast("Generating QR code...", "info");
                 
-                const redemption = qrRedemptionSystem.createRedemption(
-                    clubManager.currentMember,
-                    selectedOption,
-                    purchaseAmount
-                );
+                const result = await clubManager.generateQRCodeForRedemption(selectedOption, purchaseAmount);
                 
-                if (!redemption) {
+                if (!result.success) {
                     showToast("Failed to create redemption", "error");
                     return { success: false, message: "Redemption creation failed" };
                 }
                 
-                const oldPoints = clubManager.currentMember.points;
-                const currentTier = clubManager.currentMember.tier;
-                
-                clubManager.currentMember.points -= pointsNeeded;
-                // DO NOT change tier - tier is based on highest achieved, not current points
-                
-                clubManager.currentMember.activityLog.unshift({
-                    type: 'points_redemption_qr',
-                    description: `QR redemption: ${selectedOption.description}`,
-                    date: new Date().toISOString(),
-                    points: -pointsNeeded
-                });
-                
-                const saved = await clubManager.db.saveMember(clubManager.currentMember);
-                if (!saved) {
-                    clubManager.currentMember.points = oldPoints;
-                    showToast("Failed to save points deduction", "error");
-                    return { success: false, message: "Database save failed" };
-                }
+                const redemption = result.redemption;
                 
                 const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(redemption.qrCodeData)}`;
                 
@@ -6640,7 +5980,7 @@ const voucherSystem = new VoucherSystem();
                         <p><strong>Option:</strong> ${selectedOption.description}</p>
                         <p><strong>Points Deducted:</strong> ${pointsNeeded.toLocaleString()}</p>
                         <p><strong>Remaining Points:</strong> ${clubManager.currentMember.points.toLocaleString()}</p>
-                        <p><strong>Your Tier:</strong> ${currentTier} (unchanged)</p>
+                        <p><strong>Your Tier:</strong> ${clubManager.currentMember.tier} (unchanged)</p>
                         <p style="font-size: 12px; color: #666; margin-top: 15px;">
                             Show this QR code to our staff at checkout. It's valid for 24 hours.
                         </p>
@@ -6657,7 +5997,7 @@ const voucherSystem = new VoucherSystem();
                         <p><strong>Status:</strong> Pending redemption</p>
                         <p><strong>Points Deducted:</strong> ${pointsNeeded.toLocaleString()}</p>
                         <p><strong>Remaining Points:</strong> ${clubManager.currentMember.points.toLocaleString()}</p>
-                        <p><strong>Your Tier:</strong> ${currentTier} (no downgrade)</p>
+                        <p><strong>Your Tier:</strong> ${clubManager.currentMember.tier} (no downgrade)</p>
                         <button class="btn" onclick="showDashboard(clubManager.currentMember)" style="margin-top: 10px;">
                             Back to Dashboard
                         </button>
@@ -6683,57 +6023,228 @@ const voucherSystem = new VoucherSystem();
             }
         }
 
-        function loadQRRedemptionData() {
-            const stats = qrRedemptionSystem.getRedemptionStats();
-            document.getElementById('qrRedemptionStats').innerHTML = `
-                <div class="info-card">
-                    <h4>Redemption Statistics</h4>
-                    <p><strong>Total Redemptions:</strong> ${stats.total}</p>
-                    <p><strong>Pending:</strong> ${stats.pending}</p>
-                    <p><strong>Completed:</strong> ${stats.completed}</p>
-                    <p><strong>Expired:</strong> ${stats.expired}</p>
-                    <p><strong>Completion Rate:</strong> ${stats.completionRate}</p>
-                    <p><strong>Total Value Redeemed:</strong> ${stats.totalValue.toLocaleString()} UGX</p>
-                </div>
-            `;
-            
-            const allRedemptions = qrRedemptionSystem.getAllRedemptions();
-            const allRedemptionsList = document.getElementById('allRedemptionsList');
-            
-            if (allRedemptions.length === 0) {
-                allRedemptionsList.innerHTML = '<div class="activity-item">No redemptions yet</div>';
+        // ===========================
+        // REST OF THE FUNCTIONS (Google Sign-In, UI handlers, etc.)
+        // ===========================
+        
+        // Google Sign-In Initialization
+        function initGoogleSignIn() {
+            if (typeof google === 'undefined') {
+                console.log('Google API not loaded yet, retrying...');
+                setTimeout(initGoogleSignIn, 1000);
                 return;
             }
+
+            google.accounts.id.initialize({
+                client_id: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com',
+                callback: handleGoogleSignIn,
+                auto_select: false,
+                cancel_on_tap_outside: true
+            });
+
+            const signinButton = document.querySelector('.google-signin-button');
+            const loginButton = document.querySelector('.google-login-button');
             
-            allRedemptionsList.innerHTML = allRedemptions.map(redemption => {
-                const statusClass = redemption.status === 'completed' ? 'status-active' : 
-                                  redemption.status === 'expired' ? 'status-expired' : 'status-used';
-                const statusText = redemption.status === 'completed' ? 'COMPLETED' :
-                                 redemption.status === 'expired' ? 'EXPIRED' : 'PENDING';
-                
-                return `
-                    <div class="redemption-item">
-                        <div class="option-header">
-                            <h4>${redemption.memberName} (${redemption.memberJCId})</h4>
-                            <span class="redemption-status ${statusClass}">${statusText}</span>
-                        </div>
-                        <p><strong>Redemption ID:</strong> <span class="redemption-id">${redemption.redemptionId}</span></p>
-                        <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
-                        <p><strong>Option:</strong> ${redemption.selectedOption.description}</p>
-                        <p><strong>Created:</strong> ${new Date(redemption.createdDate).toLocaleString()}</p>
-                        ${redemption.redeemedDate ? `
-                            <p><strong>Redeemed:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}</p>
-                            <p><strong>Redeemed By:</strong> ${redemption.redeemedBy}</p>
-                        ` : ''}
-                        ${redemption.status === 'pending' ? `
-                            <p><strong>QR Code:</strong> ${redemption.qrCodeData?.substring(0, 50)}...</p>
-                        ` : ''}
-                    </div>
-                `;
-            }).join('');
+            if (signinButton) {
+                google.accounts.id.renderButton(
+                    signinButton,
+                    {
+                        theme: "outline",
+                        size: "large",
+                        text: "signup_with",
+                        shape: "rectangular",
+                        logo_alignment: "left"
+                    }
+                );
+            }
+            
+            if (loginButton) {
+                google.accounts.id.renderButton(
+                    loginButton,
+                    {
+                        theme: "outline",
+                        size: "large",
+                        text: "signin_with",
+                        shape: "rectangular",
+                        logo_alignment: "left"
+                    }
+                );
+            }
         }
-         
-        // Toast notification system
+
+        async function handleGoogleSignIn(response) {
+            try {
+                // Decode the JWT token to get user info
+                const base64Url = response.credential.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                
+                const user = JSON.parse(jsonPayload);
+                
+                // Create a mock Google user object
+                const googleUser = {
+                    getBasicProfile: () => ({
+                        getEmail: () => user.email,
+                        getName: () => user.name,
+                        getImageUrl: () => user.picture
+                    }),
+                    getId: () => user.sub
+                };
+                
+                const result = await clubManager.loginWithGoogle(googleUser);
+                
+                if (result.success) {
+                    showDashboard(result.member);
+                    showToast("Google login successful! 🎉", "success");
+                } else {
+                    showToast(result.message, "error");
+                }
+            } catch (error) {
+                console.error('Google sign-in error:', error);
+                showToast("Google sign-in failed. Please try again.", "error");
+            }
+        }
+
+        // Information Page Functions
+        function showMembershipInfo() {
+            hideAllSections();
+            document.getElementById('membershipInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showBenefits() {
+            hideAllSections();
+            document.getElementById('benefitsInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showTiers() {
+            hideAllSections();
+            document.getElementById('tiersInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showContact() {
+            hideAllSections();
+            document.getElementById('contactInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showRewards() {
+            showQRRedemptionPanel();
+            toggleMobileMenu();
+        }
+
+        function hideAllSections() {
+            const sections = document.querySelectorAll('.card:not(.qr-share-section)');
+            sections.forEach(section => section.classList.add('hidden'));
+            
+            const infoPages = document.querySelectorAll('.info-page');
+            infoPages.forEach(page => page.classList.add('hidden'));
+        }
+
+        // Header and Navigation Functions
+        function toggleMobileMenu() {
+            const navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('active');
+        }
+
+        function toggleUserMenu() {
+            if (clubManager.currentMember) {
+                showDashboard(clubManager.currentMember);
+            } else {
+                showLoginScreen();
+            }
+        }
+
+        // Navigation link handlers
+        function showDashboardSection() {
+            if (clubManager.currentMember) {
+                showDashboard(clubManager.currentMember);
+            } else {
+                showLoginScreen();
+            }
+            toggleMobileMenu();
+        }
+
+        // UI Screens
+        function showSignupScreen() {
+            hideAllSections();
+            document.getElementById('signupSection').classList.remove('hidden');
+        }
+
+        function showLoginScreen() {
+            hideAllSections();
+            document.getElementById('loginSection').classList.remove('hidden');
+        }
+
+        function showPasswordResetScreen() {
+            hideAllSections();
+            document.getElementById('passwordResetSection').classList.remove('hidden');
+        }
+
+        function showDashboard(member = null) {
+            hideAllSections();
+            document.getElementById('dashboardSection').classList.remove('hidden');
+            
+            if (member) {
+                updateDashboard(member);
+            } else if (clubManager.currentMember) {
+                updateDashboard(clubManager.currentMember);
+            }
+        }
+
+        function showAdminPanel() {
+            hideAllSections();
+            document.getElementById('adminSection').classList.remove('hidden');
+            loadAdminData();
+        }
+
+        function showDeleteMemberSection() {
+            hideAllSections();
+            document.getElementById('deleteMemberSection').classList.remove('hidden');
+        }
+
+        function showVoucherManagementPanel() {
+            hideAllSections();
+            document.getElementById('voucherManagementSection').classList.remove('hidden');
+            loadAllVouchers();
+        }
+
+        function showQRRedemptionPanel() {
+            hideAllSections();
+            document.getElementById('qrRedemptionSection').classList.remove('hidden');
+        }
+
+        function showQRRedemptionManagementPanel() {
+            hideAllSections();
+            document.getElementById('qrRedemptionManagementSection').classList.remove('hidden');
+            loadQRRedemptionData();
+        }
+
+        // Search Functionality
+        function showSearch() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.add('active');
+            document.getElementById('searchInput').focus();
+        }
+
+        function hideSearch() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.remove('active');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+        }
+
+        // Email validation
+        function isValidEmail(email) {
+            const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+            return re.test(String(email).toLowerCase());
+        }
+
+        // Toast notification
         function showToast(message, type = "info") {
             const existingToasts = document.querySelectorAll('.toast');
             existingToasts.forEach(toast => toast.remove());
@@ -6780,23 +6291,12 @@ const voucherSystem = new VoucherSystem();
 
         // Initialize on load
         window.onload = function() {
-            if (typeof google !== 'undefined') {
-                setTimeout(initGoogleSignIn, 1000);
-            }
+            setTimeout(initGoogleSignIn, 1000);
             
             if (clubManager.currentMember) {
                 showDashboard(clubManager.currentMember);
             } else {
                 showSignupScreen();
-            }
-            
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('mode') === 'salesperson') {
-                if (clubManager.isAdmin) {
-                    showAdminPanel();
-                } else {
-                    showAdminLogin();
-                }
             }
             
             // Start voucher cleanup
@@ -6805,37 +6305,7 @@ const voucherSystem = new VoucherSystem();
             }, 5000);
         };
 
-        // Add keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === '/') {
-                e.preventDefault();
-                showAdminLogin();
-            }
-            
-            if (e.key === 'Escape') {
-                if (!document.getElementById('loginSection').classList.contains('hidden')) {
-                    showSignupScreen();
-                } else if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
-                } else if (!document.getElementById('adminSection').classList.contains('hidden')) {
-                    showLoginScreen();
-                } else if (!document.querySelector('.info-page:not(.hidden)')) {
-                    showDashboardSection();
-                }
-            }
-            
-            if (e.ctrlKey && e.key === 'f') {
-                e.preventDefault();
-                showSearch();
-            }
-            
-            // Quick camera shortcut for admins
-            if (e.ctrlKey && e.key === 's' && clubManager.isAdmin) {
-                e.preventDefault();
-                openCameraScanner();
-            }
-        });
-
-        // Export functionality for testing
+        // Export for testing
         window.jeansClubManager = clubManager;
         window.voucherSystem = voucherSystem;
         window.qrRedemptionSystem = qrRedemptionSystem;
