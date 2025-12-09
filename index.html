@@ -4407,8 +4407,16 @@
 
         // QR Code Redemption System Implementation - UPDATED VERSION
         class QRRedemptionSystem {
-            constructor() {
-                this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
+           
+    constructor(clubManager = null) { // Add clubManager parameter
+        this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
+        // Initialize Supabase client if clubManager is provided
+        this.supabase = clubManager?.db?.supabase || null;
+        
+        // Load from Supabase if available
+        if (this.supabase) {
+            this.loadFromSupabase();
+        }
                 // REMOVED: this.encryptionKey = 'jeansclub_qr_2024_secret';
                 this.tierRules = {
                     PEARL: { 
@@ -4521,6 +4529,78 @@
                 };
             }
 
+  // NEW: Add Supabase loading method
+    async loadFromSupabase() {
+        if (!this.supabase) return;
+        
+        try {
+            console.log('🔄 Loading redemptions from Supabase...');
+            const { data, error } = await this.supabase
+                .from('redemptions')
+                .select('*')
+                .order('createdDate', { ascending: false });
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                this.redemptions = data;
+                this.saveToLocalStorage();
+                console.log(`✅ Loaded ${data.length} redemptions from Supabase`);
+            }
+        } catch (error) {
+            console.error('❌ Error loading from Supabase:', error);
+        }
+    }
+            
+    // NEW: Add Supabase saving method
+    async saveToSupabase(redemption) {
+        if (!this.supabase) return false;
+        
+        try {
+            console.log('💾 Saving redemption to Supabase:', redemption.redemptionId);
+            
+            const { error } = await this.supabase
+                .from('redemptions')
+                .upsert({
+                    redemptionId: redemption.redemptionId,
+                    memberJCId: redemption.memberJCId,
+                    memberName: redemption.memberName,
+                    memberTier: redemption.memberTier,
+                    purchaseAmount: redemption.purchaseAmount,
+                    selectedOption: redemption.selectedOption,
+                    createdDate: redemption.createdDate,
+                    status: redemption.status,
+                    redeemedBy: redemption.redeemedBy,
+                    redeemedDate: redemption.redeemedDate,
+                    qrCodeData: redemption.qrCodeData
+                }, { onConflict: 'redemptionId' });
+
+            if (error) throw error;
+            console.log('✅ Redemption saved to Supabase');
+            return true;
+        } catch (error) {
+            console.error('❌ Error saving to Supabase:', error);
+            return false;
+        }
+    }
+            // NEW: Add method to fetch redemption from Supabase
+    async getRedemptionFromSupabase(redemptionId) {
+        if (!this.supabase) return null;
+        
+        try {
+            const { data, error } = await this.supabase
+                .from('redemptions')
+                .select('*')
+                .eq('redemptionId', redemptionId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') throw error;
+            return data;
+        } catch (error) {
+            console.error('❌ Error fetching from Supabase:', error);
+            return null;
+        }
+    }
             calculateSpendingHistory(member, months) {
                 const cutoffDate = new Date();
                 cutoffDate.setMonth(cutoffDate.getMonth() - months);
@@ -4661,82 +4741,107 @@
             // REMOVED: encryptData() method
             // REMOVED: decryptData() method
 
-            createRedemption(member, selectedOption, purchaseAmount) {
-                const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
-                
-                const redemptionData = {
-                    redemptionId: redemptionId,
-                    memberJCId: member.jcId,
-                    memberName: member.name,
-                    memberTier: member.tier,
-                    purchaseAmount: purchaseAmount,
-                    selectedOption: selectedOption,
-                    createdDate: new Date().toISOString(),
-                    status: 'pending',
-                    redeemedBy: null,
-                    redeemedDate: null,
-                    qrCodeData: null
-                };
+     
+// UPDATED: createRedemption method
+    createRedemption(member, selectedOption, purchaseAmount) {
+        const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
+        
+        const redemptionData = {
+            redemptionId: redemptionId,
+            memberJCId: member.jcId,
+            memberName: member.name,
+            memberTier: member.tier,
+            purchaseAmount: purchaseAmount,
+            selectedOption: selectedOption,
+            createdDate: new Date().toISOString(),
+            status: 'pending',
+            redeemedBy: null,
+            redeemedDate: null,
+            qrCodeData: null
+        };
 
-                redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
+        redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
 
-                this.redemptions.push(redemptionData);
-                this.saveRedemptions();
+        // Add to local array
+        this.redemptions.push(redemptionData);
+        this.saveToLocalStorage(); // Use new method name
+        
+        // Save to Supabase if available
+        if (this.supabase) {
+            this.saveToSupabase(redemptionData);
+        }
 
-                return redemptionData;
+        return redemptionData;
+    }
+
+
+            async processRedemption(qrCodeData, salespersonName) {
+        console.log("Processing redemption with data:", qrCodeData);
+        
+        if (!salespersonName || salespersonName.trim() === '') {
+            return { success: false, message: "Salesperson name is required" };
+        }
+
+        // First check if it's just a redemption ID (backward compatibility)
+        if (qrCodeData.startsWith('RED')) {
+            // Check locally
+            let redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
+            
+            // If not found locally, try Supabase
+            if (!redemption && this.supabase) {
+                redemption = await this.getRedemptionFromSupabase(qrCodeData);
+                if (redemption) {
+                    this.redemptions.push(redemption);
+                    this.saveToLocalStorage();
+                }
             }
-
-            processRedemption(qrCodeData, salespersonName) {
-                console.log("Processing redemption with data:", qrCodeData);
-                
-                if (!salespersonName || salespersonName.trim() === '') {
-                    return { success: false, message: "Salesperson name is required" };
-                }
-
-                // First check if it's just a redemption ID
-                if (qrCodeData.startsWith('RED')) {
-                    const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
-                    if (redemption) {
-                        if (redemption.status === 'completed') {
-                            return { success: false, message: "Redemption has already been completed" };
-                        }
-                        
-                        if (redemption.status === 'expired') {
-                            return { success: false, message: "Redemption has expired" };
-                        }
-                        
-                        redemption.status = 'completed';
-                        redemption.redeemedBy = salespersonName.trim();
-                        redemption.redeemedDate = new Date().toISOString();
-                        this.saveRedemptions();
-                        
-                        return {
-                            success: true,
-                            message: `Redemption completed successfully by ${salespersonName}`,
-                            redemption: redemption
-                        };
-                    }
+            
+            if (redemption) {
+                if (redemption.status === 'completed') {
+                    return { success: false, message: "Redemption has already been completed" };
                 }
                 
-                // Try to parse as JSON (new unencrypted format)
-                let redemptionData;
-                try {
-                    redemptionData = JSON.parse(qrCodeData);
-                    console.log("Parsed redemption data:", redemptionData);
-                } catch (error) {
-                    console.error("JSON parsing failed:", error);
-                    return { 
-                        success: false, 
-                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
-                    };
+                if (redemption.status === 'expired') {
+                    return { success: false, message: "Redemption has expired" };
                 }
                 
-                if (!redemptionData) {
-                    return { 
-                        success: false, 
-                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
-                    };
+                redemption.status = 'completed';
+                redemption.redeemedBy = salespersonName.trim();
+                redemption.redeemedDate = new Date().toISOString();
+                this.saveToLocalStorage();
+                
+                // Update Supabase if available
+                if (this.supabase) {
+                    await this.saveToSupabase(redemption);
                 }
+                
+                return {
+                    success: true,
+                    message: `Redemption completed successfully by ${salespersonName}`,
+                    redemption: redemption
+                };
+            }
+        }
+        
+        // Try to parse as JSON (new unencrypted format)
+        let redemptionData;
+        try {
+            redemptionData = JSON.parse(qrCodeData);
+            console.log("Parsed redemption data:", redemptionData);
+        } catch (error) {
+            console.error("JSON parsing failed:", error);
+            return { 
+                success: false, 
+                message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+            };
+        }
+        
+        if (!redemptionData) {
+            return { 
+                success: false, 
+                message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+            };
+        } 
                 
                 if (!redemptionData.readable) {
                     return { 
@@ -4764,6 +4869,7 @@
                 }
 
                 const redemption = this.redemptions.find(r => r.redemptionId === redemptionData.redemptionId);
+            
                 if (!redemption) {
                     return { 
                         success: false, 
@@ -4788,7 +4894,7 @@
                 redemption.status = 'completed';
                 redemption.redeemedBy = salespersonName.trim();
                 redemption.redeemedDate = new Date().toISOString();
-                this.saveRedemptions();
+                this.saveToLocalStorage();
 
                 return {
                     success: true,
@@ -4807,10 +4913,13 @@
                 return this.redemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
             }
 
-            saveRedemptions() {
-                localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.redemptions));
-            }
-
+           // NEW: Replace saveRedemptions with saveToLocalStorage for clarity
+    saveToLocalStorage() {
+        localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.redemptions));
+    }
+      saveRedemptions() {
+    this.saveToLocalStorage();
+}
             getRedemptionStats() {
                 const total = this.redemptions.length;
                 const pending = this.redemptions.filter(r => r.status === 'pending').length;
@@ -4840,7 +4949,7 @@
         }
 
         // Initialize QR redemption system
-        const qrRedemptionSystem = new QRRedemptionSystem();
+        const qrRedemptionSystem = new QRRedemptionSystem(clubManager);
 
         // Jeans Club Configuration
         const jeansClubConfig = {
