@@ -2498,6 +2498,1182 @@
 
     <script>
         // ===========================
+        // FIXED: DECLARE SupabaseDB FIRST
+        // ===========================
+        
+        class SupabaseDB {
+            constructor() {
+                this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
+                this.anonKey = 'sb_publishable__gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA';
+                
+                this.supabase = createClient(this.supabaseUrl, this.anonKey);
+                this.cacheKey = 'jeansClubCache';
+                this.init();
+                console.log('🚀 SupabaseDB initialized with URL:', this.supabaseUrl);
+            }
+
+            async init() {
+                if (!this.getCache()) {
+                    this.setCache({ members: [], lastSync: 0 });
+                }
+            }
+
+            getCache() {
+                try {
+                    const cache = localStorage.getItem(this.cacheKey);
+                    return cache ? JSON.parse(cache) : null;
+                } catch (error) {
+                    console.error('Error reading cache:', error);
+                    return null;
+                }
+            }
+
+            setCache(data) {
+                try {
+                    localStorage.setItem(this.cacheKey, JSON.stringify(data));
+                    return true;
+                } catch (error) {
+                    console.error('Error writing to storage:', error);
+                    return false;
+                }
+            }
+
+            async getAllMembers() {
+                try {
+                    console.log('🔄 Fetching all members from Supabase...');
+                    
+                    const { data: members, error } = await this.supabase
+                        .from('members')
+                        .select('*');
+
+                    if (error) {
+                        console.error('❌ Supabase error:', error);
+                        throw error;
+                    }
+
+                    console.log(`✅ Loaded ${members?.length || 0} members from Supabase`);
+                    
+                    this.setCache({
+                        members: members || [],
+                        lastSync: Date.now()
+                    });
+
+                    return members || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch from Supabase, using cache:', error);
+                    const cache = this.getCache();
+                    return cache?.members || [];
+                }
+            }
+
+            async saveMember(member) {
+                try {
+                    console.log('💾 Saving member to Supabase:', member.jcId);
+                    
+                    const memberData = {
+                        jcId: member.jcId,
+                        id: member.id || 'member_' + Date.now(),
+                        email: member.email,
+                        name: member.name,
+                        password: member.password || null,
+                        googleId: member.googleId || null,
+                        loginMethod: member.loginMethod || 'email',
+                        points: member.points || 0,
+                        tier: member.tier || 'PEARL',
+                        highestTierAchieved: member.highestTierAchieved || 'PEARL',
+                        referralCode: member.referralCode,
+                        referredBy: member.referredBy || null,
+                        purchaseHistory: member.purchaseHistory || [],
+                        activityLog: member.activityLog || [],
+                        joinedDate: member.joinedDate || new Date().toISOString(),
+                        totalSpent: member.totalSpent || 0,
+                        challenges: member.challenges || [],
+                        referrals: member.referrals || [],
+                        resetToken: member.resetToken || null,
+                        resetTokenExpiry: member.resetTokenExpiry || null,
+                        newsletterSubscribed: member.newsletterSubscribed !== false
+                    };
+
+                    const { data, error } = await this.supabase
+                        .from('members')
+                        .upsert(memberData, { 
+                            onConflict: 'jcId'
+                        });
+
+                    if (error) {
+                        console.error('❌ Supabase save error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Member saved successfully to Supabase');
+                    
+                    const cache = this.getCache();
+                    if (cache) {
+                        cache.lastSync = 0;
+                        this.setCache(cache);
+                    }
+
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to save member to Supabase:', error);
+                    return false;
+                }
+            }
+
+            async deleteMember(jcId) {
+                try {
+                    console.log('🗑️ Deleting member from Supabase:', jcId);
+                    
+                    const { error } = await this.supabase
+                        .from('members')
+                        .delete()
+                        .eq('jcId', jcId);
+
+                    if (error) {
+                        console.error('❌ Supabase delete error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Member deleted successfully from Supabase');
+                    
+                    const cache = this.getCache();
+                    if (cache) {
+                        cache.lastSync = 0;
+                        this.setCache(cache);
+                    }
+
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to delete member from Supabase:', error);
+                    return false;
+                }
+            }
+
+            async getMemberByJCId(jcId) {
+                try {
+                    console.log('🔍 Fetching member from Supabase:', jcId);
+                    
+                    const { data: member, error } = await this.supabase
+                        .from('members')
+                        .select('*')
+                        .eq('jcId', jcId)
+                        .single();
+
+                    if (error && error.code !== 'PGRST116') {
+                        console.error('❌ Supabase fetch error:', error);
+                        throw error;
+                    }
+
+                    return member || null;
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch member from Supabase:', error);
+                    
+                    const cache = this.getCache();
+                    if (cache?.members) {
+                        return cache.members.find(m => m.jcId === jcId) || null;
+                    }
+                    
+                    return null;
+                }
+            }
+
+            async getMemberByEmail(email) {
+                try {
+                    console.log('🔍 Fetching member by email from Supabase:', email);
+                    
+                    const { data: member, error } = await this.supabase
+                        .from('members')
+                        .select('*')
+                        .eq('email', email)
+                        .single();
+
+                    if (error && error.code !== 'PGRST116') {
+                        console.error('❌ Supabase fetch error:', error);
+                        throw error;
+                    }
+
+                    return member || null;
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch member by email from Supabase:', error);
+                    
+                    const cache = this.getCache();
+                    if (cache?.members) {
+                        return cache.members.find(m => m.email === email) || null;
+                    }
+                    
+                    return null;
+                }
+            }
+
+            // Voucher Methods
+            async saveVoucher(voucher) {
+                try {
+                    const { data, error } = await this.supabase
+                        .from('vouchers')
+                        .upsert(voucher, { 
+                            onConflict: 'code'
+                        });
+
+                    if (error) {
+                        console.error('❌ Supabase voucher save error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Voucher saved successfully to Supabase');
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to save voucher to Supabase:', error);
+                    return false;
+                }
+            }
+
+            async getMemberVouchers(memberJCId) {
+                try {
+                    const { data: vouchers, error } = await this.supabase
+                        .from('vouchers')
+                        .select('*')
+                        .eq('memberJCId', memberJCId)
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase vouchers fetch error:', error);
+                        throw error;
+                    }
+
+                    return vouchers || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch vouchers from Supabase:', error);
+                    return [];
+                }
+            }
+
+            async getAllVouchers() {
+                try {
+                    const { data: vouchers, error } = await this.supabase
+                        .from('vouchers')
+                        .select('*')
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase all vouchers fetch error:', error);
+                        throw error;
+                    }
+
+                    return vouchers || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch all vouchers from Supabase:', error);
+                    return [];
+                }
+            }
+
+            async getVoucherByCode(code) {
+                try {
+                    const { data: voucher, error } = await this.supabase
+                        .from('vouchers')
+                        .select('*')
+                        .eq('code', code)
+                        .single();
+
+                    if (error && error.code !== 'PGRST116') {
+                        console.error('❌ Supabase voucher fetch error:', error);
+                        throw error;
+                    }
+
+                    return voucher || null;
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch voucher from Supabase:', error);
+                    return null;
+                }
+            }
+
+            // Redemption Methods
+            async saveRedemption(redemption) {
+                try {
+                    const { data, error } = await this.supabase
+                        .from('redemptions')
+                        .upsert(redemption, { 
+                            onConflict: 'redemptionId'
+                        });
+
+                    if (error) {
+                        console.error('❌ Supabase redemption save error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Redemption saved successfully to Supabase');
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to save redemption to Supabase:', error);
+                    return false;
+                }
+            }
+
+            async getRedemptionById(redemptionId) {
+                try {
+                    const { data: redemption, error } = await this.supabase
+                        .from('redemptions')
+                        .select('*')
+                        .eq('redemptionId', redemptionId)
+                        .single();
+
+                    if (error && error.code !== 'PGRST116') {
+                        console.error('❌ Supabase redemption fetch error:', error);
+                        throw error;
+                    }
+
+                    return redemption || null;
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch redemption from Supabase:', error);
+                    return null;
+                }
+            }
+
+            async getMemberRedemptions(memberJCId) {
+                try {
+                    const { data: redemptions, error } = await this.supabase
+                        .from('redemptions')
+                        .select('*')
+                        .eq('memberJCId', memberJCId)
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase redemptions fetch error:', error);
+                        throw error;
+                    }
+
+                    return redemptions || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch redemptions from Supabase:', error);
+                    return [];
+                }
+            }
+
+            async getAllRedemptions() {
+                try {
+                    const { data: redemptions, error } = await this.supabase
+                        .from('redemptions')
+                        .select('*')
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error('❌ Supabase all redemptions fetch error:', error);
+                        throw error;
+                    }
+
+                    return redemptions || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch all redemptions from Supabase:', error);
+                    return [];
+                }
+            }
+
+            // Newsletter Methods
+            async subscribeToNewsletter(email, name = null) {
+                try {
+                    console.log('📧 Subscribing to newsletter:', email);
+                    
+                    const { data, error } = await this.supabase
+                        .from('newsletter_subscriptions')
+                        .upsert({
+                            email: email,
+                            name: name,
+                            is_active: true,
+                            subscribed_at: new Date().toISOString(),
+                            last_sent: null
+                        }, { 
+                            onConflict: 'email'
+                        });
+
+                    if (error) {
+                        console.error('❌ Newsletter subscription error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Newsletter subscription successful');
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to subscribe to newsletter:', error);
+                    return false;
+                }
+            }
+
+            async unsubscribeFromNewsletter(email) {
+                try {
+                    console.log('📧 Unsubscribing from newsletter:', email);
+                    
+                    const { data, error } = await this.supabase
+                        .from('newsletter_subscriptions')
+                        .update({ 
+                            is_active: false,
+                            unsubscribed_at: new Date().toISOString()
+                        })
+                        .eq('email', email);
+
+                    if (error) {
+                        console.error('❌ Newsletter unsubscribe error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Newsletter unsubscribe successful');
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to unsubscribe from newsletter:', error);
+                    return false;
+                }
+            }
+
+            async getNewsletterSubscribers(activeOnly = true) {
+                try {
+                    let query = this.supabase
+                        .from('newsletter_subscriptions')
+                        .select('*');
+
+                    if (activeOnly) {
+                        query = query.eq('is_active', true);
+                    }
+
+                    const { data: subscribers, error } = await query;
+
+                    if (error) {
+                        console.error('❌ Newsletter fetch error:', error);
+                        throw error;
+                    }
+
+                    return subscribers || [];
+
+                } catch (error) {
+                    console.error('❌ Failed to fetch newsletter subscribers:', error);
+                    return [];
+                }
+            }
+
+            async getNewsletterStatus(email) {
+                try {
+                    const { data: subscription, error } = await this.supabase
+                        .from('newsletter_subscriptions')
+                        .select('is_active')
+                        .eq('email', email)
+                        .single();
+
+                    if (error && error.code !== 'PGRST116') {
+                        console.error('❌ Newsletter status error:', error);
+                        throw error;
+                    }
+
+                    return subscription ? subscription.is_active : false;
+
+                } catch (error) {
+                    console.error('❌ Failed to get newsletter status:', error);
+                    return false;
+                }
+            }
+        }
+
+        // ===========================
+        // FIXED: VOUCHER SYSTEM (Uses SupabaseDB which is now defined)
+        // ===========================
+        
+        class VoucherSystem {
+            constructor() {
+                this.db = new SupabaseDB();
+                this.localVouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
+                this.voucherActivity = JSON.parse(localStorage.getItem('jeansClubVoucherActivity') || '[]');
+            }
+
+            generateVoucherCode() {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                let code = '';
+                for (let i = 0; i < 8; i++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return 'JC' + code;
+            }
+
+            generateQRCodeData(voucherCode) {
+                return JSON.stringify({
+                    code: voucherCode,
+                    timestamp: Date.now(),
+                    type: 'jeansclub_voucher',
+                    readable: true,
+                    version: '1.0'
+                });
+            }
+
+            async createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
+                const voucherCode = this.generateVoucherCode();
+                const createdDate = new Date();
+                const expiryDate = new Date();
+                expiryDate.setDate(expiryDate.getDate() + expiryDays);
+
+                const voucher = {
+                    id: 'voucher_' + Date.now(),
+                    code: voucherCode,
+                    memberJCId: memberJCId,
+                    memberName: memberName,
+                    pointsUsed: pointsUsed,
+                    discountPercentage: discountPercentage,
+                    createdDate: createdDate.toISOString(),
+                    expiryDate: expiryDate.toISOString(),
+                    status: 'active',
+                    usedDate: null,
+                    redeemedBy: null,
+                    qrCodeData: this.generateQRCodeData(voucherCode)
+                };
+
+                // Save to Supabase
+                await this.db.saveVoucher(voucher);
+                
+                // Also save locally
+                this.localVouchers.push(voucher);
+                this.saveLocalVouchers();
+
+                this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
+
+                return voucher;
+            }
+
+            async getMemberVouchers(memberJCId) {
+                try {
+                    // First try Supabase
+                    const supabaseVouchers = await this.db.getMemberVouchers(memberJCId);
+                    
+                    // Fallback to local storage if Supabase fails
+                    if (!supabaseVouchers || supabaseVouchers.length === 0) {
+                        return this.localVouchers
+                            .filter(v => v.memberJCId === memberJCId)
+                            .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+                    }
+                    
+                    return supabaseVouchers;
+                } catch (error) {
+                    console.error('Error getting member vouchers:', error);
+                    return this.localVouchers
+                        .filter(v => v.memberJCId === memberJCId)
+                        .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+                }
+            }
+
+            async getAllVouchers() {
+                try {
+                    const supabaseVouchers = await this.db.getAllVouchers();
+                    if (supabaseVouchers && supabaseVouchers.length > 0) {
+                        return supabaseVouchers;
+                    }
+                } catch (error) {
+                    console.error('Error getting all vouchers from Supabase:', error);
+                }
+                
+                return this.localVouchers.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            async getVoucherByCode(code) {
+                try {
+                    const voucher = await this.db.getVoucherByCode(code);
+                    if (voucher) return voucher;
+                } catch (error) {
+                    console.error('Error getting voucher from Supabase:', error);
+                }
+                
+                return this.localVouchers.find(v => v.code === code);
+            }
+
+            async redeemVoucher(voucherCode, redeemedBy = 'system') {
+                const voucher = await this.getVoucherByCode(voucherCode);
+                if (!voucher) {
+                    return { success: false, message: "Voucher not found" };
+                }
+
+                if (voucher.status === 'used') {
+                    return { success: false, message: "Voucher has already been used" };
+                }
+
+                if (voucher.status === 'expired') {
+                    return { success: false, message: "Voucher has expired" };
+                }
+
+                if (new Date() > new Date(voucher.expiryDate)) {
+                    voucher.status = 'expired';
+                    await this.saveVoucher(voucher);
+                    return { success: false, message: "Voucher has expired" };
+                }
+
+                voucher.status = 'used';
+                voucher.usedDate = new Date().toISOString();
+                voucher.redeemedBy = redeemedBy;
+                
+                await this.saveVoucher(voucher);
+
+                this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
+
+                return { 
+                    success: true, 
+                    message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
+                    voucher: voucher
+                };
+            }
+
+            async saveVoucher(voucher) {
+                try {
+                    await this.db.saveVoucher(voucher);
+                } catch (error) {
+                    console.error('Error saving voucher to Supabase:', error);
+                }
+                
+                // Update local storage
+                const index = this.localVouchers.findIndex(v => v.code === voucher.code);
+                if (index !== -1) {
+                    this.localVouchers[index] = voucher;
+                } else {
+                    this.localVouchers.push(voucher);
+                }
+                this.saveLocalVouchers();
+            }
+
+            async getVoucherStats() {
+                const vouchers = await this.getAllVouchers();
+                
+                const total = vouchers.length;
+                const active = vouchers.filter(v => v.status === 'active').length;
+                const used = vouchers.filter(v => v.status === 'used').length;
+                const expired = vouchers.filter(v => v.status === 'expired').length;
+                
+                const totalDiscount = vouchers
+                    .filter(v => v.status === 'used')
+                    .reduce((sum, v) => sum + v.discountPercentage, 0);
+                
+                const avgDiscount = used > 0 ? (totalDiscount / used).toFixed(1) : 0;
+
+                return {
+                    total,
+                    active,
+                    used,
+                    expired,
+                    avgDiscount,
+                    redemptionRate: total > 0 ? ((used / total) * 100).toFixed(1) + '%' : '0%'
+                };
+            }
+
+            logVoucherActivity(voucherCode, action, memberJCId, description) {
+                const activity = {
+                    timestamp: new Date().toISOString(),
+                    voucherCode: voucherCode,
+                    action: action,
+                    memberJCId: memberJCId,
+                    description: description
+                };
+
+                this.voucherActivity.unshift(activity);
+                if (this.voucherActivity.length > 100) {
+                    this.voucherActivity = this.voucherActivity.slice(0, 100);
+                }
+                localStorage.setItem('jeansClubVoucherActivity', JSON.stringify(this.voucherActivity));
+            }
+
+            saveLocalVouchers() {
+                localStorage.setItem('jeansClubVouchers', JSON.stringify(this.localVouchers));
+            }
+
+            cleanupExpiredVouchers() {
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+                
+                const originalCount = this.localVouchers.length;
+                this.localVouchers = this.localVouchers.filter(voucher => {
+                    if (voucher.status === 'expired') {
+                        const expiryDate = new Date(voucher.expiryDate);
+                        return expiryDate > thirtyDaysAgo;
+                    }
+                    return true;
+                });
+                
+                const removedCount = originalCount - this.localVouchers.length;
+                if (removedCount > 0) {
+                    this.saveLocalVouchers();
+                    console.log(`Cleaned up ${removedCount} old expired vouchers`);
+                }
+            }
+        }
+
+        // Initialize voucher system
+        const voucherSystem = new VoucherSystem();
+
+        // ===========================
+        // QR REDEMPTION SYSTEM
+        // ===========================
+        
+        class QRRedemptionSystem {
+            constructor() {
+                this.db = new SupabaseDB();
+                this.localRedemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
+                
+                this.tierRules = {
+                    PEARL: { 
+                        payWithPoints: false,
+                        discountVoucherOnly: true,
+                        description: "Basic membership - use points for discount vouchers only"
+                    },
+                    BRONZE: { 
+                        months: 2, 
+                        percentage: 0.08,
+                        multiplier: 1.0,
+                        minSpendingThreshold: 300000,
+                        maxRedemptionCap: 50000,
+                        description: "Redeem 8% of your last 2 months spending as points",
+                        pointsPer100UGX: 100
+                    },
+                    SILVER: { 
+                        months: 3, 
+                        percentage: 0.10,
+                        multiplier: 1.1,
+                        minSpendingThreshold: 500000,
+                        maxRedemptionCap: 100000,
+                        description: "Redeem 10% of your last 3 months spending as points",
+                        pointsPer100UGX: 90
+                    },
+                    RUBY: { 
+                        months: 4, 
+                        percentage: 0.12,
+                        multiplier: 1.3,
+                        minSpendingThreshold: 1000000,
+                        maxRedemptionCap: 200000,
+                        description: "Redeem 12% of your last 4 months spending as points",
+                        pointsPer100UGX: 80
+                    },
+                    GOLD: { 
+                        months: 5, 
+                        percentage: 0.15,
+                        multiplier: 1.4,
+                        minSpendingThreshold: 2000000,
+                        maxRedemptionCap: 300000,
+                        description: "Redeem 15% of your last 5 months spending as points",
+                        pointsPer100UGX: 70
+                    },
+                    SAPPHIRE: { 
+                        months: 6, 
+                        percentage: 0.18,
+                        lifetimeBonus: 0.02,
+                        multiplier: 1.5,
+                        minSpendingThreshold: 4000000,
+                        maxRedemptionCap: 500000,
+                        description: "Redeem 18% of last 6 months + 2% lifetime bonus as points",
+                        pointsPer100UGX: 60
+                    },
+                    PLATINUM: { 
+                        months: 12, 
+                        percentage: 0.25,
+                        lifetimeBonus: 0.05,
+                        multiplier: 1.6,
+                        minSpendingThreshold: 8000000,
+                        maxRedemptionCap: 1000000,
+                        canChooseAny: true,
+                        description: "Redeem 25% of last 12 months + 5% lifetime bonus as points",
+                        pointsPer100UGX: 50
+                    }
+                };
+                
+                this.discountVoucherLimits = {
+                    PEARL: { 
+                        min: 1000, 
+                        max: 5000, 
+                        maxPercentage: 5,
+                        pointsPerDiscount: 100
+                    },
+                    BRONZE: { 
+                        min: 2000, 
+                        max: 10000, 
+                        maxPercentage: 8,
+                        pointsPerDiscount: 100
+                    },
+                    SILVER: { 
+                        min: 3000, 
+                        max: 15000, 
+                        maxPercentage: 10,
+                        pointsPerDiscount: 100
+                    },
+                    RUBY: { 
+                        min: 5000, 
+                        max: 25000, 
+                        maxPercentage: 12,
+                        pointsPerDiscount: 100
+                    },
+                    GOLD: { 
+                        min: 10000, 
+                        max: 50000, 
+                        maxPercentage: 15,
+                        pointsPerDiscount: 100
+                    },
+                    SAPPHIRE: { 
+                        min: 20000, 
+                        max: 100000, 
+                        maxPercentage: 18,
+                        pointsPerDiscount: 100
+                    },
+                    PLATINUM: { 
+                        min: 50000, 
+                        max: 250000, 
+                        maxPercentage: 25,
+                        pointsPerDiscount: 100
+                    }
+                };
+            }
+
+            calculateSpendingHistory(member, months) {
+                const cutoffDate = new Date();
+                cutoffDate.setMonth(cutoffDate.getMonth() - months);
+                
+                let totalSpent = 0;
+                if (member.purchaseHistory) {
+                    member.purchaseHistory.forEach(purchase => {
+                        const purchaseDate = new Date(purchase.date);
+                        if (purchaseDate >= cutoffDate) {
+                            totalSpent += purchase.amount || 0;
+                        }
+                    });
+                }
+                
+                return totalSpent;
+            }
+
+            calculateLifetimeSpending(member) {
+                return member.totalSpent || 0;
+            }
+
+            calculateRedemptionOptions(member, purchaseAmount) {
+                const tier = member.tier;
+                const options = [];
+                const memberPoints = member.points || 0;
+                
+                if (tier === 'PEARL') {
+                    return this.getDiscountVoucherOptions(member, purchaseAmount).filter(option => 
+                        memberPoints >= option.pointsRequired
+                    );
+                }
+                
+                const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
+                
+                eligibleTiers.forEach(tierType => {
+                    const rule = this.tierRules[tierType];
+                    if (!rule || !rule.months) return;
+                    
+                    const monthsSpending = this.calculateSpendingHistory(member, rule.months);
+                    
+                    if (monthsSpending < rule.minSpendingThreshold) {
+                        return;
+                    }
+                    
+                    let totalRedemption = monthsSpending * rule.percentage;
+                    
+                    if (rule.lifetimeBonus) {
+                        const lifetimeSpending = this.calculateLifetimeSpending(member);
+                        totalRedemption += lifetimeSpending * rule.lifetimeBonus;
+                    }
+                    
+                    totalRedemption = Math.min(totalRedemption, rule.maxRedemptionCap);
+                    
+                    if (totalRedemption > 0) {
+                        const pointsEquivalent = Math.floor(totalRedemption / 100 * rule.pointsPer100UGX);
+                        
+                        if (memberPoints >= pointsEquivalent) {
+                            options.push({
+                                type: 'points_redemption',
+                                tier: tierType,
+                                description: rule.description,
+                                monthsSpending: monthsSpending,
+                                totalAmount: totalRedemption,
+                                maxRedemption: Math.min(totalRedemption, purchaseAmount),
+                                pointsEquivalent: pointsEquivalent,
+                                pointsValue: rule.pointsPer100UGX + ' points per 100 UGX',
+                                eligibility: `Spent ${monthsSpending.toLocaleString()} UGX in last ${rule.months} months`,
+                                requiresSufficientPoints: true,
+                                memberHasPoints: true
+                            });
+                        }
+                    }
+                });
+                
+                const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount)
+                    .filter(option => memberPoints >= option.pointsRequired);
+                
+                options.push(...voucherOptions);
+                
+                return options.sort((a, b) => (b.maxRedemption || 0) - (a.maxRedemption || 0));
+            }
+
+            getDiscountVoucherOptions(member, purchaseAmount) {
+                const tier = member.tier;
+                const limits = this.discountVoucherLimits[tier] || this.discountVoucherLimits.PEARL;
+                
+                const options = [];
+                
+                const discountAmounts = [1000, 2000, 3000, 5000, 10000, 15000, 20000, 25000, 30000, 50000];
+                
+                discountAmounts.forEach(amount => {
+                    if (amount >= limits.min && amount <= limits.max && amount <= purchaseAmount) {
+                        const discountPercentage = ((amount / purchaseAmount) * 100).toFixed(1);
+                        if (discountPercentage <= 100) {
+                            options.push({
+                                type: 'discount_voucher',
+                                tier: tier,
+                                description: `${amount.toLocaleString()} UGX Discount Voucher`,
+                                discountAmount: amount,
+                                discountPercentage: discountPercentage,
+                                applicableAmount: purchaseAmount,
+                                pointsRequired: Math.floor(amount / 100)
+                            });
+                        }
+                    }
+                });
+                
+                return options;
+            }
+
+            generateQRCodeData(redemptionData) {
+                return `JCRED|${redemptionData.redemptionId}|${redemptionData.memberJCId}|${Date.now()}`;
+            }
+
+            parseQRCodeData(qrString) {
+                try {
+                    const parts = qrString.split('|');
+                    if (parts[0] !== 'JCRED') {
+                        return null;
+                    }
+                    
+                    return {
+                        redemptionId: parts[1],
+                        memberJCId: parts[2],
+                        timestamp: parseInt(parts[3]),
+                        type: 'jeansclub_redemption'
+                    };
+                } catch (error) {
+                    console.error("Parse error:", error);
+                    return null;
+                }
+            }
+
+            async getRedemptionById(redemptionId) {
+                try {
+                    const redemption = await this.db.getRedemptionById(redemptionId);
+                    if (redemption) return redemption;
+                } catch (error) {
+                    console.error('Error getting redemption from Supabase:', error);
+                }
+                
+                return this.localRedemptions.find(r => r.redemptionId === redemptionId);
+            }
+
+            async createRedemption(member, selectedOption, purchaseAmount) {
+                const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
+                
+                const redemptionData = {
+                    redemptionId: redemptionId,
+                    memberJCId: member.jcId,
+                    memberName: member.name,
+                    memberTier: member.tier,
+                    purchaseAmount: purchaseAmount,
+                    selectedOption: selectedOption,
+                    createdDate: new Date().toISOString(),
+                    status: 'pending',
+                    redeemedBy: null,
+                    redeemedDate: null,
+                    qrCodeData: null
+                };
+
+                redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
+
+                // Save to Supabase
+                await this.db.saveRedemption(redemptionData);
+                
+                // Save locally
+                this.localRedemptions.push(redemptionData);
+                this.saveLocalRedemptions();
+
+                return redemptionData;
+            }
+
+            async processRedemption(qrCodeData, salespersonName) {
+                console.log("Processing redemption with data:", qrCodeData);
+                
+                if (!salespersonName || salespersonName.trim() === '') {
+                    return { success: false, message: "Salesperson name is required" };
+                }
+
+                // Check if it's a redemption ID directly
+                if (qrCodeData.startsWith('RED')) {
+                    const redemption = await this.getRedemptionById(qrCodeData);
+                    if (redemption) {
+                        if (redemption.status === 'completed') {
+                            return { success: false, message: "Redemption has already been completed" };
+                        }
+                        
+                        if (redemption.status === 'expired') {
+                            return { success: false, message: "Redemption has expired" };
+                        }
+                        
+                        redemption.status = 'completed';
+                        redemption.redeemedBy = salespersonName.trim();
+                        redemption.redeemedDate = new Date().toISOString();
+                        
+                        await this.saveRedemption(redemption);
+                        
+                        return {
+                            success: true,
+                            message: `Redemption completed successfully by ${salespersonName}`,
+                            redemption: redemption
+                        };
+                    }
+                }
+                
+                // Try to parse as QR code data
+                const redemptionData = this.parseQRCodeData(qrCodeData);
+                if (!redemptionData) {
+                    return { 
+                        success: false, 
+                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+                    };
+                }
+                
+                // Check expiry (24 hours)
+                const now = Date.now();
+                if (now - redemptionData.timestamp > 24 * 60 * 60 * 1000) {
+                    return { 
+                        success: false, 
+                        message: "QR code has expired. Please generate a new one." 
+                    };
+                }
+
+                const redemption = await this.getRedemptionById(redemptionData.redemptionId);
+                if (!redemption) {
+                    return { 
+                        success: false, 
+                        message: "Redemption not found in the system" 
+                    };
+                }
+
+                if (redemption.status === 'completed') {
+                    return { 
+                        success: false, 
+                        message: "Redemption has already been completed" 
+                    };
+                }
+
+                if (redemption.status === 'expired') {
+                    return { 
+                        success: false, 
+                        message: "Redemption has expired" 
+                    };
+                }
+
+                redemption.status = 'completed';
+                redemption.redeemedBy = salespersonName.trim();
+                redemption.redeemedDate = new Date().toISOString();
+                
+                await this.saveRedemption(redemption);
+
+                return {
+                    success: true,
+                    message: `Redemption completed successfully by ${salespersonName}`,
+                    redemption: redemption
+                };
+            }
+
+            async saveRedemption(redemption) {
+                try {
+                    await this.db.saveRedemption(redemption);
+                } catch (error) {
+                    console.error('Error saving redemption to Supabase:', error);
+                }
+                
+                // Update local storage
+                const index = this.localRedemptions.findIndex(r => r.redemptionId === redemption.redemptionId);
+                if (index !== -1) {
+                    this.localRedemptions[index] = redemption;
+                } else {
+                    this.localRedemptions.push(redemption);
+                }
+                this.saveLocalRedemptions();
+            }
+
+            async getMemberRedemptions(memberJCId) {
+                try {
+                    const redemptions = await this.db.getMemberRedemptions(memberJCId);
+                    if (redemptions && redemptions.length > 0) {
+                        return redemptions;
+                    }
+                } catch (error) {
+                    console.error('Error getting member redemptions from Supabase:', error);
+                }
+                
+                return this.localRedemptions
+                    .filter(r => r.memberJCId === memberJCId)
+                    .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            async getAllRedemptions() {
+                try {
+                    const redemptions = await this.db.getAllRedemptions();
+                    if (redemptions && redemptions.length > 0) {
+                        return redemptions;
+                    }
+                } catch (error) {
+                    console.error('Error getting all redemptions from Supabase:', error);
+                }
+                
+                return this.localRedemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            saveLocalRedemptions() {
+                localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.localRedemptions));
+            }
+
+            async getRedemptionStats() {
+                const redemptions = await this.getAllRedemptions();
+                
+                const total = redemptions.length;
+                const pending = redemptions.filter(r => r.status === 'pending').length;
+                const completed = redemptions.filter(r => r.status === 'completed').length;
+                const expired = redemptions.filter(r => r.status === 'expired').length;
+                
+                const totalValue = redemptions
+                    .filter(r => r.status === 'completed')
+                    .reduce((sum, r) => {
+                        if (r.selectedOption && r.selectedOption.type === 'points_redemption') {
+                            return sum + (r.selectedOption.maxRedemption || 0);
+                        } else if (r.selectedOption && r.selectedOption.type === 'discount_voucher') {
+                            return sum + (r.selectedOption.discountAmount || 0);
+                        }
+                        return sum;
+                    }, 0);
+                
+                return {
+                    total,
+                    pending,
+                    completed,
+                    expired,
+                    totalValue,
+                    completionRate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%'
+                };
+            }
+        }
+
+        // Initialize QR redemption system
+        const qrRedemptionSystem = new QRRedemptionSystem();
+
+        // ===========================
         // CAMERA SCANNER FUNCTIONALITY - IMPROVED VERSION
         // ===========================
         
@@ -3058,1182 +4234,77 @@
         }
 
         // ===========================
-        // FIXED SUPABASE VOUCHER SYSTEM
+        // FIXED: ADD MISSING UI FUNCTIONS
         // ===========================
         
-        class VoucherSystem {
-            constructor() {
-                this.db = new SupabaseDB();
-                this.localVouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
-                this.voucherActivity = JSON.parse(localStorage.getItem('jeansClubVoucherActivity') || '[]');
+        // FIXED: Add missing loginWithCredentials function
+        async function loginWithCredentials() {
+            const jcId = document.getElementById('loginJCId').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!jcId || !password) {
+                showToast("Please enter JC ID and password", "error");
+                return;
             }
-
-            generateVoucherCode() {
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                let code = '';
-                for (let i = 0; i < 8; i++) {
-                    code += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                return 'JC' + code;
-            }
-
-            generateQRCodeData(voucherCode) {
-                return JSON.stringify({
-                    code: voucherCode,
-                    timestamp: Date.now(),
-                    type: 'jeansclub_voucher',
-                    readable: true,
-                    version: '1.0'
-                });
-            }
-
-            async createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
-                const voucherCode = this.generateVoucherCode();
-                const createdDate = new Date();
-                const expiryDate = new Date();
-                expiryDate.setDate(expiryDate.getDate() + expiryDays);
-
-                const voucher = {
-                    id: 'voucher_' + Date.now(),
-                    code: voucherCode,
-                    memberJCId: memberJCId,
-                    memberName: memberName,
-                    pointsUsed: pointsUsed,
-                    discountPercentage: discountPercentage,
-                    createdDate: createdDate.toISOString(),
-                    expiryDate: expiryDate.toISOString(),
-                    status: 'active',
-                    usedDate: null,
-                    redeemedBy: null,
-                    qrCodeData: this.generateQRCodeData(voucherCode)
-                };
-
-                // Save to Supabase
-                await this.db.saveVoucher(voucher);
-                
-                // Also save locally
-                this.localVouchers.push(voucher);
-                this.saveLocalVouchers();
-
-                this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
-
-                return voucher;
-            }
-
-            async getMemberVouchers(memberJCId) {
-                try {
-                    // First try Supabase
-                    const supabaseVouchers = await this.db.getMemberVouchers(memberJCId);
-                    
-                    // Fallback to local storage if Supabase fails
-                    if (!supabaseVouchers || supabaseVouchers.length === 0) {
-                        return this.localVouchers
-                            .filter(v => v.memberJCId === memberJCId)
-                            .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-                    }
-                    
-                    return supabaseVouchers;
-                } catch (error) {
-                    console.error('Error getting member vouchers:', error);
-                    return this.localVouchers
-                        .filter(v => v.memberJCId === memberJCId)
-                        .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-                }
-            }
-
-            async getAllVouchers() {
-                try {
-                    const supabaseVouchers = await this.db.getAllVouchers();
-                    if (supabaseVouchers && supabaseVouchers.length > 0) {
-                        return supabaseVouchers;
-                    }
-                } catch (error) {
-                    console.error('Error getting all vouchers from Supabase:', error);
-                }
-                
-                return this.localVouchers.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-            }
-
-            async getVoucherByCode(code) {
-                try {
-                    const voucher = await this.db.getVoucherByCode(code);
-                    if (voucher) return voucher;
-                } catch (error) {
-                    console.error('Error getting voucher from Supabase:', error);
-                }
-                
-                return this.localVouchers.find(v => v.code === code);
-            }
-
-            async redeemVoucher(voucherCode, redeemedBy = 'system') {
-                const voucher = await this.getVoucherByCode(voucherCode);
-                if (!voucher) {
-                    return { success: false, message: "Voucher not found" };
-                }
-
-                if (voucher.status === 'used') {
-                    return { success: false, message: "Voucher has already been used" };
-                }
-
-                if (voucher.status === 'expired') {
-                    return { success: false, message: "Voucher has expired" };
-                }
-
-                if (new Date() > new Date(voucher.expiryDate)) {
-                    voucher.status = 'expired';
-                    await this.saveVoucher(voucher);
-                    return { success: false, message: "Voucher has expired" };
-                }
-
-                voucher.status = 'used';
-                voucher.usedDate = new Date().toISOString();
-                voucher.redeemedBy = redeemedBy;
-                
-                await this.saveVoucher(voucher);
-
-                this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
-
-                return { 
-                    success: true, 
-                    message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
-                    voucher: voucher
-                };
-            }
-
-            async saveVoucher(voucher) {
-                try {
-                    await this.db.saveVoucher(voucher);
-                } catch (error) {
-                    console.error('Error saving voucher to Supabase:', error);
-                }
-                
-                // Update local storage
-                const index = this.localVouchers.findIndex(v => v.code === voucher.code);
-                if (index !== -1) {
-                    this.localVouchers[index] = voucher;
-                } else {
-                    this.localVouchers.push(voucher);
-                }
-                this.saveLocalVouchers();
-            }
-
-            async getVoucherStats() {
-                const vouchers = await this.getAllVouchers();
-                
-                const total = vouchers.length;
-                const active = vouchers.filter(v => v.status === 'active').length;
-                const used = vouchers.filter(v => v.status === 'used').length;
-                const expired = vouchers.filter(v => v.status === 'expired').length;
-                
-                const totalDiscount = vouchers
-                    .filter(v => v.status === 'used')
-                    .reduce((sum, v) => sum + v.discountPercentage, 0);
-                
-                const avgDiscount = used > 0 ? (totalDiscount / used).toFixed(1) : 0;
-
-                return {
-                    total,
-                    active,
-                    used,
-                    expired,
-                    avgDiscount,
-                    redemptionRate: total > 0 ? ((used / total) * 100).toFixed(1) + '%' : '0%'
-                };
-            }
-
-            logVoucherActivity(voucherCode, action, memberJCId, description) {
-                const activity = {
-                    timestamp: new Date().toISOString(),
-                    voucherCode: voucherCode,
-                    action: action,
-                    memberJCId: memberJCId,
-                    description: description
-                };
-
-                this.voucherActivity.unshift(activity);
-                if (this.voucherActivity.length > 100) {
-                    this.voucherActivity = this.voucherActivity.slice(0, 100);
-                }
-                localStorage.setItem('jeansClubVoucherActivity', JSON.stringify(this.voucherActivity));
-            }
-
-            saveLocalVouchers() {
-                localStorage.setItem('jeansClubVouchers', JSON.stringify(this.localVouchers));
-            }
-
-            cleanupExpiredVouchers() {
-                const now = new Date();
-                const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
-                
-                const originalCount = this.localVouchers.length;
-                this.localVouchers = this.localVouchers.filter(voucher => {
-                    if (voucher.status === 'expired') {
-                        const expiryDate = new Date(voucher.expiryDate);
-                        return expiryDate > thirtyDaysAgo;
-                    }
-                    return true;
-                });
-                
-                const removedCount = originalCount - this.localVouchers.length;
-                if (removedCount > 0) {
-                    this.saveLocalVouchers();
-                    console.log(`Cleaned up ${removedCount} old expired vouchers`);
-                }
+            
+            showToast("Logging in...", "info");
+            
+            const result = await clubManager.loginWithCredentials(jcId, password);
+            
+            if (result.success) {
+                showDashboard(result.member);
+                showToast("Login successful! 🎉", "success");
+            } else {
+                showToast(result.message, "error");
             }
         }
 
-        // Initialize voucher system
-        const voucherSystem = new VoucherSystem();
-
-        // ===========================
-        // FIXED SUPABASE QR REDEMPTION SYSTEM
-        // ===========================
-        
-        class QRRedemptionSystem {
-            constructor() {
-                this.db = new SupabaseDB();
-                this.localRedemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
-                
-                this.tierRules = {
-                    PEARL: { 
-                        payWithPoints: false,
-                        discountVoucherOnly: true,
-                        description: "Basic membership - use points for discount vouchers only"
-                    },
-                    BRONZE: { 
-                        months: 2, 
-                        percentage: 0.08,
-                        multiplier: 1.0,
-                        minSpendingThreshold: 300000,
-                        maxRedemptionCap: 50000,
-                        description: "Redeem 8% of your last 2 months spending as points",
-                        pointsPer100UGX: 100
-                    },
-                    SILVER: { 
-                        months: 3, 
-                        percentage: 0.10,
-                        multiplier: 1.1,
-                        minSpendingThreshold: 500000,
-                        maxRedemptionCap: 100000,
-                        description: "Redeem 10% of your last 3 months spending as points",
-                        pointsPer100UGX: 90
-                    },
-                    RUBY: { 
-                        months: 4, 
-                        percentage: 0.12,
-                        multiplier: 1.3,
-                        minSpendingThreshold: 1000000,
-                        maxRedemptionCap: 200000,
-                        description: "Redeem 12% of your last 4 months spending as points",
-                        pointsPer100UGX: 80
-                    },
-                    GOLD: { 
-                        months: 5, 
-                        percentage: 0.15,
-                        multiplier: 1.4,
-                        minSpendingThreshold: 2000000,
-                        maxRedemptionCap: 300000,
-                        description: "Redeem 15% of your last 5 months spending as points",
-                        pointsPer100UGX: 70
-                    },
-                    SAPPHIRE: { 
-                        months: 6, 
-                        percentage: 0.18,
-                        lifetimeBonus: 0.02,
-                        multiplier: 1.5,
-                        minSpendingThreshold: 4000000,
-                        maxRedemptionCap: 500000,
-                        description: "Redeem 18% of last 6 months + 2% lifetime bonus as points",
-                        pointsPer100UGX: 60
-                    },
-                    PLATINUM: { 
-                        months: 12, 
-                        percentage: 0.25,
-                        lifetimeBonus: 0.05,
-                        multiplier: 1.6,
-                        minSpendingThreshold: 8000000,
-                        maxRedemptionCap: 1000000,
-                        canChooseAny: true,
-                        description: "Redeem 25% of last 12 months + 5% lifetime bonus as points",
-                        pointsPer100UGX: 50
-                    }
-                };
-                
-                this.discountVoucherLimits = {
-                    PEARL: { 
-                        min: 1000, 
-                        max: 5000, 
-                        maxPercentage: 5,
-                        pointsPerDiscount: 100
-                    },
-                    BRONZE: { 
-                        min: 2000, 
-                        max: 10000, 
-                        maxPercentage: 8,
-                        pointsPerDiscount: 100
-                    },
-                    SILVER: { 
-                        min: 3000, 
-                        max: 15000, 
-                        maxPercentage: 10,
-                        pointsPerDiscount: 100
-                    },
-                    RUBY: { 
-                        min: 5000, 
-                        max: 25000, 
-                        maxPercentage: 12,
-                        pointsPerDiscount: 100
-                    },
-                    GOLD: { 
-                        min: 10000, 
-                        max: 50000, 
-                        maxPercentage: 15,
-                        pointsPerDiscount: 100
-                    },
-                    SAPPHIRE: { 
-                        min: 20000, 
-                        max: 100000, 
-                        maxPercentage: 18,
-                        pointsPerDiscount: 100
-                    },
-                    PLATINUM: { 
-                        min: 50000, 
-                        max: 250000, 
-                        maxPercentage: 25,
-                        pointsPerDiscount: 100
-                    }
-                };
+        // FIXED: Add missing signUpWithEmail function
+        async function signUpWithEmail() {
+            const name = document.getElementById('userName').value.trim();
+            const email = document.getElementById('userEmail').value.trim();
+            const password = document.getElementById('userPassword').value;
+            const referralCode = document.getElementById('referralCode').value.trim();
+            const newsletterSignup = document.getElementById('newsletterSignup').checked;
+            
+            if (!name || !email || !password) {
+                showToast("Please fill in all required fields", "error");
+                return;
             }
-
-            calculateSpendingHistory(member, months) {
-                const cutoffDate = new Date();
-                cutoffDate.setMonth(cutoffDate.getMonth() - months);
-                
-                let totalSpent = 0;
-                if (member.purchaseHistory) {
-                    member.purchaseHistory.forEach(purchase => {
-                        const purchaseDate = new Date(purchase.date);
-                        if (purchaseDate >= cutoffDate) {
-                            totalSpent += purchase.amount || 0;
-                        }
-                    });
-                }
-                
-                return totalSpent;
+            
+            if (!isValidEmail(email)) {
+                showToast("Please enter a valid email address", "error");
+                return;
             }
-
-            calculateLifetimeSpending(member) {
-                return member.totalSpent || 0;
+            
+            if (password.length < 6) {
+                showToast("Password must be at least 6 characters", "error");
+                return;
             }
-
-            calculateRedemptionOptions(member, purchaseAmount) {
-                const tier = member.tier;
-                const options = [];
-                const memberPoints = member.points || 0;
-                
-                if (tier === 'PEARL') {
-                    return this.getDiscountVoucherOptions(member, purchaseAmount).filter(option => 
-                        memberPoints >= option.pointsRequired
-                    );
-                }
-                
-                const eligibleTiers = tier === 'PLATINUM' ? ['BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE'] : [tier];
-                
-                eligibleTiers.forEach(tierType => {
-                    const rule = this.tierRules[tierType];
-                    if (!rule || !rule.months) return;
-                    
-                    const monthsSpending = this.calculateSpendingHistory(member, rule.months);
-                    
-                    if (monthsSpending < rule.minSpendingThreshold) {
-                        return;
-                    }
-                    
-                    let totalRedemption = monthsSpending * rule.percentage;
-                    
-                    if (rule.lifetimeBonus) {
-                        const lifetimeSpending = this.calculateLifetimeSpending(member);
-                        totalRedemption += lifetimeSpending * rule.lifetimeBonus;
-                    }
-                    
-                    totalRedemption = Math.min(totalRedemption, rule.maxRedemptionCap);
-                    
-                    if (totalRedemption > 0) {
-                        const pointsEquivalent = Math.floor(totalRedemption / 100 * rule.pointsPer100UGX);
-                        
-                        if (memberPoints >= pointsEquivalent) {
-                            options.push({
-                                type: 'points_redemption',
-                                tier: tierType,
-                                description: rule.description,
-                                monthsSpending: monthsSpending,
-                                totalAmount: totalRedemption,
-                                maxRedemption: Math.min(totalRedemption, purchaseAmount),
-                                pointsEquivalent: pointsEquivalent,
-                                pointsValue: rule.pointsPer100UGX + ' points per 100 UGX',
-                                eligibility: `Spent ${monthsSpending.toLocaleString()} UGX in last ${rule.months} months`,
-                                requiresSufficientPoints: true,
-                                memberHasPoints: true
-                            });
-                        }
-                    }
-                });
-                
-                const voucherOptions = this.getDiscountVoucherOptions(member, purchaseAmount)
-                    .filter(option => memberPoints >= option.pointsRequired);
-                
-                options.push(...voucherOptions);
-                
-                return options.sort((a, b) => (b.maxRedemption || 0) - (a.maxRedemption || 0));
-            }
-
-            getDiscountVoucherOptions(member, purchaseAmount) {
-                const tier = member.tier;
-                const limits = this.discountVoucherLimits[tier] || this.discountVoucherLimits.PEARL;
-                
-                const options = [];
-                
-                const discountAmounts = [1000, 2000, 3000, 5000, 10000, 15000, 20000, 25000, 30000, 50000];
-                
-                discountAmounts.forEach(amount => {
-                    if (amount >= limits.min && amount <= limits.max && amount <= purchaseAmount) {
-                        const discountPercentage = ((amount / purchaseAmount) * 100).toFixed(1);
-                        if (discountPercentage <= 100) {
-                            options.push({
-                                type: 'discount_voucher',
-                                tier: tier,
-                                description: `${amount.toLocaleString()} UGX Discount Voucher`,
-                                discountAmount: amount,
-                                discountPercentage: discountPercentage,
-                                applicableAmount: purchaseAmount,
-                                pointsRequired: Math.floor(amount / 100)
-                            });
-                        }
-                    }
-                });
-                
-                return options;
-            }
-
-            generateQRCodeData(redemptionData) {
-                return `JCRED|${redemptionData.redemptionId}|${redemptionData.memberJCId}|${Date.now()}`;
-            }
-
-            parseQRCodeData(qrString) {
-                try {
-                    const parts = qrString.split('|');
-                    if (parts[0] !== 'JCRED') {
-                        return null;
-                    }
-                    
-                    return {
-                        redemptionId: parts[1],
-                        memberJCId: parts[2],
-                        timestamp: parseInt(parts[3]),
-                        type: 'jeansclub_redemption'
-                    };
-                } catch (error) {
-                    console.error("Parse error:", error);
-                    return null;
-                }
-            }
-
-            async getRedemptionById(redemptionId) {
-                try {
-                    const redemption = await this.db.getRedemptionById(redemptionId);
-                    if (redemption) return redemption;
-                } catch (error) {
-                    console.error('Error getting redemption from Supabase:', error);
-                }
-                
-                return this.localRedemptions.find(r => r.redemptionId === redemptionId);
-            }
-
-            async createRedemption(member, selectedOption, purchaseAmount) {
-                const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
-                
-                const redemptionData = {
-                    redemptionId: redemptionId,
-                    memberJCId: member.jcId,
-                    memberName: member.name,
-                    memberTier: member.tier,
-                    purchaseAmount: purchaseAmount,
-                    selectedOption: selectedOption,
-                    createdDate: new Date().toISOString(),
-                    status: 'pending',
-                    redeemedBy: null,
-                    redeemedDate: null,
-                    qrCodeData: null
-                };
-
-                redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
-
-                // Save to Supabase
-                await this.db.saveRedemption(redemptionData);
-                
-                // Save locally
-                this.localRedemptions.push(redemptionData);
-                this.saveLocalRedemptions();
-
-                return redemptionData;
-            }
-
-            async processRedemption(qrCodeData, salespersonName) {
-                console.log("Processing redemption with data:", qrCodeData);
-                
-                if (!salespersonName || salespersonName.trim() === '') {
-                    return { success: false, message: "Salesperson name is required" };
-                }
-
-                // Check if it's a redemption ID directly
-                if (qrCodeData.startsWith('RED')) {
-                    const redemption = await this.getRedemptionById(qrCodeData);
-                    if (redemption) {
-                        if (redemption.status === 'completed') {
-                            return { success: false, message: "Redemption has already been completed" };
-                        }
-                        
-                        if (redemption.status === 'expired') {
-                            return { success: false, message: "Redemption has expired" };
-                        }
-                        
-                        redemption.status = 'completed';
-                        redemption.redeemedBy = salespersonName.trim();
-                        redemption.redeemedDate = new Date().toISOString();
-                        
-                        await this.saveRedemption(redemption);
-                        
-                        return {
-                            success: true,
-                            message: `Redemption completed successfully by ${salespersonName}`,
-                            redemption: redemption
-                        };
-                    }
-                }
-                
-                // Try to parse as QR code data
-                const redemptionData = this.parseQRCodeData(qrCodeData);
-                if (!redemptionData) {
-                    return { 
-                        success: false, 
-                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
-                    };
-                }
-                
-                // Check expiry (24 hours)
-                const now = Date.now();
-                if (now - redemptionData.timestamp > 24 * 60 * 60 * 1000) {
-                    return { 
-                        success: false, 
-                        message: "QR code has expired. Please generate a new one." 
-                    };
-                }
-
-                const redemption = await this.getRedemptionById(redemptionData.redemptionId);
-                if (!redemption) {
-                    return { 
-                        success: false, 
-                        message: "Redemption not found in the system" 
-                    };
-                }
-
-                if (redemption.status === 'completed') {
-                    return { 
-                        success: false, 
-                        message: "Redemption has already been completed" 
-                    };
-                }
-
-                if (redemption.status === 'expired') {
-                    return { 
-                        success: false, 
-                        message: "Redemption has expired" 
-                    };
-                }
-
-                redemption.status = 'completed';
-                redemption.redeemedBy = salespersonName.trim();
-                redemption.redeemedDate = new Date().toISOString();
-                
-                await this.saveRedemption(redemption);
-
-                return {
-                    success: true,
-                    message: `Redemption completed successfully by ${salespersonName}`,
-                    redemption: redemption
-                };
-            }
-
-            async saveRedemption(redemption) {
-                try {
-                    await this.db.saveRedemption(redemption);
-                } catch (error) {
-                    console.error('Error saving redemption to Supabase:', error);
-                }
-                
-                // Update local storage
-                const index = this.localRedemptions.findIndex(r => r.redemptionId === redemption.redemptionId);
-                if (index !== -1) {
-                    this.localRedemptions[index] = redemption;
-                } else {
-                    this.localRedemptions.push(redemption);
-                }
-                this.saveLocalRedemptions();
-            }
-
-            async getMemberRedemptions(memberJCId) {
-                try {
-                    const redemptions = await this.db.getMemberRedemptions(memberJCId);
-                    if (redemptions && redemptions.length > 0) {
-                        return redemptions;
-                    }
-                } catch (error) {
-                    console.error('Error getting member redemptions from Supabase:', error);
-                }
-                
-                return this.localRedemptions
-                    .filter(r => r.memberJCId === memberJCId)
-                    .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-            }
-
-            async getAllRedemptions() {
-                try {
-                    const redemptions = await this.db.getAllRedemptions();
-                    if (redemptions && redemptions.length > 0) {
-                        return redemptions;
-                    }
-                } catch (error) {
-                    console.error('Error getting all redemptions from Supabase:', error);
-                }
-                
-                return this.localRedemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-            }
-
-            saveLocalRedemptions() {
-                localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.localRedemptions));
-            }
-
-            async getRedemptionStats() {
-                const redemptions = await this.getAllRedemptions();
-                
-                const total = redemptions.length;
-                const pending = redemptions.filter(r => r.status === 'pending').length;
-                const completed = redemptions.filter(r => r.status === 'completed').length;
-                const expired = redemptions.filter(r => r.status === 'expired').length;
-                
-                const totalValue = redemptions
-                    .filter(r => r.status === 'completed')
-                    .reduce((sum, r) => {
-                        if (r.selectedOption && r.selectedOption.type === 'points_redemption') {
-                            return sum + (r.selectedOption.maxRedemption || 0);
-                        } else if (r.selectedOption && r.selectedOption.type === 'discount_voucher') {
-                            return sum + (r.selectedOption.discountAmount || 0);
-                        }
-                        return sum;
-                    }, 0);
-                
-                return {
-                    total,
-                    pending,
-                    completed,
-                    expired,
-                    totalValue,
-                    completionRate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%'
-                };
+            
+            showToast("Creating account...", "info");
+            
+            const userData = {
+                name: name,
+                email: email,
+                newsletter: newsletterSignup
+            };
+            
+            const result = await clubManager.createAccount(userData, password, referralCode || null);
+            
+            if (result.success) {
+                showDashboard(result.member);
+                showToast("Account created successfully! 🎉", "success");
+            } else {
+                showToast(result.message, "error");
             }
         }
 
-        // Initialize QR redemption system
-        const qrRedemptionSystem = new QRRedemptionSystem();
-
         // ===========================
-        // ENHANCED SUPABASE DB WITH VOUCHERS AND REDEMPTIONS
+        // REST OF THE MISSING FUNCTIONS
         // ===========================
         
-        class SupabaseDB {
-            constructor() {
-                this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
-                this.anonKey = 'sb_publishable__gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA';
-                
-                this.supabase = createClient(this.supabaseUrl, this.anonKey);
-                this.cacheKey = 'jeansClubCache';
-                this.init();
-                console.log('🚀 SupabaseDB initialized with URL:', this.supabaseUrl);
-            }
-
-            async init() {
-                if (!this.getCache()) {
-                    this.setCache({ members: [], lastSync: 0 });
-                }
-            }
-
-            getCache() {
-                try {
-                    const cache = localStorage.getItem(this.cacheKey);
-                    return cache ? JSON.parse(cache) : null;
-                } catch (error) {
-                    console.error('Error reading cache:', error);
-                    return null;
-                }
-            }
-
-            setCache(data) {
-                try {
-                    localStorage.setItem(this.cacheKey, JSON.stringify(data));
-                    return true;
-                } catch (error) {
-                    console.error('Error writing to storage:', error);
-                    return false;
-                }
-            }
-
-            async getAllMembers() {
-                try {
-                    console.log('🔄 Fetching all members from Supabase...');
-                    
-                    const { data: members, error } = await this.supabase
-                        .from('members')
-                        .select('*');
-
-                    if (error) {
-                        console.error('❌ Supabase error:', error);
-                        throw error;
-                    }
-
-                    console.log(`✅ Loaded ${members?.length || 0} members from Supabase`);
-                    
-                    this.setCache({
-                        members: members || [],
-                        lastSync: Date.now()
-                    });
-
-                    return members || [];
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch from Supabase, using cache:', error);
-                    const cache = this.getCache();
-                    return cache?.members || [];
-                }
-            }
-
-            async saveMember(member) {
-                try {
-                    console.log('💾 Saving member to Supabase:', member.jcId);
-                    
-                    const memberData = {
-                        jcId: member.jcId,
-                        id: member.id || 'member_' + Date.now(),
-                        email: member.email,
-                        name: member.name,
-                        password: member.password || null,
-                        googleId: member.googleId || null,
-                        loginMethod: member.loginMethod || 'email',
-                        points: member.points || 0,
-                        tier: member.tier || 'PEARL',
-                        highestTierAchieved: member.highestTierAchieved || 'PEARL',
-                        referralCode: member.referralCode,
-                        referredBy: member.referredBy || null,
-                        purchaseHistory: member.purchaseHistory || [],
-                        activityLog: member.activityLog || [],
-                        joinedDate: member.joinedDate || new Date().toISOString(),
-                        totalSpent: member.totalSpent || 0,
-                        challenges: member.challenges || [],
-                        referrals: member.referrals || [],
-                        resetToken: member.resetToken || null,
-                        resetTokenExpiry: member.resetTokenExpiry || null,
-                        newsletterSubscribed: member.newsletterSubscribed !== false
-                    };
-
-                    const { data, error } = await this.supabase
-                        .from('members')
-                        .upsert(memberData, { 
-                            onConflict: 'jcId'
-                        });
-
-                    if (error) {
-                        console.error('❌ Supabase save error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Member saved successfully to Supabase');
-                    
-                    const cache = this.getCache();
-                    if (cache) {
-                        cache.lastSync = 0;
-                        this.setCache(cache);
-                    }
-
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to save member to Supabase:', error);
-                    return false;
-                }
-            }
-
-            async deleteMember(jcId) {
-                try {
-                    console.log('🗑️ Deleting member from Supabase:', jcId);
-                    
-                    const { error } = await this.supabase
-                        .from('members')
-                        .delete()
-                        .eq('jcId', jcId);
-
-                    if (error) {
-                        console.error('❌ Supabase delete error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Member deleted successfully from Supabase');
-                    
-                    const cache = this.getCache();
-                    if (cache) {
-                        cache.lastSync = 0;
-                        this.setCache(cache);
-                    }
-
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to delete member from Supabase:', error);
-                    return false;
-                }
-            }
-
-            async getMemberByJCId(jcId) {
-                try {
-                    console.log('🔍 Fetching member from Supabase:', jcId);
-                    
-                    const { data: member, error } = await this.supabase
-                        .from('members')
-                        .select('*')
-                        .eq('jcId', jcId)
-                        .single();
-
-                    if (error && error.code !== 'PGRST116') {
-                        console.error('❌ Supabase fetch error:', error);
-                        throw error;
-                    }
-
-                    return member || null;
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch member from Supabase:', error);
-                    
-                    const cache = this.getCache();
-                    if (cache?.members) {
-                        return cache.members.find(m => m.jcId === jcId) || null;
-                    }
-                    
-                    return null;
-                }
-            }
-
-            async getMemberByEmail(email) {
-                try {
-                    console.log('🔍 Fetching member by email from Supabase:', email);
-                    
-                    const { data: member, error } = await this.supabase
-                        .from('members')
-                        .select('*')
-                        .eq('email', email)
-                        .single();
-
-                    if (error && error.code !== 'PGRST116') {
-                        console.error('❌ Supabase fetch error:', error);
-                        throw error;
-                    }
-
-                    return member || null;
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch member by email from Supabase:', error);
-                    
-                    const cache = this.getCache();
-                    if (cache?.members) {
-                        return cache.members.find(m => m.email === email) || null;
-                    }
-                    
-                    return null;
-                }
-            }
-
-            // Voucher Methods
-            async saveVoucher(voucher) {
-                try {
-                    const { data, error } = await this.supabase
-                        .from('vouchers')
-                        .upsert(voucher, { 
-                            onConflict: 'code'
-                        });
-
-                    if (error) {
-                        console.error('❌ Supabase voucher save error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Voucher saved successfully to Supabase');
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to save voucher to Supabase:', error);
-                    return false;
-                }
-            }
-
-            async getMemberVouchers(memberJCId) {
-                try {
-                    const { data: vouchers, error } = await this.supabase
-                        .from('vouchers')
-                        .select('*')
-                        .eq('memberJCId', memberJCId)
-                        .order('createdDate', { ascending: false });
-
-                    if (error) {
-                        console.error('❌ Supabase vouchers fetch error:', error);
-                        throw error;
-                    }
-
-                    return vouchers || [];
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch vouchers from Supabase:', error);
-                    return [];
-                }
-            }
-
-            async getAllVouchers() {
-                try {
-                    const { data: vouchers, error } = await this.supabase
-                        .from('vouchers')
-                        .select('*')
-                        .order('createdDate', { ascending: false });
-
-                    if (error) {
-                        console.error('❌ Supabase all vouchers fetch error:', error);
-                        throw error;
-                    }
-
-                    return vouchers || [];
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch all vouchers from Supabase:', error);
-                    return [];
-                }
-            }
-
-            async getVoucherByCode(code) {
-                try {
-                    const { data: voucher, error } = await this.supabase
-                        .from('vouchers')
-                        .select('*')
-                        .eq('code', code)
-                        .single();
-
-                    if (error && error.code !== 'PGRST116') {
-                        console.error('❌ Supabase voucher fetch error:', error);
-                        throw error;
-                    }
-
-                    return voucher || null;
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch voucher from Supabase:', error);
-                    return null;
-                }
-            }
-
-            // Redemption Methods
-            async saveRedemption(redemption) {
-                try {
-                    const { data, error } = await this.supabase
-                        .from('redemptions')
-                        .upsert(redemption, { 
-                            onConflict: 'redemptionId'
-                        });
-
-                    if (error) {
-                        console.error('❌ Supabase redemption save error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Redemption saved successfully to Supabase');
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to save redemption to Supabase:', error);
-                    return false;
-                }
-            }
-
-            async getRedemptionById(redemptionId) {
-                try {
-                    const { data: redemption, error } = await this.supabase
-                        .from('redemptions')
-                        .select('*')
-                        .eq('redemptionId', redemptionId)
-                        .single();
-
-                    if (error && error.code !== 'PGRST116') {
-                        console.error('❌ Supabase redemption fetch error:', error);
-                        throw error;
-                    }
-
-                    return redemption || null;
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch redemption from Supabase:', error);
-                    return null;
-                }
-            }
-
-            async getMemberRedemptions(memberJCId) {
-                try {
-                    const { data: redemptions, error } = await this.supabase
-                        .from('redemptions')
-                        .select('*')
-                        .eq('memberJCId', memberJCId)
-                        .order('createdDate', { ascending: false });
-
-                    if (error) {
-                        console.error('❌ Supabase redemptions fetch error:', error);
-                        throw error;
-                    }
-
-                    return redemptions || [];
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch redemptions from Supabase:', error);
-                    return [];
-                }
-            }
-
-            async getAllRedemptions() {
-                try {
-                    const { data: redemptions, error } = await this.supabase
-                        .from('redemptions')
-                        .select('*')
-                        .order('createdDate', { ascending: false });
-
-                    if (error) {
-                        console.error('❌ Supabase all redemptions fetch error:', error);
-                        throw error;
-                    }
-
-                    return redemptions || [];
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch all redemptions from Supabase:', error);
-                    return [];
-                }
-            }
-
-            // Newsletter Methods
-            async subscribeToNewsletter(email, name = null) {
-                try {
-                    console.log('📧 Subscribing to newsletter:', email);
-                    
-                    const { data, error } = await this.supabase
-                        .from('newsletter_subscriptions')
-                        .upsert({
-                            email: email,
-                            name: name,
-                            is_active: true,
-                            subscribed_at: new Date().toISOString(),
-                            last_sent: null
-                        }, { 
-                            onConflict: 'email'
-                        });
-
-                    if (error) {
-                        console.error('❌ Newsletter subscription error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Newsletter subscription successful');
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to subscribe to newsletter:', error);
-                    return false;
-                }
-            }
-
-            async unsubscribeFromNewsletter(email) {
-                try {
-                    console.log('📧 Unsubscribing from newsletter:', email);
-                    
-                    const { data, error } = await this.supabase
-                        .from('newsletter_subscriptions')
-                        .update({ 
-                            is_active: false,
-                            unsubscribed_at: new Date().toISOString()
-                        })
-                        .eq('email', email);
-
-                    if (error) {
-                        console.error('❌ Newsletter unsubscribe error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Newsletter unsubscribe successful');
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to unsubscribe from newsletter:', error);
-                    return false;
-                }
-            }
-
-            async getNewsletterSubscribers(activeOnly = true) {
-                try {
-                    let query = this.supabase
-                        .from('newsletter_subscriptions')
-                        .select('*');
-
-                    if (activeOnly) {
-                        query = query.eq('is_active', true);
-                    }
-
-                    const { data: subscribers, error } = await query;
-
-                    if (error) {
-                        console.error('❌ Newsletter fetch error:', error);
-                        throw error;
-                    }
-
-                    return subscribers || [];
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch newsletter subscribers:', error);
-                    return [];
-                }
-            }
-
-            async getNewsletterStatus(email) {
-                try {
-                    const { data: subscription, error } = await this.supabase
-                        .from('newsletter_subscriptions')
-                        .select('is_active')
-                        .eq('email', email)
-                        .single();
-
-                    if (error && error.code !== 'PGRST116') {
-                        console.error('❌ Newsletter status error:', error);
-                        throw error;
-                    }
-
-                    return subscription ? subscription.is_active : false;
-
-                } catch (error) {
-                    console.error('❌ Failed to get newsletter status:', error);
-                    return false;
-                }
-            }
-        }
-
-        // Google Apps Script Email Service (keep as is)
+        // Google Apps Script Email Service
         class GoogleAppsEmailService {
             constructor() {
                 this.scriptURL = 'https://script.google.com/macros/s/AKfycbwPycPrQFn5hux5eHrbAg1KIc8aO96HwrEI-KUZG7YmITm1ACyqIDQJcWGP5pqq9kun/exec';
@@ -4507,7 +4578,7 @@
         </html>`;
             }
 
-            // Other email template methods (purchase, discount, referral, password_reset, etc.)
+            // Other email template methods
             buildPurchaseEmail(memberData, extraData) {
                 return `<div>Purchase email content...</div>`;
             }
@@ -4736,7 +4807,7 @@
         };
 
         // ===========================
-        // FIXED JEANS CLUB MANAGER WITH CORRECT TIER PROGRESS
+        // JEANS CLUB MANAGER
         // ===========================
         
         class JeansClubManager {
@@ -5346,7 +5417,7 @@
                 return { success: false, message: "Failed to delete member" };
             }
 
-            // FIXED: Calculate tier based on highest achieved, never go down
+            // Calculate tier based on highest achieved, never go down
             getTier(member) {
                 const highestTier = member.highestTierAchieved || 'PEARL';
                 
@@ -5363,7 +5434,7 @@
                 return currentTier;
             }
 
-            // FIXED: Calculate highest tier based on points, but never go below current highest
+            // Calculate highest tier based on points, but never go below current highest
             calculateHighestTier(points, currentHighestTier = 'PEARL') {
                 const tierOrder = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
                 const currentHighestIndex = tierOrder.indexOf(currentHighestTier);
@@ -5380,7 +5451,7 @@
                 return newHighestTier;
             }
 
-            // FIXED: Tier progress that shows progress to next tier from current highest tier
+            // Tier progress that shows progress to next tier from current highest tier
             getTierProgress(member) {
                 const highestTier = member.highestTierAchieved || 'PEARL';
                 const points = member.points || 0;
@@ -5548,7 +5619,369 @@
         const clubManager = new JeansClubManager();
 
         // ===========================
-        // UI FUNCTIONS WITH FIXES
+        // FIXED: ADD REMAINING UI FUNCTIONS
+        // ===========================
+        
+        function calculateDiscount() {
+            if (!clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
+            const points = parseInt(document.getElementById('discountPoints').value);
+            
+            if (!points || points < 10) {
+                document.getElementById('discountResult').innerHTML = `
+                    <div class="discount-error">
+                        Minimum 10 points required for discount
+                    </div>
+                `;
+                return;
+            }
+            
+            const discountCalc = clubManager.calculateDiscount(points);
+            
+            if (!discountCalc.success) {
+                document.getElementById('discountResult').innerHTML = `
+                    <div class="discount-error">
+                        ${discountCalc.message}
+                    </div>
+                `;
+                return;
+            }
+            
+            document.getElementById('discountResult').innerHTML = `
+                <div class="discount-success">
+                    <h4>💰 Discount Calculation</h4>
+                    <p><strong>Points to Use:</strong> ${points.toLocaleString()} points</p>
+                    <p><strong>Discount Percentage:</strong> ${discountCalc.discountPercentage}%</p>
+                    <p><strong>Maximum Possible:</strong> ${discountCalc.maxPossible}</p>
+                    <p><strong>Tier Multiplier:</strong> ${discountCalc.tierMultiplier}x</p>
+                    <p><strong>Estimated Value:</strong> ${discountCalc.value}</p>
+                    <p><strong>Your Points:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
+                </div>
+            `;
+        }
+
+        async function redeemPoints() {
+            if (!clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
+            const points = parseInt(document.getElementById('discountPoints').value);
+            
+            if (!points || points < 10) {
+                showToast("Minimum 10 points required", "error");
+                return;
+            }
+            
+            showToast("Creating discount voucher...", "info");
+            
+            const result = await clubManager.createDiscountVoucher(points);
+            
+            if (result.success) {
+                document.getElementById('discountResult').innerHTML = `
+                    <div class="discount-success">
+                        <h4>✅ Voucher Created!</h4>
+                        <p><strong>Voucher Code:</strong> ${result.voucher.code}</p>
+                        <p><strong>Discount:</strong> ${result.voucher.discountPercentage}%</p>
+                        <p><strong>Points Used:</strong> ${points.toLocaleString()} points</p>
+                        <p><strong>Expires:</strong> ${new Date(result.voucher.expiryDate).toLocaleDateString()}</p>
+                        <p><strong>Remaining Points:</strong> ${clubManager.currentMember.points.toLocaleString()} points</p>
+                        <p>Show the QR code at checkout to redeem your discount!</p>
+                    </div>
+                `;
+                
+                showToast(result.message, "success");
+                updateMemberVouchers(clubManager.currentMember.jcId);
+            } else {
+                document.getElementById('discountResult').innerHTML = `
+                    <div class="discount-error">
+                        ${result.message}
+                    </div>
+                `;
+                showToast(result.message, "error");
+            }
+        }
+
+        async function toggleNewsletter() {
+            if (!clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
+            const currentStatus = clubManager.currentMember.newsletterSubscribed !== false;
+            const newStatus = !currentStatus;
+            
+            showToast("Updating newsletter preferences...", "info");
+            
+            const result = await clubManager.toggleNewsletter(clubManager.currentMember.email, newStatus);
+            
+            if (result.success) {
+                showToast(result.message, "success");
+                updateDashboard(clubManager.currentMember);
+            } else {
+                showToast(result.message, "error");
+            }
+        }
+
+        async function shareReferral() {
+            if (!clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
+            const referralCode = clubManager.currentMember.referralCode;
+            const shareText = `Join me on Jeans Club! Use my referral code ${referralCode} to get 20 bonus points when you sign up! 🎉\n\nhttps://elijah787.github.io/jeans-club`;
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Join Jeans Club!',
+                        text: shareText
+                    });
+                    showToast("Referral shared successfully!", "success");
+                } catch (error) {
+                    // Fallback to copy
+                    await navigator.clipboard.writeText(shareText);
+                    showToast("Referral link copied to clipboard! 📋", "success");
+                }
+            } else {
+                await navigator.clipboard.writeText(shareText);
+                showToast("Referral link copied to clipboard! 📋", "success");
+            }
+        }
+
+        async function refreshData() {
+            if (!clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
+            showToast("Refreshing data...", "info");
+            
+            await clubManager.refreshData();
+            updateDashboard(clubManager.currentMember);
+            
+            showToast("Data refreshed!", "success");
+        }
+
+        async function showAdminLogin() {
+            const adminCode = prompt("Enter Admin Code:");
+            if (!adminCode) return;
+            
+            showToast("Verifying admin access...", "info");
+            
+            const result = await clubManager.adminLogin(adminCode);
+            
+            if (result.success) {
+                showToast(result.message, "success");
+                showAdminPanel();
+            } else {
+                showToast(result.message, "error");
+            }
+        }
+
+        async function adminAddPurchase() {
+            const jcId = document.getElementById('purchaseJCId').value.trim();
+            const amount = parseFloat(document.getElementById('purchaseAmount').value);
+            const description = document.getElementById('purchaseDescription').value.trim();
+            
+            if (!jcId || !amount || !description) {
+                showToast("Please fill in all fields", "error");
+                return;
+            }
+            
+            if (amount <= 0) {
+                showToast("Please enter a valid amount", "error");
+                return;
+            }
+            
+            showToast("Adding purchase...", "info");
+            
+            const result = await clubManager.addPurchase(jcId, amount, description);
+            
+            if (result.success) {
+                document.getElementById('purchaseResult').innerHTML = `
+                    <div class="success-message">
+                        ✅ ${result.message}<br>
+                        Points earned: ${result.pointsEarned}<br>
+                        New points balance: ${result.member.points.toLocaleString()}<br>
+                        Tier: ${result.member.tier}
+                    </div>
+                `;
+                showToast("Purchase added successfully!", "success");
+                
+                // Clear form
+                document.getElementById('purchaseJCId').value = '';
+                document.getElementById('purchaseAmount').value = '';
+                document.getElementById('purchaseDescription').value = '';
+            } else {
+                document.getElementById('purchaseResult').innerHTML = `
+                    <div class="error-message">
+                        ❌ ${result.message}
+                    </div>
+                `;
+                showToast(result.message, "error");
+            }
+        }
+
+        async function confirmDeleteMember() {
+            const jcId = document.getElementById('deleteJCId').value.trim();
+            
+            if (!jcId) {
+                showToast("Please enter a JC ID", "error");
+                return;
+            }
+            
+            const confirmDelete = confirm(`Are you sure you want to delete member ${jcId}? This action cannot be undone!`);
+            
+            if (!confirmDelete) return;
+            
+            showToast("Deleting member...", "info");
+            
+            const result = await clubManager.deleteMember(jcId);
+            
+            if (result.success) {
+                document.getElementById('deleteResult').innerHTML = `
+                    <div class="success-message">
+                        ✅ ${result.message}
+                    </div>
+                `;
+                showToast(result.message, "success");
+                
+                // Clear form
+                document.getElementById('deleteJCId').value = '';
+            } else {
+                document.getElementById('deleteResult').innerHTML = `
+                    <div class="error-message">
+                        ❌ ${result.message}
+                    </div>
+                `;
+                showToast(result.message, "error");
+            }
+        }
+
+        async function sendNewsletter() {
+            const subject = document.getElementById('newsletterSubject').value.trim();
+            const content = document.getElementById('newsletterContent').value.trim();
+            
+            if (!subject || !content) {
+                showToast("Please fill in subject and content", "error");
+                return;
+            }
+            
+            showToast("Sending newsletter...", "info");
+            
+            const result = await clubManager.sendNewsletter(subject, content);
+            
+            if (result.success) {
+                document.getElementById('newsletterResult').innerHTML = `
+                    <div class="success-message">
+                        ✅ ${result.message}
+                    </div>
+                `;
+                showToast("Newsletter sent!", "success");
+                
+                // Clear form
+                document.getElementById('newsletterSubject').value = '';
+                document.getElementById('newsletterContent').value = '';
+            } else {
+                document.getElementById('newsletterResult').innerHTML = `
+                    <div class="error-message">
+                        ❌ ${result.message}
+                    </div>
+                `;
+                showToast(result.message, "error");
+            }
+        }
+
+        async function requestPasswordReset() {
+            const jcId = document.getElementById('resetJCId').value.trim();
+            
+            if (!jcId) {
+                showToast("Please enter your JC ID", "error");
+                return;
+            }
+            
+            showToast("Requesting password reset...", "info");
+            
+            const result = await clubManager.requestPasswordReset(jcId);
+            
+            if (result.success) {
+                document.getElementById('resetRequestResult').innerHTML = `
+                    <div class="success-message">
+                        ✅ ${result.message}
+                    </div>
+                `;
+                document.getElementById('resetForm').classList.remove('hidden');
+                showToast(result.message, "success");
+            } else {
+                document.getElementById('resetRequestResult').innerHTML = `
+                    <div class="error-message">
+                        ❌ ${result.message}
+                    </div>
+                `;
+                showToast(result.message, "error");
+            }
+        }
+
+        async function executePasswordReset() {
+            const jcId = document.getElementById('resetJCId').value.trim();
+            const resetToken = document.getElementById('resetToken').value.trim();
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (!jcId || !resetToken || !newPassword || !confirmPassword) {
+                showToast("Please fill in all fields", "error");
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showToast("Passwords do not match", "error");
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showToast("Password must be at least 6 characters", "error");
+                return;
+            }
+            
+            showToast("Resetting password...", "info");
+            
+            const result = await clubManager.executePasswordReset(jcId, resetToken, newPassword);
+            
+            if (result.success) {
+                document.getElementById('resetExecuteResult').innerHTML = `
+                    <div class="success-message">
+                        ✅ ${result.message}
+                    </div>
+                `;
+                showToast(result.message, "success");
+                
+                // Clear form and go back to login
+                setTimeout(() => {
+                    showLoginScreen();
+                }, 2000);
+            } else {
+                document.getElementById('resetExecuteResult').innerHTML = `
+                    <div class="error-message">
+                        ❌ ${result.message}
+                    </div>
+                `;
+                showToast(result.message, "error");
+            }
+        }
+
+        async function logout() {
+            const result = clubManager.logout();
+            showToast(result.message, "success");
+            showLoginScreen();
+        }
+
+        // ===========================
+        // REST OF THE UI FUNCTIONS
         // ===========================
         
         // Update dashboard with correct tier display
@@ -5561,11 +5994,11 @@
             document.getElementById('totalSpent').textContent = (member.totalSpent || 0).toLocaleString() + ' UGX';
             document.getElementById('memberReferralCode').textContent = member.referralCode;
             
-            // FIXED: Show current tier and highest tier correctly
+            // Show current tier and highest tier correctly
             const tier = clubManager.getTier(member);
             document.getElementById('memberTier').textContent = `${tier.name} (Highest: ${member.highestTierAchieved || tier.name})`;
             
-            // FIXED: Use correct tier progress calculation
+            // Use correct tier progress calculation
             const progress = clubManager.getTierProgress(member);
             document.getElementById('progressFill').style.width = progress.progress + '%';
             
@@ -5618,6 +6051,34 @@
             const month = (joinDate.getMonth() + 1).toString().padStart(2, '0');
             const year = joinDate.getFullYear().toString();
             document.getElementById('cardDate').textContent = `${month}/${year}`;
+        }
+
+        function updateActivityLog(member) {
+            const activityLog = document.getElementById('activityLog');
+            const activities = member.activityLog || [];
+            
+            if (activities.length === 0) {
+                activityLog.innerHTML = '<div class="activity-item">No recent activity</div>';
+                return;
+            }
+            
+            activityLog.innerHTML = activities.slice(0, 10).map(activity => {
+                let icon = '📝';
+                if (activity.type === 'purchase') icon = '🛍️';
+                if (activity.type === 'points_redeemed') icon = '🎫';
+                if (activity.type === 'referral_bonus') icon = '👥';
+                if (activity.type === 'tier_upgrade') icon = '⭐';
+                if (activity.type === 'login') icon = '🔐';
+                
+                return `
+                    <div class="activity-item">
+                        <strong>${icon} ${activity.type.replace('_', ' ').toUpperCase()}</strong>
+                        <div>${activity.description}</div>
+                        <small>${new Date(activity.date).toLocaleString()}</small>
+                        ${activity.points ? `<div><small>Points: ${activity.points > 0 ? '+' : ''}${activity.points}</small></div>` : ''}
+                    </div>
+                `;
+            }).join('');
         }
 
         async function updateMemberVouchers(memberJCId) {
@@ -6024,7 +6485,7 @@
         }
 
         // ===========================
-        // REST OF THE FUNCTIONS (Google Sign-In, UI handlers, etc.)
+        // REST OF THE FUNCTIONS
         // ===========================
         
         // Google Sign-In Initialization
@@ -6196,10 +6657,42 @@
             }
         }
 
-        function showAdminPanel() {
+        async function showAdminPanel() {
             hideAllSections();
             document.getElementById('adminSection').classList.remove('hidden');
-            loadAdminData();
+            
+            // Load admin data
+            try {
+                const members = await clubManager.db.getAllMembers();
+                const adminContent = document.getElementById('adminContent');
+                
+                if (members.length === 0) {
+                    adminContent.innerHTML = '<div class="info-card">No members found</div>';
+                    return;
+                }
+                
+                adminContent.innerHTML = `
+                    <div class="info-card">
+                        <h3>All Members (${members.length})</h3>
+                        <div class="members-list">
+                            ${members.map(member => `
+                                <div class="admin-card">
+                                    <h4>${member.name} (${member.jcId})</h4>
+                                    <p><strong>Tier:</strong> ${member.tier} | <strong>Points:</strong> ${member.points?.toLocaleString() || 0}</p>
+                                    <p><strong>Email:</strong> ${member.email}</p>
+                                    <p><strong>Total Spent:</strong> ${(member.totalSpent || 0).toLocaleString()} UGX</p>
+                                    <p><strong>Joined:</strong> ${new Date(member.joinedDate).toLocaleDateString()}</p>
+                                    <button class="btn secondary" onclick="adminAddPurchaseForMember('${member.jcId}')" style="margin-top: 10px;">
+                                        Add Purchase
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading admin data:', error);
+            }
         }
 
         function showDeleteMemberSection() {
@@ -6222,6 +6715,12 @@
             hideAllSections();
             document.getElementById('qrRedemptionManagementSection').classList.remove('hidden');
             loadQRRedemptionData();
+        }
+
+        // Helper function for admin
+        function adminAddPurchaseForMember(jcId) {
+            document.getElementById('purchaseJCId').value = jcId;
+            document.getElementById('purchaseJCId').focus();
         }
 
         // Search Functionality
@@ -6313,6 +6812,8 @@
         window.openCameraScanner = openCameraScanner;
         window.closeCameraScanner = closeCameraScanner;
         window.processScan = processScan;
+        window.loginWithCredentials = loginWithCredentials;
+        window.signUpWithEmail = signUpWithEmail;
     </script>
 </body>
 </html>
