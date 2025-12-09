@@ -2276,21 +2276,6 @@
                 <div id="purchaseResult" style="margin-top: 10px;"></div>
             </div>
 
-            <!-- MANUAL REDEMPTION LOOKUP -->
-            <div class="info-card">
-                <h3>Manual Redemption Lookup</h3>
-                <div class="form-group">
-                    <label for="manualRedemptionId">Redemption ID</label>
-                    <input type="text" id="manualRedemptionId" placeholder="Enter REDXXXXXXXX">
-                </div>
-                <div class="form-group">
-                    <label for="manualSalespersonName">Your Name</label>
-                    <input type="text" id="manualSalespersonName" placeholder="Enter your name" value="">
-                </div>
-                <button class="btn" onclick="processManualRedemption()">Lookup & Redeem</button>
-                <div id="manualRedemptionResult" style="margin-top: 10px;"></div>
-            </div>
-
             <!-- ENHANCED VOUCHER SCANNING SECTION -->
             <div class="scan-voucher-section">
                 <h3>📱 Scan & Redeem Voucher/QR Code</h3>
@@ -2740,10 +2725,10 @@
         }
 
         // Handle QR scan result
-        function handleQRScan(qrData) {
+        async function handleQRScan(qrData) {
             if (!isScanning) return;
             
-            console.log("QR Code scanned:", qrData?.substring(0, 100));
+            console.log("QR Code detected:", qrData);
             
             // Temporarily stop scanning
             isScanning = false;
@@ -2751,28 +2736,36 @@
                 html5QrCode.pause();
             }
             
-            updateScanStatus("✓ Code detected!", "success");
+            updateScanStatus("✓ QR Code detected!", "success");
             
-            // Auto-fill the input field with JUST the redemption ID
+            // Add beep sound effect
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } catch (e) {
+                // Sound not critical
+            }
+            
+            // Auto-fill the input field
             const inputField = document.getElementById('voucherCodeInput');
             if (inputField) {
-                // Extract just the redemption ID if it's in a formatted string
-                let redemptionId = qrData;
-                
-                // Handle different formats
-                if (qrData.includes('RED')) {
-                    const match = qrData.match(/RED\d+/);
-                    if (match) redemptionId = match[0];
-                } else if (qrData.includes(':')) {
-                    const parts = qrData.split(':');
-                    redemptionId = parts[parts.length - 1]; // Get last part
-                }
-                
-                inputField.value = redemptionId;
+                inputField.value = qrData;
             }
             
             // Process the scan
-            processScanFromCamera(qrData);
+            await processScanFromCamera(qrData);
         }
 
         // Process scan from camera
@@ -2832,8 +2825,6 @@
         // Process scan data
         async function processScanData(qrData, salespersonName) {
             try {
-                console.log("Processing scan data:", qrData?.substring(0, 50));
-                
                 // Try voucher first
                 const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
                 if (voucherResult.success) {
@@ -2845,10 +2836,15 @@
                     };
                 }
                 
-                // Try redemption with updated function
-                const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                // Try QR redemption
+                const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
                 if (redemptionResult.success) {
-                    return redemptionResult;
+                    return {
+                        success: true,
+                        type: 'redemption',
+                        message: redemptionResult.message,
+                        data: redemptionResult.redemption
+                    };
                 }
                 
                 // Check if it's a JC ID
@@ -2864,22 +2860,9 @@
                     }
                 }
                 
-                // Check if it's a voucher code (JCXXXXXXXX format)
-                if (qrData.startsWith('JC') && qrData.length === 10) {
-                    const voucher = voucherSystem.getVoucherByCode(qrData);
-                    if (voucher) {
-                        return {
-                            success: false,
-                            type: 'voucher_info',
-                            message: `Voucher found: ${voucher.discountPercentage}% discount`,
-                            data: voucher
-                        };
-                    }
-                }
-                
                 return {
                     success: false,
-                    message: "Invalid code. Please scan a valid voucher or redemption QR code."
+                    message: "Invalid QR code. Please scan a valid Jeans Club voucher or redemption QR code."
                 };
                 
             } catch (error) {
@@ -2977,7 +2960,7 @@
                             </div>
                             <div class="detail-item">
                                 <strong>Redemption Type</strong>
-                                <div>${redemption.selectedOption?.type === 'points_redemption' ? 'Pay with Points' : 'Discount Voucher'}</div>
+                                <div>${redemption.selectedOption.type === 'points_redemption' ? 'Pay with Points' : 'Discount Voucher'}</div>
                             </div>
                             <div class="detail-item">
                                 <strong>Status</strong>
@@ -3058,39 +3041,6 @@
             } else {
                 showToast(result.message, "error");
                 displayScanResults(result, false);
-            }
-        }
-
-        // Process manual redemption
-        async function processManualRedemption() {
-            const redemptionId = document.getElementById('manualRedemptionId').value.trim();
-            const salespersonName = document.getElementById('manualSalespersonName').value.trim();
-            
-            if (!redemptionId || !salespersonName) {
-                showToast("Please enter redemption ID and your name", "error");
-                return;
-            }
-            
-            showToast("Looking up redemption...", "info");
-            
-            const result = await qrRedemptionSystem.processRedemption(redemptionId, salespersonName);
-            
-            const resultDiv = document.getElementById('manualRedemptionResult');
-            if (result.success) {
-                resultDiv.className = 'success-message';
-                resultDiv.innerHTML = `
-                    <strong>✅ Success!</strong> ${result.message}<br>
-                    <small>Member: ${result.redemption.memberName} (${result.redemption.memberJCId})</small><br>
-                    <small>Amount: ${result.redemption.purchaseAmount.toLocaleString()} UGX</small>
-                `;
-                
-                document.getElementById('manualRedemptionId').value = '';
-                
-                // Refresh admin data
-                loadQRRedemptionData();
-            } else {
-                resultDiv.className = 'error-message';
-                resultDiv.textContent = result.message;
             }
         }
 
@@ -3209,7 +3159,7 @@
                 });
                 
                 // Search QR redemptions
-                const allRedemptions = await qrRedemptionSystem.getAllRedemptions();
+                const allRedemptions = qrRedemptionSystem.getAllRedemptions();
                 allRedemptions.forEach(redemption => {
                     if (
                         redemption.redemptionId.toLowerCase().includes(term) ||
@@ -3625,6 +3575,9 @@
             }
         }
 
+        // Initialize voucher system
+        const voucherSystem = new VoucherSystem();
+
         // Import Supabase
         const { createClient } = supabase;
 
@@ -3937,148 +3890,6 @@
                     return false;
                 }
             }
-
-            // NEW REDEMPTION METHODS
-            async saveRedemption(redemption) {
-                try {
-                    console.log('💾 Saving redemption to Supabase:', redemption.redemptionId);
-                    
-                    const redemptionData = {
-                        redemptionId: redemption.redemptionId,
-                        memberJCId: redemption.memberJCId,
-                        memberName: redemption.memberName,
-                        memberTier: redemption.memberTier,
-                        purchaseAmount: redemption.purchaseAmount,
-                        selectedOption: redemption.selectedOption,
-                        qrCodeData: redemption.qrCodeData,
-                        createdDate: redemption.createdDate,
-                        status: redemption.status,
-                        redeemedBy: redemption.redeemedBy,
-                        redeemedDate: redemption.redeemedDate,
-                        expiryDate: redemption.expiryDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                    };
-
-                    const { data, error } = await this.supabase
-                        .from('redemptions')
-                        .upsert(redemptionData, { 
-                            onConflict: 'redemptionId'
-                        });
-
-                    if (error) {
-                        console.error('❌ Supabase redemption save error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Redemption saved successfully to Supabase');
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to save redemption to Supabase:', error);
-                    return false;
-                }
-            }
-
-            async getRedemptionById(redemptionId) {
-                try {
-                    console.log('🔍 Fetching redemption from Supabase:', redemptionId);
-                    
-                    const { data: redemption, error } = await this.supabase
-                        .from('redemptions')
-                        .select('*')
-                        .eq('redemptionId', redemptionId)
-                        .single();
-
-                    if (error && error.code !== 'PGRST116') {
-                        console.error('❌ Supabase redemption fetch error:', error);
-                        throw error;
-                    }
-
-                    return redemption || null;
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch redemption from Supabase:', error);
-                    return null;
-                }
-            }
-
-            async getRedemptionsByMemberJCId(memberJCId) {
-                try {
-                    console.log('🔍 Fetching member redemptions from Supabase:', memberJCId);
-                    
-                    const { data: redemptions, error } = await this.supabase
-                        .from('redemptions')
-                        .select('*')
-                        .eq('memberJCId', memberJCId)
-                        .order('createdDate', { ascending: false });
-
-                    if (error) {
-                        console.error('❌ Supabase redemptions fetch error:', error);
-                        throw error;
-                    }
-
-                    return redemptions || [];
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch redemptions from Supabase:', error);
-                    return [];
-                }
-            }
-
-            async getAllRedemptions() {
-                try {
-                    console.log('🔄 Fetching all redemptions from Supabase...');
-                    
-                    const { data: redemptions, error } = await this.supabase
-                        .from('redemptions')
-                        .select('*')
-                        .order('createdDate', { ascending: false });
-
-                    if (error) {
-                        console.error('❌ Supabase redemptions fetch error:', error);
-                        throw error;
-                    }
-
-                    console.log(`✅ Loaded ${redemptions?.length || 0} redemptions from Supabase`);
-                    return redemptions || [];
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch redemptions from Supabase:', error);
-                    return [];
-                }
-            }
-
-            async updateRedemptionStatus(redemptionId, status, redeemedBy = null) {
-                try {
-                    console.log('🔄 Updating redemption status:', redemptionId, status);
-                    
-                    const updateData = {
-                        status: status,
-                        updatedAt: new Date().toISOString()
-                    };
-                    
-                    if (redeemedBy) {
-                        updateData.redeemedBy = redeemedBy;
-                        updateData.redeemedDate = new Date().toISOString();
-                    }
-                    
-                    const { data, error } = await this.supabase
-                        .from('redemptions')
-                        .update(updateData)
-                        .eq('redemptionId', redemptionId);
-
-                    if (error) {
-                        console.error('❌ Supabase redemption update error:', error);
-                        throw error;
-                    }
-
-                    console.log('✅ Redemption status updated successfully');
-                    return true;
-
-                } catch (error) {
-                    console.error('❌ Failed to update redemption status:', error);
-                    return false;
-                }
-            }
         }
 
         // Google Apps Script Email Service - FIXED VERSION
@@ -4356,7 +4167,6 @@
             }
 
             // Other email template methods (purchase, discount, referral, password_reset, etc.)
-            // They remain the same as in your original code
             buildPurchaseEmail(memberData, extraData) {
                 return `<div>Purchase email content...</div>`;
             }
@@ -4595,11 +4405,11 @@
             clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
         };
 
-        // QR Code Redemption System Implementation - UPDATED FOR CROSS-DEVICE SCANNING
+        // QR Code Redemption System Implementation - UPDATED VERSION
         class QRRedemptionSystem {
             constructor() {
-                this.redemptionsCache = JSON.parse(localStorage.getItem('jeansClubRedemptionsCache') || '[]');
-                this.encryptionKey = 'jeansclub_qr_2024_secret';
+                this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
+                // REMOVED: this.encryptionKey = 'jeansclub_qr_2024_secret';
                 this.tierRules = {
                     PEARL: { 
                         payWithPoints: false,
@@ -4711,48 +4521,6 @@
                 };
             }
 
-            // SIMPLE ENCRYPTION/DECRYPTION FOR CROSS-DEVICE COMPATIBILITY
-            encryptData(data) {
-                try {
-                    const dataString = JSON.stringify(data);
-                    // Use base64 encoding instead of encryption
-                    return btoa(dataString);
-                } catch (error) {
-                    console.error('Encoding error:', error);
-                    return JSON.stringify(data);
-                }
-            }
-
-            decryptData(encodedData) {
-                try {
-                    // Decode base64
-                    const decoded = atob(encodedData);
-                    return JSON.parse(decoded);
-                } catch (error) {
-                    console.error('Decoding error:', error);
-                    // Try to parse as JSON directly
-                    try {
-                        return JSON.parse(encodedData);
-                    } catch (e) {
-                        return null;
-                    }
-                }
-            }
-
-            // Generate simple QR data
-            generateQRCodeData(redemptionData) {
-                const qrData = {
-                    type: 'jeansclub_redemption',
-                    version: '1.0',
-                    redemptionId: redemptionData.redemptionId,
-                    timestamp: Date.now(),
-                    readable: true
-                };
-                
-                return this.encryptData(qrData);
-            }
-
-            // Calculate spending history
             calculateSpendingHistory(member, months) {
                 const cutoffDate = new Date();
                 cutoffDate.setMonth(cutoffDate.getMonth() - months);
@@ -4863,8 +4631,37 @@
                 return options;
             }
 
-            // CREATE REDEMPTION - SAVES TO SUPABASE
-            async createRedemption(member, selectedOption, purchaseAmount) {
+            // UPDATED: Use unencrypted, readable JSON format
+            generateQRCodeData(redemptionData) {
+                const qrData = {
+                    type: 'jeansclub_redemption',
+                    version: '2.0', // Updated version to indicate new format
+                    memberJCId: redemptionData.memberJCId,
+                    memberName: redemptionData.memberName,
+                    memberTier: redemptionData.memberTier,
+                    redemptionId: redemptionData.redemptionId,
+                    selectedOption: redemptionData.selectedOption,
+                    purchaseAmount: redemptionData.purchaseAmount,
+                    timestamp: Date.now(),
+                    // REMOVED: signature and encryption
+                    readable: true,
+                    validation: {
+                        valid: true,
+                        expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                        status: 'active'
+                    }
+                };
+                
+                // Return plain JSON string instead of encrypted data
+                return JSON.stringify(qrData);
+            }
+
+            // UPDATED: Remove encryption methods
+            // REMOVED: generateSignature() method
+            // REMOVED: encryptData() method
+            // REMOVED: decryptData() method
+
+            createRedemption(member, selectedOption, purchaseAmount) {
                 const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
                 
                 const redemptionData = {
@@ -4878,261 +4675,167 @@
                     status: 'pending',
                     redeemedBy: null,
                     redeemedDate: null,
-                    expiryDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours expiry
+                    qrCodeData: null
                 };
 
-                // Save to Supabase FIRST
-                const saved = await clubManager.db.saveRedemption(redemptionData);
-                
-                if (!saved) {
-                    throw new Error('Failed to save redemption to database');
-                }
-                
-                // Generate QR data AFTER saving to Supabase
                 redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
-                
-                // Update with QR data
-                await clubManager.db.saveRedemption(redemptionData);
-                
+
+                this.redemptions.push(redemptionData);
+                this.saveRedemptions();
+
                 return redemptionData;
             }
 
-            // PROCESS REDEMPTION - WORKS ACROSS DEVICES
-            async processRedemption(qrCodeData, salespersonName) {
-                console.log("Processing redemption QR:", qrCodeData?.substring(0, 50));
+            processRedemption(qrCodeData, salespersonName) {
+                console.log("Processing redemption with data:", qrCodeData);
                 
                 if (!salespersonName || salespersonName.trim() === '') {
                     return { success: false, message: "Salesperson name is required" };
                 }
 
-                let redemptionId = null;
-                let redemptionData = null;
-                
-                // Extract redemption ID from QR code
+                // First check if it's just a redemption ID
                 if (qrCodeData.startsWith('RED')) {
-                    // Direct redemption ID entered manually
-                    redemptionId = qrCodeData;
-                } else {
-                    // Try to decode QR data
-                    try {
-                        redemptionData = this.decryptData(qrCodeData);
-                        console.log("Decoded QR data:", redemptionData);
+                    const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
+                    if (redemption) {
+                        if (redemption.status === 'completed') {
+                            return { success: false, message: "Redemption has already been completed" };
+                        }
                         
-                        if (redemptionData && redemptionData.redemptionId) {
-                            redemptionId = redemptionData.redemptionId;
+                        if (redemption.status === 'expired') {
+                            return { success: false, message: "Redemption has expired" };
                         }
-                    } catch (error) {
-                        console.log("QR code decode failed, trying as direct ID...");
-                        // Check if it might be a redemption ID
-                        if (qrCodeData.length <= 15) {
-                            redemptionId = qrCodeData;
-                        }
+                        
+                        redemption.status = 'completed';
+                        redemption.redeemedBy = salespersonName.trim();
+                        redemption.redeemedDate = new Date().toISOString();
+                        this.saveRedemptions();
+                        
+                        return {
+                            success: true,
+                            message: `Redemption completed successfully by ${salespersonName}`,
+                            redemption: redemption
+                        };
                     }
                 }
                 
-                if (!redemptionId) {
+                // Try to parse as JSON (new unencrypted format)
+                let redemptionData;
+                try {
+                    redemptionData = JSON.parse(qrCodeData);
+                    console.log("Parsed redemption data:", redemptionData);
+                } catch (error) {
+                    console.error("JSON parsing failed:", error);
                     return { 
                         success: false, 
-                        message: "Could not read redemption ID from QR code. Please scan again or enter redemption ID manually." 
+                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
                     };
                 }
                 
-                // Lookup redemption in Supabase
-                console.log("Looking up redemption:", redemptionId);
-                let redemption = await clubManager.db.getRedemptionById(redemptionId);
+                if (!redemptionData) {
+                    return { 
+                        success: false, 
+                        message: "Invalid QR code data. Please scan a valid Jeans Club QR code." 
+                    };
+                }
                 
+                if (!redemptionData.readable) {
+                    return { 
+                        success: false, 
+                        message: "QR code is not readable. Please use a valid Jeans Club QR code." 
+                    };
+                }
+
+                if (redemptionData.type !== 'jeansclub_redemption') {
+                    return { 
+                        success: false, 
+                        message: "Invalid QR code type. Please scan a Jeans Club redemption QR code." 
+                    };
+                }
+
+                if (redemptionData.validation && redemptionData.validation.expiryDate) {
+                    const expiryDate = new Date(redemptionData.validation.expiryDate);
+                    const now = new Date();
+                    if (now > expiryDate) {
+                        return { 
+                            success: false, 
+                            message: "QR code has expired. Please generate a new one." 
+                        };
+                    }
+                }
+
+                const redemption = this.redemptions.find(r => r.redemptionId === redemptionData.redemptionId);
                 if (!redemption) {
                     return { 
                         success: false, 
-                        message: `Redemption ${redemptionId} not found in system. Please check the code.` 
+                        message: "Redemption not found in the system" 
                     };
                 }
-                
-                // Check status
+
                 if (redemption.status === 'completed') {
                     return { 
                         success: false, 
-                        message: `Redemption already completed on ${new Date(redemption.redeemedDate).toLocaleDateString()}` 
+                        message: "Redemption has already been completed" 
                     };
                 }
-                
+
                 if (redemption.status === 'expired') {
                     return { 
                         success: false, 
-                        message: `Redemption expired on ${new Date(redemption.expiryDate).toLocaleDateString()}` 
+                        message: "Redemption has expired" 
                     };
                 }
-                
-                // Check if expired
-                if (new Date() > new Date(redemption.expiryDate)) {
-                    await clubManager.db.updateRedemptionStatus(redemptionId, 'expired');
-                    return { 
-                        success: false, 
-                        message: "Redemption has expired (24 hour limit)" 
-                    };
-                }
-                
-                // Process the redemption
-                const updateSuccess = await clubManager.db.updateRedemptionStatus(
-                    redemptionId, 
-                    'completed', 
-                    salespersonName.trim()
-                );
-                
-                if (!updateSuccess) {
-                    return { 
-                        success: false, 
-                        message: "Failed to update redemption status. Please try again." 
-                    };
-                }
-                
-                // Deduct points if needed
-                if (redemption.selectedOption) {
-                    const member = await clubManager.db.getMemberByJCId(redemption.memberJCId);
-                    if (member) {
-                        let pointsNeeded = 0;
-                        if (redemption.selectedOption.type === 'points_redemption') {
-                            pointsNeeded = redemption.selectedOption.pointsEquivalent || 0;
-                        } else if (redemption.selectedOption.type === 'discount_voucher') {
-                            pointsNeeded = redemption.selectedOption.pointsRequired || 0;
-                        }
-                        
-                        if (pointsNeeded > 0 && member.points >= pointsNeeded) {
-                            member.points -= pointsNeeded;
-                            member.activityLog.unshift({
-                                type: 'qr_redemption_completed',
-                                description: `QR redemption completed: ${redemptionId}`,
-                                date: new Date().toISOString(),
-                                points: -pointsNeeded
-                            });
-                            await clubManager.db.saveMember(member);
-                        }
-                    }
-                }
-                
-                // Refresh redemption data
-                redemption = await clubManager.db.getRedemptionById(redemptionId);
-                
+
+                redemption.status = 'completed';
+                redemption.redeemedBy = salespersonName.trim();
+                redemption.redeemedDate = new Date().toISOString();
+                this.saveRedemptions();
+
                 return {
                     success: true,
-                    message: `✅ Redemption ${redemptionId} completed by ${salespersonName}`,
-                    redemption: redemption,
-                    type: 'redemption'
+                    message: `Redemption completed successfully by ${salespersonName}`,
+                    redemption: redemption
                 };
             }
 
-            // Get member redemptions from Supabase
-            async getMemberRedemptions(memberJCId) {
-                try {
-                    const redemptions = await clubManager.db.getRedemptionsByMemberJCId(memberJCId);
-                    
-                    // Update cache with latest data
-                    redemptions.forEach(redemption => {
-                        const cacheIndex = this.redemptionsCache.findIndex(r => r.redemptionId === redemption.redemptionId);
-                        if (cacheIndex !== -1) {
-                            this.redemptionsCache[cacheIndex] = redemption;
-                        } else {
-                            this.redemptionsCache.push(redemption);
+            getMemberRedemptions(memberJCId) {
+                return this.redemptions
+                    .filter(r => r.memberJCId === memberJCId)
+                    .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            getAllRedemptions() {
+                return this.redemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            }
+
+            saveRedemptions() {
+                localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.redemptions));
+            }
+
+            getRedemptionStats() {
+                const total = this.redemptions.length;
+                const pending = this.redemptions.filter(r => r.status === 'pending').length;
+                const completed = this.redemptions.filter(r => r.status === 'completed').length;
+                const expired = this.redemptions.filter(r => r.status === 'expired').length;
+                
+                const totalValue = this.redemptions
+                    .filter(r => r.status === 'completed')
+                    .reduce((sum, r) => {
+                        if (r.selectedOption.type === 'points_redemption') {
+                            return sum + (r.selectedOption.maxRedemption || 0);
+                        } else if (r.selectedOption.type === 'discount_voucher') {
+                            return sum + (r.selectedOption.discountAmount || 0);
                         }
-                    });
-                    
-                    this.saveCache();
-                    
-                    return redemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-                    
-                } catch (error) {
-                    console.error('Failed to fetch from Supabase, using cache:', error);
-                    return this.redemptionsCache
-                        .filter(r => r.memberJCId === memberJCId)
-                        .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-                }
-            }
-
-            // Get all redemptions from Supabase
-            async getAllRedemptions() {
-                try {
-                    const redemptions = await clubManager.db.getAllRedemptions();
-                    
-                    // Update cache
-                    this.redemptionsCache = redemptions;
-                    this.saveCache();
-                    
-                    return redemptions;
-                    
-                } catch (error) {
-                    console.error('Failed to fetch from Supabase, using cache:', error);
-                    return this.redemptionsCache.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
-                }
-            }
-
-            // Get redemption stats from Supabase
-            async getRedemptionStats() {
-                try {
-                    const redemptions = await clubManager.db.getAllRedemptions();
-                    
-                    const total = redemptions.length;
-                    const pending = redemptions.filter(r => r.status === 'pending').length;
-                    const completed = redemptions.filter(r => r.status === 'completed').length;
-                    const expired = redemptions.filter(r => r.status === 'expired').length;
-                    
-                    const totalValue = redemptions
-                        .filter(r => r.status === 'completed')
-                        .reduce((sum, r) => {
-                            if (r.selectedOption?.type === 'points_redemption') {
-                                return sum + (r.selectedOption.maxRedemption || 0);
-                            } else if (r.selectedOption?.type === 'discount_voucher') {
-                                return sum + (r.selectedOption.discountAmount || 0);
-                            }
-                            return sum;
-                        }, 0);
-                    
-                    return {
-                        total,
-                        pending,
-                        completed,
-                        expired,
-                        totalValue,
-                        completionRate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%'
-                    };
-                    
-                } catch (error) {
-                    console.error('Failed to fetch stats from Supabase:', error);
-                    
-                    // Fallback to cache
-                    const total = this.redemptionsCache.length;
-                    const pending = this.redemptionsCache.filter(r => r.status === 'pending').length;
-                    const completed = this.redemptionsCache.filter(r => r.status === 'completed').length;
-                    const expired = this.redemptionsCache.filter(r => r.status === 'expired').length;
-                    
-                    const totalValue = this.redemptionsCache
-                        .filter(r => r.status === 'completed')
-                        .reduce((sum, r) => {
-                            if (r.selectedOption?.type === 'points_redemption') {
-                                return sum + (r.selectedOption.maxRedemption || 0);
-                            } else if (r.selectedOption?.type === 'discount_voucher') {
-                                return sum + (r.selectedOption.discountAmount || 0);
-                            }
-                            return sum;
-                        }, 0);
-                    
-                    return {
-                        total,
-                        pending,
-                        completed,
-                        expired,
-                        totalValue,
-                        completionRate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%'
-                    };
-                }
-            }
-
-            // Helper method to save cache
-            saveCache() {
-                try {
-                    localStorage.setItem('jeansClubRedemptionsCache', JSON.stringify(this.redemptionsCache));
-                } catch (error) {
-                    console.error('Error saving redemption cache:', error);
-                }
+                        return sum;
+                    }, 0);
+                
+                return {
+                    total,
+                    pending,
+                    completed,
+                    expired,
+                    totalValue,
+                    completionRate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%'
+                };
             }
         }
 
@@ -5938,7 +5641,7 @@
                     return { success: false, message: "You must be logged in" };
                 }
                 
-                const redemption = await qrRedemptionSystem.createRedemption(
+                const redemption = qrRedemptionSystem.createRedemption(
                     this.currentMember,
                     selectedOption,
                     purchaseAmount
@@ -5960,7 +5663,7 @@
                 return {
                     success: true,
                     redemption: redemption,
-                    qrCodeData: redemption.redemptionId // Just return the redemption ID for QR
+                    qrCodeData: redemption.qrCodeData
                 };
             }
 
@@ -6268,7 +5971,7 @@
                 const statusText = voucher.status === 'active' ? 'ACTIVE' :
                                  voucher.status === 'used' ? 'USED' : 'EXPIRED';
                 
-                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voucher.code)}`;
+                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voucher.qrCodeData)}`;
                 
                 return `
                     <div class="voucher-item ${voucher.status}">
@@ -6867,15 +6570,38 @@
                 
                 showToast("Generating QR code...", "info");
                 
-                const result = await clubManager.generateQRCodeForRedemption(selectedOption, purchaseAmount);
+                const redemption = qrRedemptionSystem.createRedemption(
+                    clubManager.currentMember,
+                    selectedOption,
+                    purchaseAmount
+                );
                 
-                if (!result.success) {
-                    showToast(result.message, "error");
-                    return { success: false, message: result.message };
+                if (!redemption) {
+                    showToast("Failed to create redemption", "error");
+                    return { success: false, message: "Redemption creation failed" };
                 }
                 
-                const redemption = result.redemption;
-                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(redemption.redemptionId)}`;
+                const oldPoints = clubManager.currentMember.points;
+                const currentTier = clubManager.currentMember.tier;
+                
+                clubManager.currentMember.points -= pointsNeeded;
+                clubManager.currentMember.tier = currentTier;
+                
+                clubManager.currentMember.activityLog.unshift({
+                    type: 'points_redemption_qr',
+                    description: `QR redemption: ${selectedOption.description}`,
+                    date: new Date().toISOString(),
+                    points: -pointsNeeded
+                });
+                
+                const saved = await clubManager.db.saveMember(clubManager.currentMember);
+                if (!saved) {
+                    clubManager.currentMember.points = oldPoints;
+                    showToast("Failed to save points deduction", "error");
+                    return { success: false, message: "Database save failed" };
+                }
+                
+                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(redemption.qrCodeData)}`;
                 
                 const qrCodeContainer = document.getElementById('qrCodeContainer');
                 qrCodeContainer.innerHTML = `
@@ -6887,6 +6613,7 @@
                         <p><strong>Option:</strong> ${selectedOption.description}</p>
                         <p><strong>Points Deducted:</strong> ${pointsNeeded.toLocaleString()}</p>
                         <p><strong>Remaining Points:</strong> ${clubManager.currentMember.points.toLocaleString()}</p>
+                        <p><strong>Your Tier:</strong> ${currentTier} (unchanged)</p>
                         <p style="font-size: 12px; color: #666; margin-top: 15px;">
                             Show this QR code to our staff at checkout. It's valid for 24 hours.
                         </p>
@@ -6903,6 +6630,7 @@
                         <p><strong>Status:</strong> Pending redemption</p>
                         <p><strong>Points Deducted:</strong> ${pointsNeeded.toLocaleString()}</p>
                         <p><strong>Remaining Points:</strong> ${clubManager.currentMember.points.toLocaleString()}</p>
+                        <p><strong>Your Tier:</strong> ${currentTier} (no downgrade)</p>
                         <button class="btn" onclick="showDashboard(clubManager.currentMember)" style="margin-top: 10px;">
                             Back to Dashboard
                         </button>
@@ -6928,8 +6656,8 @@
             }
         }
 
-        async function loadQRRedemptionData() {
-            const stats = await qrRedemptionSystem.getRedemptionStats();
+        function loadQRRedemptionData() {
+            const stats = qrRedemptionSystem.getRedemptionStats();
             document.getElementById('qrRedemptionStats').innerHTML = `
                 <div class="info-card">
                     <h4>Redemption Statistics</h4>
@@ -6942,7 +6670,7 @@
                 </div>
             `;
             
-            const allRedemptions = await qrRedemptionSystem.getAllRedemptions();
+            const allRedemptions = qrRedemptionSystem.getAllRedemptions();
             const allRedemptionsList = document.getElementById('allRedemptionsList');
             
             if (allRedemptions.length === 0) {
@@ -6964,14 +6692,14 @@
                         </div>
                         <p><strong>Redemption ID:</strong> <span class="redemption-id">${redemption.redemptionId}</span></p>
                         <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
-                        <p><strong>Option:</strong> ${redemption.selectedOption?.description || 'N/A'}</p>
+                        <p><strong>Option:</strong> ${redemption.selectedOption.description}</p>
                         <p><strong>Created:</strong> ${new Date(redemption.createdDate).toLocaleString()}</p>
                         ${redemption.redeemedDate ? `
                             <p><strong>Redeemed:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}</p>
                             <p><strong>Redeemed By:</strong> ${redemption.redeemedBy}</p>
                         ` : ''}
                         ${redemption.status === 'pending' ? `
-                            <p><strong>Status:</strong> Ready to redeem</p>
+                            <p><strong>QR Code:</strong> ${redemption.qrCodeData.substring(0, 50)}...</p>
                         ` : ''}
                     </div>
                 `;
@@ -7088,7 +6816,6 @@
         window.openCameraScanner = openCameraScanner;
         window.closeCameraScanner = closeCameraScanner;
         window.processScan = processScan;
-        window.processManualRedemption = processManualRedemption;
     </script>
 </body>
 </html>
