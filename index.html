@@ -1278,7 +1278,29 @@
             min-height: 80px;
             font-family: monospace;
             font-size: 14px;
+            color: #333; /* Add this to ensure text is visible */
+    margin-top: 10px;
+    max-height: 150px;
+    overflow-y: auto;
         }
+           /* Make scanner results more prominent when data is detected */
+#scannerResult:not(:empty) {
+    background: #d4edda !important;
+    border-color: #28a745 !important;
+    color: #155724 !important;
+    font-weight: bold;
+}
+       /* Ensure camera modal is on top */
+.camera-scanner-modal {
+    z-index: 9999; /* Increase z-index */
+}
+     
+
+   
+
+
+
+
 
         /* Quick Scan Button */
         .quick-scan-btn {
@@ -1579,6 +1601,156 @@
             color: #666;
             font-size: 14px;
         }
+
+        /* ===== SCANNER RESULTS FIXES ===== */
+
+/* Make sure scanner results are always visible when they exist */
+.scanner-results {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: white !important;
+    padding: 20px !important;
+    border-top: 1px solid #eee !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+    min-height: 150px !important;
+}
+
+/* Fix the scanner result text display */
+#scannerResult {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-height: 100px !important;
+    background: white !important;
+    border: 2px solid #ddd !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+    margin-top: 10px !important;
+    color: #333 !important;
+    font-family: monospace !important;
+    font-size: 14px !important;
+    word-break: break-all !important;
+    overflow-y: auto !important;
+    max-height: 200px !important;
+}
+
+/* When scanner result has content, make it stand out */
+#scannerResult:not(:empty) {
+    background: #d4edda !important;
+    border-color: #28a745 !important;
+    color: #155724 !important;
+    font-weight: bold !important;
+    border-width: 3px !important;
+}
+
+/* Make sure the scanner modal is always on top */
+.camera-scanner-modal {
+    z-index: 9999 !important;
+}
+
+/* Fix for the scan results display in admin panel */
+#scanResults {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    animation: fadeIn 0.3s ease !important;
+}
+
+/* Add fade-in animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Make sure details grid is visible */
+.details-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+    gap: 15px !important;
+    margin-top: 15px !important;
+}
+
+.detail-item {
+    padding: 10px !important;
+    background: white !important;
+    border-radius: 5px !important;
+    border: 1px solid #ddd !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.detail-item strong {
+    color: #333 !important;
+    display: block !important;
+    margin-bottom: 5px !important;
+    font-size: 12px !important;
+    text-transform: uppercase !important;
+    color: #666 !important;
+}
+
+.detail-item div {
+    font-size: 14px !important;
+    color: #333 !important;
+    font-weight: 500 !important;
+}
+
+/* Fix the scan results section in admin panel */
+.scan-results {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: white !important;
+    border-radius: 10px !important;
+    padding: 20px !important;
+    margin-top: 20px !important;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1) !important;
+    animation: slideIn 0.3s ease !important;
+    border-left: 5px solid !important;
+}
+
+.scan-results.success {
+    border-left-color: #28a745 !important;
+}
+
+.scan-results.error {
+    border-left-color: #dc3545 !important;
+}
+
+.scan-results h4 {
+    margin-top: 0 !important;
+    margin-bottom: 15px !important;
+    font-size: 18px !important;
+}
+
+.scan-results p {
+    margin: 10px 0 !important;
+}
+
+/* Make result title more prominent */
+.result-title {
+    font-weight: bold !important;
+    color: #333 !important;
+    margin-bottom: 15px !important;
+    font-size: 16px !important;
+    display: block !important;
+}
+
+/* Force display of scanner results area */
+.scanner-results {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Make sure the scanner result area is not hidden */
+#scannerResult.hidden,
+.scanner-results.hidden,
+.scan-results.hidden {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
     </style>
     <!-- Add Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -2804,35 +2976,49 @@
             }
         }
 
+        
         // Handle detected QR code
-        async function handleQRCodeDetected(qrData) {
-            console.log("QR Code detected:", qrData);
-            
-            // Update result display
-            const resultElement = document.getElementById('scannerResult');
-            resultElement.textContent = qrData;
-            resultElement.style.backgroundColor = '#d4edda';
-            
-            // Auto-fill voucher input
-            const voucherInput = document.getElementById('voucherCodeInput');
-            if (voucherInput) {
-                voucherInput.value = qrData;
-            }
-            
-            // Beep sound
-            playScanBeep();
-            
-            // Stop scanner after detection
-            stopScanner();
-            
-            // Show success message
-            updateScannerStatus('QR Code detected!', true);
-            
-            // Process the scanned data
-            setTimeout(async () => {
-                await processScannedData(qrData);
-            }, 1000);
+async function handleQRCodeDetected(qrData) {
+    console.log("QR Code detected:", qrData);
+    
+    // Stop scanner immediately
+    scannerScanning = false;
+    
+    // Update result display
+    const resultElement = document.getElementById('scannerResult');
+    if (resultElement) {
+        // First show the raw data
+        resultElement.textContent = qrData;
+        resultElement.style.backgroundColor = '#d4edda';
+        resultElement.style.color = '#155724';
+        resultElement.style.borderColor = '#28a745';
+        resultElement.style.fontWeight = 'bold';
+        resultElement.style.padding = '15px';
+        
+        // Remove any hidden class
+        resultElement.classList.remove('hidden');
+        
+        // Ensure parent container is visible
+        const scannerResults = document.querySelector('.scanner-results');
+        if (scannerResults) {
+            scannerResults.style.display = 'block';
+            scannerResults.style.visibility = 'visible';
+            scannerResults.style.opacity = '1';
+            scannerResults.classList.remove('hidden');
         }
+    }
+    
+    // Beep sound
+    playScanBeep();
+    
+    // Show success message
+    updateScannerStatus('QR Code detected! Processing...', true);
+    
+    // Process the scanned data immediately
+    setTimeout(async () => {
+        await processScannedDataInScanner(qrData);
+    }, 500);
+}
 
         // Play scan beep sound
         function playScanBeep() {
@@ -2872,46 +3058,107 @@
             stopScanner();
         }
 
-        // Process scanned data
-        async function processScannedData(qrData) {
-            const salespersonName = document.getElementById('salespersonName').value.trim();
+        
+     // Process scanned data in scanner modal
+async function processScannedDataInScanner(qrData) {
+    try {
+        const salespersonInput = document.getElementById('salespersonName');
+        const salespersonName = salespersonInput ? salespersonInput.value.trim() : 'Scanner';
+        
+        showToast("Processing QR code...", "info");
+        
+        const result = await processScanData(qrData, salespersonName);
+        
+        if (result.success) {
+            updateScannerStatus('✅ Scan processed successfully!', true);
             
-            if (!salespersonName) {
-                showToast("Please enter your name first", "error");
-                updateScannerStatus("Enter your name and click Process Scan", false);
-                return;
-            }
+            // Display detailed results in scanner modal
+            displayResultsInScannerModal(result);
             
-            showToast("Processing QR code...", "info");
-            
-            const result = await processScanData(qrData, salespersonName);
-            
-            if (result.success) {
+            // Auto-close scanner after delay if successful
+            setTimeout(() => {
+                closeCameraScanner();
+                
+                // Also show toast on main page
                 showToast(result.message, "success");
-                updateScannerStatus("Scan processed successfully!", true);
-                
-                // Display detailed results
-                displayScanResults(result, true);
-                
-                // Auto-close scanner after delay
-                setTimeout(() => {
-                    closeCameraScanner();
-                }, 2000);
-                
-            } else {
-                showToast(result.message, "error");
-                updateScannerStatus("Scan failed: " + result.message, false);
-                
-                // Display error results
-                displayScanResults(result, false);
-                
-                // Restart scanner after delay
-                setTimeout(() => {
-                    updateScannerStatus("Ready to scan again", false);
+            }, 3000);
+            
+        } else {
+            updateScannerStatus('❌ Scan failed: ' + result.message, false);
+            showToast(result.message, "error");
+            
+            // Restart scanner after delay
+            setTimeout(() => {
+                updateScannerStatus("Ready to scan again", false);
+                if (!scannerScanning) {
                     startScanner();
-                }, 3000);
-            }
+                }
+            }, 3000);
         }
+    } catch (error) {
+        console.error("Error processing scan:", error);
+        updateScannerStatus('❌ Error: ' + error.message, false);
+        showToast("Error processing QR code", "error");
+    }
+}
+
+// Function to display results in scanner modal
+function displayResultsInScannerModal(result) {
+    const resultElement = document.getElementById('scannerResult');
+    if (!resultElement) return;
+    
+    let resultHtml = '<div style="color: #155724; font-family: Arial, sans-serif;">';
+    
+    if (result.type === 'voucher') {
+        const voucher = result.data;
+        resultHtml += `
+            <h4 style="color: #28a745; margin-top: 0; margin-bottom: 15px;">✅ Voucher Redeemed</h4>
+            <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                <p><strong>Code:</strong> <span style="background: #f8f9fa; padding: 3px 8px; border-radius: 4px; font-family: monospace;">${voucher.code}</span></p>
+                <p><strong>Member:</strong> ${voucher.memberName} (${voucher.memberJCId})</p>
+                <p><strong>Discount:</strong> ${voucher.discountPercentage}%</p>
+                <p><strong>Status:</strong> <span style="color: #28a745; font-weight: bold;">REDEEMED</span></p>
+                ${voucher.redeemedBy ? `<p><strong>Redeemed By:</strong> ${voucher.redeemedBy}</p>` : ''}
+            </div>
+        `;
+    } else if (result.type === 'redemption') {
+        const redemption = result.data;
+        resultHtml += `
+            <h4 style="color: #28a745; margin-top: 0; margin-bottom: 15px;">✅ Redemption Complete</h4>
+            <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                <p><strong>ID:</strong> <span style="background: #f8f9fa; padding: 3px 8px; border-radius: 4px; font-family: monospace;">${redemption.redemptionId}</span></p>
+                <p><strong>Member:</strong> ${redemption.memberName} (${redemption.memberJCId})</p>
+                <p><strong>Amount:</strong> ${redemption.purchaseAmount?.toLocaleString() || '0'} UGX</p>
+                <p><strong>Status:</strong> <span style="color: #28a745; font-weight: bold;">COMPLETED</span></p>
+                ${redemption.redeemedBy ? `<p><strong>Redeemed By:</strong> ${redemption.redeemedBy}</p>` : ''}
+            </div>
+        `;
+    } else if (result.type === 'member') {
+        const member = result.data;
+        resultHtml += `
+            <h4 style="color: #2196F3; margin-top: 0; margin-bottom: 15px;">👤 Member Found</h4>
+            <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                <p><strong>JC ID:</strong> <span style="background: #f8f9fa; padding: 3px 8px; border-radius: 4px; font-family: monospace;">${member.jcId}</span></p>
+                <p><strong>Name:</strong> ${member.name}</p>
+                <p><strong>Tier:</strong> ${member.tier}</p>
+                <p><strong>Points:</strong> ${member.points?.toLocaleString() || '0'}</p>
+                <p><strong>Total Spent:</strong> ${(member.totalSpent || 0).toLocaleString()} UGX</p>
+            </div>
+        `;
+    } else {
+        // Show raw data if type is unknown
+        resultHtml += `
+            <h4 style="color: #721c24; margin-top: 0; margin-bottom: 15px;">❌ Unknown QR Type</h4>
+            <div style="background: #f8d7da; padding: 15px; border-radius: 8px; color: #721c24;">
+                <p><strong>Raw Data:</strong></p>
+                <p style="font-family: monospace; word-break: break-all;">${qrData}</p>
+            </div>
+        `;
+    }
+    
+    resultHtml += '</div>';
+    resultElement.innerHTML = resultHtml;
+}
 
         // ===========================
         // VOUCHER CLEANUP FUNCTION
