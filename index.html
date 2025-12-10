@@ -2986,16 +2986,68 @@ async function handleQRCodeDetected(qrData) {
     // Stop scanner immediately
     scannerScanning = false;
     
+    // Try to decode/process the data
+    let processedData = qrData;
+    
+    // Check if it's a redemption QR (base64 encoded)
+    if (qrData.includes('jeansclub_redemption') || qrData.length > 100) {
+        try {
+            // Try to decrypt if it's encrypted
+            const decrypted = qrRedemptionSystem.decryptData(qrData);
+            if (decrypted) {
+                processedData = JSON.stringify(decrypted, null, 2);
+                console.log("Decrypted redemption data:", decrypted);
+            }
+        } catch (e) {
+            console.log("Not encrypted data:", e);
+            
+            // Try to parse as JSON directly
+            try {
+                if (qrData.startsWith('{')) {
+                    const parsed = JSON.parse(qrData);
+                    processedData = JSON.stringify(parsed, null, 2);
+                }
+            } catch (parseError) {
+                console.log("Not JSON either");
+            }
+        }
+    }
+    
     // Update result display
     const resultElement = document.getElementById('scannerResult');
     if (resultElement) {
-        // First show the raw data
-        resultElement.textContent = qrData;
+        // Format the output nicely
+        let displayText = '';
+        
+        // Check for different QR types
+        if (qrData.startsWith('JC') && qrData.length <= 12) {
+            // Simple voucher code
+            displayText = `🎟️ Voucher Code: ${qrData}`;
+        } else if (qrData.includes('https://') || qrData.includes('http://')) {
+            // URL QR code
+            displayText = `🔗 URL: ${qrData}`;
+        } else if (qrData.includes('jeansclub_redemption') || qrData.includes('redemptionId')) {
+            // Redemption QR
+            displayText = `💰 Redemption QR:\n${processedData}`;
+        } else if (qrData.startsWith('{') && qrData.includes('type')) {
+            // JSON data
+            displayText = `📄 JSON Data:\n${processedData}`;
+        } else if (qrData.length > 50) {
+            // Long data (likely Base64/encoded)
+            displayText = `🔒 Encoded Data (${qrData.length} chars):\n${qrData.substring(0, 100)}...`;
+        } else {
+            // Generic text
+            displayText = `📝 Text: ${qrData}`;
+        }
+        
+        resultElement.textContent = displayText;
         resultElement.style.backgroundColor = '#d4edda';
         resultElement.style.color = '#155724';
         resultElement.style.borderColor = '#28a745';
         resultElement.style.fontWeight = 'bold';
         resultElement.style.padding = '15px';
+        resultElement.style.whiteSpace = 'pre-wrap';
+        resultElement.style.wordBreak = 'break-word';
         
         // Remove any hidden class
         resultElement.classList.remove('hidden');
@@ -3067,9 +3119,40 @@ async function processScannedDataInScanner(qrData) {
         const salespersonInput = document.getElementById('salespersonName');
         const salespersonName = salespersonInput ? salespersonInput.value.trim() : 'Scanner';
         
+        if (!salespersonName || salespersonName === 'Scanner') {
+            updateScannerStatus('Please enter your name as salesperson', false);
+            showToast("Please enter your name in the salesperson field", "error");
+            
+            // Highlight the salesperson field
+            if (salespersonInput) {
+                salespersonInput.style.borderColor = '#dc3545';
+                salespersonInput.focus();
+            }
+            
+            // Restart scanner
+            setTimeout(() => {
+                updateScannerStatus("Ready to scan again", false);
+                if (!scannerScanning) {
+                    startScanner();
+                }
+            }, 2000);
+            return;
+        }
+        
         showToast("Processing QR code...", "info");
         
-        const result = await processScanData(qrData, salespersonName);
+        // Try to decrypt redemption QR first
+        let processedData = qrData;
+        try {
+            const decrypted = qrRedemptionSystem.decryptData(qrData);
+            if (decrypted && decrypted.redemptionId) {
+                processedData = decrypted.redemptionId; // Use redemption ID for processing
+            }
+        } catch (e) {
+            console.log("Not encrypted or already decrypted");
+        }
+        
+        const result = await processScanData(processedData, salespersonName);
         
         if (result.success) {
             updateScannerStatus('✅ Scan processed successfully!', true);
@@ -3088,6 +3171,12 @@ async function processScannedDataInScanner(qrData) {
         } else {
             updateScannerStatus('❌ Scan failed: ' + result.message, false);
             showToast(result.message, "error");
+            
+            // Show the raw data for debugging
+            const resultElement = document.getElementById('scannerResult');
+            if (resultElement) {
+                resultElement.innerHTML += `<br><br><small style="color: #666;">Raw data: ${qrData.substring(0, 100)}...</small>`;
+            }
             
             // Restart scanner after delay
             setTimeout(() => {
