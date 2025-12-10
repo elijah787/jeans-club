@@ -2498,6 +2498,13 @@
 
     <script>
         // ===========================
+        // GLOBAL VARIABLES - will be initialized after page loads
+        // ===========================
+        let clubManager = null;
+        let voucherSystem = null;
+        let qrRedemptionSystem = null;
+        
+        // ===========================
         // UPDATED VOUCHER SYSTEM - SUPAVASE VERSION
         // ===========================
         class VoucherSystem {
@@ -3228,6 +3235,12 @@
                 this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
                 this.anonKey = 'sb_publishable__gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA';
                 
+                // Check if createClient is available
+                if (typeof createClient === 'undefined') {
+                    console.error('Supabase createClient is not available. Please check if the Supabase CDN is loaded.');
+                    throw new Error('Supabase client not loaded');
+                }
+                
                 this.supabase = createClient(this.supabaseUrl, this.anonKey);
                 this.cacheKey = 'jeansClubCache';
                 this.init();
@@ -3820,7 +3833,7 @@
 
         // Open camera scanner
         function openCameraScanner() {
-            if (!clubManager.isAdmin) {
+            if (!clubManager || !clubManager.isAdmin) {
                 showToast("Please login as staff first", "error");
                 return;
             }
@@ -4533,7 +4546,7 @@
         }
 
         function toggleUserMenu() {
-            if (clubManager.currentMember) {
+            if (clubManager && clubManager.currentMember) {
                 showDashboard(clubManager.currentMember);
             } else {
                 showLoginScreen();
@@ -4542,7 +4555,7 @@
 
         // Navigation link handlers
         function showDashboardSection() {
-            if (clubManager.currentMember) {
+            if (clubManager && clubManager.currentMember) {
                 showDashboard(clubManager.currentMember);
             } else {
                 showLoginScreen();
@@ -5248,14 +5261,23 @@
         // Main JeansClubManager
         class JeansClubManager {
             constructor() {
-                this.db = new SupabaseDB();
+                // Initialize with error handling for Supabase
+                try {
+                    this.db = new SupabaseDB();
+                } catch (error) {
+                    console.error('Failed to initialize Supabase:', error);
+                    // Fallback to localStorage
+                    this.db = new CentralStorage();
+                    console.log('Falling back to localStorage for data storage');
+                }
+                
                 this.emailService = new GoogleAppsEmailService();
                 this.voucherSystem = new VoucherSystem(this.db);
                 this.qrRedemptionSystem = new QRRedemptionSystem(this.db);
                 this.currentMember = null;
                 this.isAdmin = false;
                 this.loadCurrentMember();
-                console.log('🚀 JeansClubManager initialized with Supabase DB');
+                console.log('🚀 JeansClubManager initialized');
             }
 
             generateJCId() {
@@ -6019,10 +6041,54 @@
             }
         }
 
-        // Initialize Jeans Club Manager
-        const clubManager = new JeansClubManager();
-        const voucherSystem = clubManager.voucherSystem;
-        const qrRedemptionSystem = clubManager.qrRedemptionSystem;
+        // ===========================
+        // INITIALIZATION FUNCTION
+        // ===========================
+        async function initializeApp() {
+            try {
+                // Check if Supabase is loaded
+                if (typeof createClient === 'undefined') {
+                    console.warn('Supabase not loaded. Using localStorage fallback.');
+                }
+                
+                // Initialize the manager
+                clubManager = new JeansClubManager();
+                voucherSystem = clubManager.voucherSystem;
+                qrRedemptionSystem = clubManager.qrRedemptionSystem;
+                
+                console.log('✅ App initialized successfully');
+                
+                // Initialize Google Sign-In
+                if (typeof google !== 'undefined') {
+                    setTimeout(initGoogleSignIn, 1000);
+                }
+                
+                // Show appropriate screen
+                if (clubManager.currentMember) {
+                    showDashboard(clubManager.currentMember);
+                } else {
+                    showSignupScreen();
+                }
+                
+                // Start voucher cleanup
+                setTimeout(() => {
+                    if (voucherSystem) {
+                        voucherSystem.cleanupExpiredVouchers();
+                    }
+                }, 5000);
+                
+                // Update voucher statuses on load
+                setTimeout(async () => {
+                    if (voucherSystem) {
+                        await voucherSystem.updateVoucherStatuses();
+                    }
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                showToast('Failed to initialize application. Please refresh the page.', 'error');
+            }
+        }
 
         // Google Sign-In Initialization
         function initGoogleSignIn() {
@@ -6096,7 +6162,7 @@
             
             if (member) {
                 updateDashboard(member);
-            } else if (clubManager.currentMember) {
+            } else if (clubManager && clubManager.currentMember) {
                 updateDashboard(clubManager.currentMember);
             }
         }
@@ -6130,6 +6196,11 @@
         }
 
         async function signUpWithEmail() {
+            if (!clubManager) {
+                showToast("Application not initialized. Please refresh the page.", "error");
+                return;
+            }
+            
             const name = document.getElementById('userName').value.trim();
             const email = document.getElementById('userEmail').value.trim();
             const password = document.getElementById('userPassword').value;
@@ -6185,6 +6256,11 @@
         }
 
         async function loginWithCredentials() {
+            if (!clubManager) {
+                showToast("Application not initialized. Please refresh the page.", "error");
+                return;
+            }
+            
             const jcId = document.getElementById('loginJCId').value.trim();
             const password = document.getElementById('loginPassword').value;
 
@@ -6206,6 +6282,11 @@
         }
 
         async function showAdminLogin() {
+            if (!clubManager) {
+                showToast("Application not initialized. Please refresh the page.", "error");
+                return;
+            }
+            
             const adminCode = prompt("Enter admin code:");
             if (!adminCode) return;
 
@@ -6223,6 +6304,8 @@
 
         // Update dashboard with improved mobile card display
         async function updateDashboard(member) {
+            if (!member) return;
+            
             document.getElementById('memberJcId').textContent = member.jcId;
             document.getElementById('memberName').textContent = member.name;
             document.getElementById('memberEmail').textContent = member.email;
@@ -6299,6 +6382,8 @@
         }
 
         async function updateMemberVouchers(memberJCId) {
+            if (!voucherSystem) return;
+            
             const vouchersList = document.getElementById('vouchersList');
             const vouchers = await voucherSystem.getMemberVouchers(memberJCId);
             
@@ -6338,6 +6423,11 @@
         }
 
         async function calculateDiscount() {
+            if (!clubManager || !clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
             const pointsInput = document.getElementById('discountPoints');
             const points = parseInt(pointsInput.value);
             
@@ -6366,6 +6456,11 @@
         }
 
         async function redeemPoints() {
+            if (!clubManager || !clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
             const pointsInput = document.getElementById('discountPoints');
             const points = parseInt(pointsInput.value);
             
@@ -6400,7 +6495,7 @@
         }
 
         async function toggleNewsletter() {
-            if (!clubManager.currentMember) return;
+            if (!clubManager || !clubManager.currentMember) return;
             
             const currentlySubscribed = clubManager.currentMember.newsletterSubscribed !== false;
             const action = currentlySubscribed ? false : true;
@@ -6421,7 +6516,7 @@
         }
 
         function shareReferral() {
-            if (!clubManager.currentMember) return;
+            if (!clubManager || !clubManager.currentMember) return;
             
             const referralCode = clubManager.currentMember.referralCode;
             const message = `Join me on Jeans Club! Use my referral code ${referralCode} to get bonus points when you sign up. Sign up at https://elijah787.github.io/jeans-club`;
@@ -6439,12 +6534,19 @@
         }
 
         function logout() {
+            if (!clubManager) return;
+            
             clubManager.logout();
             showLoginScreen();
             showToast("Logged out successfully", "info");
         }
 
         async function refreshData() {
+            if (!clubManager) {
+                showToast("Application not initialized", "error");
+                return;
+            }
+            
             showToast("Refreshing data...", "info");
             const updatedMember = await clubManager.refreshData();
             if (updatedMember) {
@@ -6456,6 +6558,11 @@
         }
 
         async function adminAddPurchase() {
+            if (!clubManager) {
+                showToast("Application not initialized", "error");
+                return;
+            }
+            
             const jcId = document.getElementById('purchaseJCId').value.trim();
             const amount = parseFloat(document.getElementById('purchaseAmount').value);
             const description = document.getElementById('purchaseDescription').value.trim();
@@ -6494,6 +6601,11 @@
         }
 
         async function sendNewsletter() {
+            if (!clubManager) {
+                showToast("Application not initialized", "error");
+                return;
+            }
+            
             const subject = document.getElementById('newsletterSubject').value.trim();
             const content = document.getElementById('newsletterContent').value.trim();
             
@@ -6524,6 +6636,8 @@
         }
 
         async function loadAdminData() {
+            if (!clubManager) return;
+            
             const adminContent = document.getElementById('adminContent');
             adminContent.innerHTML = '<div class="activity-item">Loading members...</div>';
             
@@ -6559,6 +6673,11 @@
         }
 
         async function confirmDeleteMember() {
+            if (!clubManager) {
+                showToast("Application not initialized", "error");
+                return;
+            }
+            
             const jcId = document.getElementById('deleteJCId').value.trim();
             
             if (!jcId) {
@@ -6586,6 +6705,8 @@
         }
 
         async function loadAllVouchers() {
+            if (!voucherSystem) return;
+            
             const allVouchersList = document.getElementById('allVouchersList');
             allVouchersList.innerHTML = '<div class="activity-item">Loading vouchers...</div>';
             
@@ -6644,6 +6765,11 @@
         }
 
         async function requestPasswordReset() {
+            if (!clubManager) {
+                showToast("Application not initialized", "error");
+                return;
+            }
+            
             const jcId = document.getElementById('resetJCId').value.trim();
             
             if (!jcId) {
@@ -6668,6 +6794,11 @@
         }
 
         async function executePasswordReset() {
+            if (!clubManager) {
+                showToast("Application not initialized", "error");
+                return;
+            }
+            
             const jcId = document.getElementById('resetJCId').value.trim();
             const resetToken = document.getElementById('resetToken').value.trim();
             const newPassword = document.getElementById('newPassword').value;
@@ -6718,6 +6849,16 @@
         let currentPurchaseAmount = 0;
 
         async function calculateRedemptionOptions() {
+            if (!clubManager || !clubManager.currentMember) {
+                showToast("You must be logged in", "error");
+                return;
+            }
+            
+            if (!qrRedemptionSystem) {
+                showToast("Redemption system not available", "error");
+                return;
+            }
+            
             const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
             
             if (!purchaseAmount || purchaseAmount <= 0) {
@@ -6728,11 +6869,6 @@
             currentPurchaseAmount = purchaseAmount;
             
             showToast("Calculating redemption options...", "info");
-            
-            if (!clubManager.currentMember) {
-                showToast("You must be logged in", "error");
-                return;
-            }
             
             const member = clubManager.currentMember;
             const memberPoints = member.points || 0;
@@ -6801,6 +6937,11 @@
         }
 
         function selectRedemptionOption(index) {
+            if (!clubManager || !clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
             selectedOptionIndex = index;
             
             currentPurchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
@@ -6875,14 +7016,19 @@
 
         async function generateQRCode() {
             try {
+                if (!clubManager || !clubManager.currentMember) {
+                    showToast("You must be logged in", "error");
+                    return { success: false, message: "Not logged in" };
+                }
+                
+                if (!qrRedemptionSystem) {
+                    showToast("Redemption system not available", "error");
+                    return { success: false, message: "System error" };
+                }
+                
                 if (selectedOptionIndex === -1) {
                     showToast("Please select a redemption option first", "error");
                     return { success: false, message: "No option selected" };
-                }
-                
-                if (!clubManager.currentMember) {
-                    showToast("You must be logged in", "error");
-                    return { success: false, message: "Not logged in" };
                 }
                 
                 const selectedOption = currentRedemptionOptions[selectedOptionIndex];
@@ -7003,6 +7149,8 @@
         }
 
         async function loadQRRedemptionData() {
+            if (!qrRedemptionSystem) return;
+            
             try {
                 const stats = await qrRedemptionSystem.getRedemptionStats();
                 document.getElementById('qrRedemptionStats').innerHTML = `
@@ -7105,34 +7253,19 @@
 
         // Initialize on load
         window.onload = async function() {
-            if (typeof google !== 'undefined') {
-                setTimeout(initGoogleSignIn, 1000);
-            }
-            
-            if (clubManager.currentMember) {
-                showDashboard(clubManager.currentMember);
-            } else {
-                showSignupScreen();
-            }
-            
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('mode') === 'salesperson') {
-                if (clubManager.isAdmin) {
-                    showAdminPanel();
-                } else {
-                    showAdminLogin();
-                }
-            }
-            
-            // Start voucher cleanup
-            setTimeout(() => {
-                voucherSystem.cleanupExpiredVouchers();
-            }, 5000);
-            
-            // Update voucher statuses on load
+            // Wait for scripts to load
             setTimeout(async () => {
-                await voucherSystem.updateVoucherStatuses();
-            }, 2000);
+                await initializeApp();
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('mode') === 'salesperson') {
+                    if (clubManager && clubManager.isAdmin) {
+                        showAdminPanel();
+                    } else {
+                        showAdminLogin();
+                    }
+                }
+            }, 100);
         };
 
         // Add keyboard shortcuts
@@ -7159,7 +7292,7 @@
             }
             
             // Quick camera shortcut for admins
-            if (e.ctrlKey && e.key === 's' && clubManager.isAdmin) {
+            if (e.ctrlKey && e.key === 's' && clubManager && clubManager.isAdmin) {
                 e.preventDefault();
                 openCameraScanner();
             }
