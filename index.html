@@ -2501,10 +2501,7 @@
                 <button class="btn secondary" onclick="showDeleteMemberSection()">Delete Member</button>
                 <button class="btn" onclick="showVoucherManagementPanel()">Manage Vouchers</button>
                 <button class="btn" onclick="showQRRedemptionManagementPanel()">QR Redemptions</button>
-                <!-- NEW QUICK SCAN BUTTON -->
-                <button class="quick-scan-btn" onclick="openCameraScanner()">
-                    📷 Quick Scan QR
-                </button>
+                <!-- REMOVED: Open Camera Scanner button - only keeping Quick Scan QR -->
             </div>
 
             <h2 class="section-title">Staff Admin Panel</h2>
@@ -2534,7 +2531,7 @@
                 <!-- Quick Scan Option -->
                 <div style="text-align: center; margin-bottom: 20px;">
                     <button class="quick-scan-btn" onclick="openCameraScanner()">
-                        📷 Open Camera Scanner
+                        📷 Quick Scan QR
                     </button>
                     <p style="color: #666; font-size: 14px; margin-top: 10px;">OR enter code manually below</p>
                 </div>
@@ -4666,12 +4663,20 @@ async function handleQRCodeDetected(qrData) {
             }
 
             generateQRCodeData(redemptionData) {
-                // SIMPLE TEXT ONLY - Just the redemption ID
-                return redemptionData.redemptionId;
+                // FIXED: Differentiate between pay-with-points and discount vouchers
+                if (redemptionData.selectedOption.type === 'points_redemption') {
+                    // Pay-with-points QR codes start with RED
+                    return 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
+                } else if (redemptionData.selectedOption.type === 'discount_voucher') {
+                    // Discount voucher QR codes use regular voucher format
+                    return 'JC' + Math.random().toString(36).substr(2, 8).toUpperCase();
+                }
+                // Fallback for any other type
+                return 'QR' + Date.now().toString().slice(-8);
             }
 
             createRedemption(member, selectedOption, purchaseAmount) {
-                const redemptionId = 'RED' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
+                const redemptionId = this.generateQRCodeData({ selectedOption: selectedOption });
                 
                 const redemptionData = {
                     redemptionId: redemptionId,
@@ -4687,7 +4692,7 @@ async function handleQRCodeDetected(qrData) {
                     qrCodeData: null
                 };
 
-                redemptionData.qrCodeData = this.generateQRCodeData(redemptionData);
+                redemptionData.qrCodeData = redemptionId; // Use same ID for QR code
 
                 this.redemptions.push(redemptionData);
                 this.saveRedemptions();
@@ -4702,7 +4707,46 @@ async function handleQRCodeDetected(qrData) {
                     return { success: false, message: "Salesperson name is required" };
                 }
 
-                // Simple text matching - just look for redemption ID
+                // Check if it's a pay-with-points QR code (starts with RED)
+                if (qrCodeData.startsWith('RED')) {
+                    const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
+                    if (redemption) {
+                        if (redemption.status === 'completed') {
+                            return { success: false, message: "Redemption has already been completed" };
+                        }
+                        
+                        if (redemption.status === 'expired') {
+                            return { success: false, message: "Redemption has expired" };
+                        }
+                        
+                        redemption.status = 'completed';
+                        redemption.redeemedBy = salespersonName.trim();
+                        redemption.redeemedDate = new Date().toISOString();
+                        this.saveRedemptions();
+                        
+                        return {
+                            success: true,
+                            message: `Pay-with-points redemption completed successfully by ${salespersonName}`,
+                            redemption: redemption,
+                            type: 'points_redemption'
+                        };
+                    }
+                }
+                
+                // If not starting with RED, check if it's a voucher code (starts with JC)
+                if (qrCodeData.startsWith('JC')) {
+                    const voucherResult = voucherSystem.redeemVoucher(qrCodeData, salespersonName);
+                    if (voucherResult.success) {
+                        return {
+                            success: true,
+                            message: voucherResult.message,
+                            voucher: voucherResult.voucher,
+                            type: 'voucher'
+                        };
+                    }
+                }
+                
+                // Also check for any other redemption ID that might not start with RED
                 const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
                 if (redemption) {
                     if (redemption.status === 'completed') {
@@ -4722,17 +4766,6 @@ async function handleQRCodeDetected(qrData) {
                         success: true,
                         message: `Redemption completed successfully by ${salespersonName}`,
                         redemption: redemption
-                    };
-                }
-                
-                // Also check voucher codes
-                const voucherResult = voucherSystem.redeemVoucher(qrCodeData, salespersonName);
-                if (voucherResult.success) {
-                    return {
-                        success: true,
-                        message: voucherResult.message,
-                        voucher: voucherResult.voucher,
-                        type: 'voucher'
                     };
                 }
                 
@@ -6553,7 +6586,8 @@ async function handleQRCodeDetected(qrData) {
                     <div class="qr-code-container">
                         <h4>🎉 Redemption QR Code</h4>
                         <img src="${qrCodeUrl}" alt="Redemption QR Code" style="max-width: 250px; margin: 15px 0;">
-                        <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
+                        <p><strong>QR Code ID:</strong> ${redemption.redemptionId}</p>
+                        <p><strong>Type:</strong> ${selectedOption.type === 'points_redemption' ? 'Pay with Points (starts with RED)' : 'Discount Voucher (starts with JC)'}</p>
                         <p><strong>Amount:</strong> ${purchaseAmount.toLocaleString()} UGX</p>
                         <p><strong>Option:</strong> ${selectedOption.description}</p>
                         <p><strong>Points Deducted:</strong> ${pointsNeeded.toLocaleString()}</p>
@@ -6571,7 +6605,8 @@ async function handleQRCodeDetected(qrData) {
                     <div class="success-card">
                         <h4>✅ QR Redemption Created!</h4>
                         <p>Your QR code has been generated successfully. Show it to our staff at checkout.</p>
-                        <p><strong>Redemption ID:</strong> ${redemption.redemptionId}</p>
+                        <p><strong>QR Code ID:</strong> ${redemption.redemptionId}</p>
+                        <p><strong>Type:</strong> ${selectedOption.type === 'points_redemption' ? 'Pay with Points' : 'Discount Voucher'}</p>
                         <p><strong>Status:</strong> Pending redemption</p>
                         <p><strong>Points Deducted:</strong> ${pointsNeeded.toLocaleString()}</p>
                         <p><strong>Remaining Points:</strong> ${clubManager.currentMember.points.toLocaleString()}</p>
@@ -6636,6 +6671,7 @@ async function handleQRCodeDetected(qrData) {
                             <span class="redemption-status ${statusClass}">${statusText}</span>
                         </div>
                         <p><strong>Redemption ID:</strong> <span class="redemption-id">${redemption.redemptionId}</span></p>
+                        <p><strong>Type:</strong> ${redemption.selectedOption.type === 'points_redemption' ? 'Pay with Points (RED)' : 'Discount Voucher (JC)'}</p>
                         <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
                         <p><strong>Option:</strong> ${redemption.selectedOption.description}</p>
                         <p><strong>Created:</strong> ${new Date(redemption.createdDate).toLocaleString()}</p>
@@ -6648,31 +6684,62 @@ async function handleQRCodeDetected(qrData) {
             }).join('');
         }
         
-        // Process scan data - SIMPLIFIED VERSION
+        // Process scan data - UPDATED VERSION
         async function processScanData(qrData, salespersonName) {
             try {
-                // First try voucher
-                const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
-                if (voucherResult.success) {
-                    return {
-                        success: true,
-                        type: 'voucher',
-                        message: voucherResult.message,
-                        data: voucherResult.voucher,
-                        status: 'VERIFIED'
-                    };
-                }
+                console.log("Processing scan data:", qrData);
                 
-                // Then try redemption
-                const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
-                if (redemptionResult.success) {
-                    return {
-                        success: true,
-                        type: 'redemption',
-                        message: redemptionResult.message,
-                        data: redemptionResult.redemption,
-                        status: 'VERIFIED'
-                    };
+                // Check if it's a pay-with-points QR code (starts with RED)
+                if (qrData.startsWith('RED')) {
+                    const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                    if (redemptionResult.success) {
+                        return {
+                            success: true,
+                            type: 'points_redemption',
+                            message: redemptionResult.message,
+                            data: redemptionResult.redemption,
+                            status: 'VERIFIED'
+                        };
+                    }
+                }
+                // Check if it's a discount voucher (starts with JC)
+                else if (qrData.startsWith('JC')) {
+                    const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
+                    if (voucherResult.success) {
+                        return {
+                            success: true,
+                            type: 'voucher',
+                            message: voucherResult.message,
+                            data: voucherResult.voucher,
+                            status: 'VERIFIED'
+                        };
+                    }
+                }
+                // Try both systems as fallback
+                else {
+                    // First try voucher
+                    const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
+                    if (voucherResult.success) {
+                        return {
+                            success: true,
+                            type: 'voucher',
+                            message: voucherResult.message,
+                            data: voucherResult.voucher,
+                            status: 'VERIFIED'
+                        };
+                    }
+                    
+                    // Then try redemption
+                    const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                    if (redemptionResult.success) {
+                        return {
+                            success: true,
+                            type: redemptionResult.type || 'redemption',
+                            message: redemptionResult.message,
+                            data: redemptionResult.redemption || redemptionResult.voucher,
+                            status: 'VERIFIED'
+                        };
+                    }
                 }
                 
                 // If not found, it's rejected
@@ -6710,7 +6777,7 @@ async function handleQRCodeDetected(qrData) {
                         <div class="details-grid">
                             <div class="detail-item">
                                 <strong>Voucher Code</strong>
-                                <div>${voucher.code}</div>
+                                <div>${voucher.code} (Discount Voucher)</div>
                             </div>
                             <div class="detail-item">
                                 <strong>Member</strong>
@@ -6734,14 +6801,14 @@ async function handleQRCodeDetected(qrData) {
                             </div>
                         </div>
                     `;
-                } else if (result.type === 'redemption') {
+                } else if (result.type === 'points_redemption') {
                     const redemption = result.data;
                     detailsHtml = `
-                        <h4>✅ Redemption ${result.status}!</h4>
+                        <h4>✅ Pay-with-Points Redemption ${result.status}!</h4>
                         <div class="details-grid">
                             <div class="detail-item">
                                 <strong>Redemption ID</strong>
-                                <div>${redemption.redemptionId}</div>
+                                <div>${redemption.redemptionId} (Pay with Points)</div>
                             </div>
                             <div class="detail-item">
                                 <strong>Member</strong>
@@ -6753,7 +6820,7 @@ async function handleQRCodeDetected(qrData) {
                             </div>
                             <div class="detail-item">
                                 <strong>Redemption Type</strong>
-                                <div>${redemption.selectedOption.type === 'points_redemption' ? 'Pay with Points' : 'Discount Voucher'}</div>
+                                <div>Pay with Points (RED code)</div>
                             </div>
                             <div class="detail-item">
                                 <strong>Status</strong>
