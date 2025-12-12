@@ -3470,36 +3470,36 @@ async function handleQRCodeDetected(qrData) {
                 return voucherCode;
             }
 
-            createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
-    const voucherCode = this.generateVoucherCode();
-    const createdDate = new Date();
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + expiryDays);
+            async createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
+                const voucherCode = this.generateVoucherCode();
+                const createdDate = new Date();
+                const expiryDate = new Date();
+                expiryDate.setDate(expiryDate.getDate() + expiryDays);
 
-    const voucher = {
-        id: 'voucher_' + Date.now(),
-        code: voucherCode,
-        memberJCId: memberJCId,
-        memberName: memberName,
-        pointsUsed: pointsUsed,
-        discountPercentage: discountPercentage,
-        createdDate: createdDate.toISOString(),
-        expiryDate: expiryDate.toISOString(),
-        status: 'active',
-        usedDate: null,
-        qrCodeData: this.generateQRCodeData(voucherCode)
-    };
+                const voucher = {
+                    id: 'voucher_' + Date.now(),
+                    code: voucherCode,
+                    memberJCId: memberJCId,
+                    memberName: memberName,
+                    pointsUsed: pointsUsed,
+                    discountPercentage: discountPercentage,
+                    createdDate: createdDate.toISOString(),
+                    expiryDate: expiryDate.toISOString(),
+                    status: 'active',
+                    usedDate: null,
+                    qrCodeData: this.generateQRCodeData(voucherCode)
+                };
 
-    this.vouchers.push(voucher);
-    this.saveVouchers();
-    
-    // 🔥 NEW: Also save to Supabase
-    this.saveVoucherToSupabase(voucher);
+                this.vouchers.push(voucher);
+                this.saveVouchers();
+                
+                // 🔥 FIXED: Save to Supabase - wait for it to complete
+                await this.saveVoucherToSupabase(voucher);
 
-    this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
+                this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
 
-    return voucher;
-}
+                return voucher;
+            }
 
             getMemberVouchers(memberJCId) {
                 return this.vouchers.filter(v => v.memberJCId === memberJCId)
@@ -3510,47 +3510,60 @@ async function handleQRCodeDetected(qrData) {
                 return this.vouchers.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
             }
 
-            getVoucherByCode(code) {
-                return this.vouchers.find(v => v.code === code);
+            async getVoucherByCode(code) {
+                // First check local storage
+                let voucher = this.vouchers.find(v => v.code === code);
+                
+                // If not found locally, try Supabase
+                if (!voucher) {
+                    voucher = await this.getVoucherFromSupabase(code);
+                    if (voucher) {
+                        // Add to local cache
+                        this.vouchers.push(voucher);
+                        this.saveVouchers();
+                    }
+                }
+                
+                return voucher;
             }
 
-            redeemVoucher(voucherCode, redeemedBy = 'system') {
-    const voucher = this.getVoucherByCode(voucherCode);
-    if (!voucher) {
-        return { success: false, message: "Voucher not found" };
-    }
+            async redeemVoucher(voucherCode, redeemedBy = 'system') {
+                let voucher = await this.getVoucherByCode(voucherCode);
+                if (!voucher) {
+                    return { success: false, message: "Voucher not found" };
+                }
 
-    if (voucher.status === 'used') {
-        return { success: false, message: "Voucher has already been used" };
-    }
+                if (voucher.status === 'used') {
+                    return { success: false, message: "Voucher has already been used" };
+                }
 
-    if (voucher.status === 'expired') {
-        return { success: false, message: "Voucher has expired" };
-    }
+                if (voucher.status === 'expired') {
+                    return { success: false, message: "Voucher has expired" };
+                }
 
-    if (new Date() > new Date(voucher.expiryDate)) {
-        voucher.status = 'expired';
-        this.saveVouchers();
-        this.saveVoucherToSupabase(voucher); // 🔥 NEW
-        return { success: false, message: "Voucher has expired" };
-    }
+                if (new Date() > new Date(voucher.expiryDate)) {
+                    voucher.status = 'expired';
+                    this.saveVouchers();
+                    await this.saveVoucherToSupabase(voucher); // 🔥 FIXED: Wait for save
+                    return { success: false, message: "Voucher has expired" };
+                }
 
-    voucher.status = 'used';
-    voucher.usedDate = new Date().toISOString();
-    voucher.redeemedBy = redeemedBy;
-    this.saveVouchers();
-    
-    // 🔥 NEW: Also update in Supabase
-    this.saveVoucherToSupabase(voucher);
+                voucher.status = 'used';
+                voucher.usedDate = new Date().toISOString();
+                voucher.redeemedBy = redeemedBy;
+                this.saveVouchers();
+                
+                // 🔥 FIXED: Also update in Supabase - wait for it
+                await this.saveVoucherToSupabase(voucher);
 
-    this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
+                this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
 
-    return { 
-        success: true, 
-        message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
-        voucher: voucher
-    };
-}
+                return { 
+                    success: true, 
+                    message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
+                    voucher: voucher
+                };
+            }
 
             updateVoucherStatuses() {
                 const now = new Date();
@@ -3611,48 +3624,69 @@ async function handleQRCodeDetected(qrData) {
             saveVouchers() {
                 localStorage.setItem('jeansClubVouchers', JSON.stringify(this.vouchers));
             }
-                // ... existing methods ...
-
-    // 🔥 ADD THIS NEW METHOD:
-    async saveVoucherToSupabase(voucher) {
-        try {
-            console.log("💾 Saving voucher to Supabase:", voucher.code);
             
-            const { supabase } = clubManager.db; // Access Supabase client
-            
-            const { data, error } = await supabase
-                .from('vouchers') // You need to create this table in Supabase
-                .upsert({
-                    id: voucher.id,
-                    code: voucher.code,
-                    memberJCId: voucher.memberJCId,
-                    memberName: voucher.memberName,
-                    pointsUsed: voucher.pointsUsed,
-                    discountPercentage: voucher.discountPercentage,
-                    createdDate: voucher.createdDate,
-                    expiryDate: voucher.expiryDate,
-                    status: voucher.status,
-                    usedDate: voucher.usedDate,
-                    qrCodeData: voucher.qrCodeData
-                }, { 
-                    onConflict: 'code'
-                });
+            // 🔥 FIXED: Save voucher to Supabase
+            async saveVoucherToSupabase(voucher) {
+                try {
+                    console.log("💾 Saving voucher to Supabase:", voucher.code);
+                    
+                    const { supabase } = clubManager.db;
+                    
+                    const { data, error } = await supabase
+                        .from('vouchers')
+                        .upsert({
+                            id: voucher.id,
+                            code: voucher.code,
+                            memberJCId: voucher.memberJCId,
+                            memberName: voucher.memberName,
+                            pointsUsed: voucher.pointsUsed,
+                            discountPercentage: voucher.discountPercentage,
+                            createdDate: voucher.createdDate,
+                            expiryDate: voucher.expiryDate,
+                            status: voucher.status,
+                            usedDate: voucher.usedDate,
+                            redeemedBy: voucher.redeemedBy,
+                            qrCodeData: voucher.qrCodeData
+                        }, { 
+                            onConflict: 'code'
+                        });
 
-            if (error) {
-                console.error("❌ Supabase voucher save error:", error);
-                return false;
+                    if (error) {
+                        console.error("❌ Supabase voucher save error:", error);
+                        return false;
+                    }
+
+                    console.log("✅ Voucher saved to Supabase:", voucher.code);
+                    return true;
+
+                } catch (error) {
+                    console.error("❌ Failed to save voucher to Supabase:", error);
+                    return false;
+                }
             }
+            
+            // 🔥 NEW: Get voucher from Supabase
+            async getVoucherFromSupabase(code) {
+                try {
+                    const { supabase } = clubManager.db;
+                    
+                    const { data: voucher, error } = await supabase
+                        .from('vouchers')
+                        .select('*')
+                        .eq('code', code)
+                        .single();
 
-            console.log("✅ Voucher saved to Supabase:", voucher.code);
-            return true;
+                    if (error) {
+                        console.error("❌ Supabase voucher fetch error:", error);
+                        return null;
+                    }
 
-        } catch (error) {
-            console.error("❌ Failed to save voucher to Supabase:", error);
-            return false;
-        }
-    }
-
-
+                    return voucher;
+                } catch (error) {
+                    console.error("❌ Failed to fetch voucher from Supabase:", error);
+                    return null;
+                }
+            }
         }
 
         // Initialize voucher system
@@ -3661,7 +3695,7 @@ async function handleQRCodeDetected(qrData) {
         // Import Supabase
         const { createClient } = supabase;
 
-        // Supabase Database Manager
+        // Supabase Database Manager - UPDATED
         class SupabaseDB {
             constructor() {
                 this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
@@ -3729,57 +3763,57 @@ async function handleQRCodeDetected(qrData) {
             }
 
             async saveMember(member) {
-            try {
-                console.log('💾 Saving member to Supabase:', member.jcId);
-                
-                const memberData = {
-                    jcId: member.jcId,
-                    id: member.id || 'member_' + Date.now(),
-                    email: member.email,
-                    name: member.name,
-                    password: member.password || null,
-                    googleId: member.googleId || null,
-                    loginMethod: member.loginMethod || 'email',
-                    points: member.points || 0,
-                    tier: member.tier || 'PEARL',
-                    referralCode: member.referralCode,
-                    referredBy: member.referredBy || null,
-                    purchaseHistory: member.purchaseHistory || [],
-                    activityLog: member.activityLog || [],
-                    joinedDate: member.joinedDate || new Date().toISOString(),
-                    totalSpent: member.totalSpent || 0,
-                    challenges: member.challenges || [],
-                    referrals: member.referrals || [],
-                    resetToken: member.resetToken || null,
-                    resetTokenExpiry: member.resetTokenExpiry || null
-                };
+                try {
+                    console.log('💾 Saving member to Supabase:', member.jcId);
+                    
+                    const memberData = {
+                        jcId: member.jcId,
+                        id: member.id || 'member_' + Date.now(),
+                        email: member.email,
+                        name: member.name,
+                        password: member.password || null,
+                        googleId: member.googleId || null,
+                        loginMethod: member.loginMethod || 'email',
+                        points: member.points || 0,
+                        tier: member.tier || 'PEARL',
+                        referralCode: member.referralCode,
+                        referredBy: member.referredBy || null,
+                        purchaseHistory: member.purchaseHistory || [],
+                        activityLog: member.activityLog || [],
+                        joinedDate: member.joinedDate || new Date().toISOString(),
+                        totalSpent: member.totalSpent || 0,
+                        challenges: member.challenges || [],
+                        referrals: member.referrals || [],
+                        resetToken: member.resetToken || null,
+                        resetTokenExpiry: member.resetTokenExpiry || null
+                    };
 
-                const { data, error } = await this.supabase
-                    .from('members')
-                    .upsert(memberData, { 
-                        onConflict: 'jcId'
-                    });
+                    const { data, error } = await this.supabase
+                        .from('members')
+                        .upsert(memberData, { 
+                            onConflict: 'jcId'
+                        });
 
-                if (error) {
-                    console.error('❌ Supabase save error:', error);
-                    throw error;
+                    if (error) {
+                        console.error('❌ Supabase save error:', error);
+                        throw error;
+                    }
+
+                    console.log('✅ Member saved successfully to Supabase');
+                    
+                    const cache = this.getCache();
+                    if (cache) {
+                        cache.lastSync = 0;
+                        this.setCache(cache);
+                    }
+
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to save member to Supabase:', error);
+                    return false;
                 }
-
-                console.log('✅ Member saved successfully to Supabase');
-                
-                const cache = this.getCache();
-                if (cache) {
-                    cache.lastSync = 0;
-                    this.setCache(cache);
-                }
-
-                return true;
-
-            } catch (error) {
-                console.error('❌ Failed to save member to Supabase:', error);
-                return false;
             }
-        }
 
             async deleteMember(jcId) {
                 try {
@@ -3968,6 +4002,85 @@ async function handleQRCodeDetected(qrData) {
                 } catch (error) {
                     console.error('❌ Failed to get newsletter status:', error);
                     return false;
+                }
+            }
+            
+            // 🔥 NEW: Save redemption to Supabase
+            async saveRedemptionToSupabase(redemption) {
+                try {
+                    console.log("💾 Saving redemption to Supabase:", redemption.redemptionId);
+                    
+                    const { data, error } = await this.supabase
+                        .from('redemptions') 
+                        .upsert({
+                            id: redemption.redemptionId,
+                            redemptionId: redemption.redemptionId,
+                            memberJCId: redemption.memberJCId,
+                            memberName: redemption.memberName,
+                            memberTier: redemption.memberTier,
+                            purchaseAmount: redemption.purchaseAmount,
+                            selectedOption: redemption.selectedOption,
+                            createdDate: redemption.createdDate,
+                            status: redemption.status,
+                            redeemedBy: redemption.redeemedBy,
+                            redeemedDate: redemption.redeemedDate,
+                            qrCodeData: redemption.qrCodeData
+                        }, { 
+                            onConflict: 'redemptionId'
+                        });
+
+                    if (error) {
+                        console.error("❌ Supabase redemption save error:", error);
+                        return false;
+                    }
+
+                    console.log("✅ Redemption saved to Supabase:", redemption.redemptionId);
+                    return true;
+
+                } catch (error) {
+                    console.error("❌ Failed to save redemption to Supabase:", error);
+                    return false;
+                }
+            }
+            
+            // 🔥 NEW: Get redemption from Supabase
+            async getRedemptionFromSupabase(redemptionId) {
+                try {
+                    const { data: redemption, error } = await this.supabase
+                        .from('redemptions')
+                        .select('*')
+                        .eq('redemptionId', redemptionId)
+                        .single();
+
+                    if (error) {
+                        console.error("❌ Supabase redemption fetch error:", error);
+                        return null;
+                    }
+
+                    return redemption;
+                } catch (error) {
+                    console.error("❌ Failed to fetch redemption from Supabase:", error);
+                    return null;
+                }
+            }
+            
+            // 🔥 NEW: Get all redemptions from Supabase
+            async getAllRedemptionsFromSupabase() {
+                try {
+                    const { data: redemptions, error } = await this.supabase
+                        .from('redemptions')
+                        .select('*')
+                        .order('createdDate', { ascending: false });
+
+                    if (error) {
+                        console.error("❌ Supabase redemptions fetch error:", error);
+                        return [];
+                    }
+
+                    return redemptions || [];
+                } catch (error) {
+                    console.error("❌ Failed to fetch redemptions from Supabase:", error);
+                    return [];
                 }
             }
         }
@@ -4486,7 +4599,7 @@ async function handleQRCodeDetected(qrData) {
             clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
         };
 
-        // QR Code Redemption System Implementation
+        // QR Code Redemption System Implementation - UPDATED
         class QRRedemptionSystem {
             constructor() {
                 this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
@@ -4724,7 +4837,7 @@ async function handleQRCodeDetected(qrData) {
                 return 'QR' + Date.now().toString().slice(-8);
             }
 
-            createRedemption(member, selectedOption, purchaseAmount) {
+            async createRedemption(member, selectedOption, purchaseAmount) {
                 const redemptionId = this.generateQRCodeData({ selectedOption: selectedOption });
                 
                 const redemptionData = {
@@ -4745,11 +4858,31 @@ async function handleQRCodeDetected(qrData) {
 
                 this.redemptions.push(redemptionData);
                 this.saveRedemptions();
+                
+                // 🔥 FIXED: Save to Supabase
+                await clubManager.db.saveRedemptionToSupabase(redemptionData);
 
                 return redemptionData;
             }
 
-            processRedemption(qrCodeData, salespersonName) {
+            async getRedemptionById(redemptionId) {
+                // First check local storage
+                let redemption = this.redemptions.find(r => r.redemptionId === redemptionId);
+                
+                // If not found locally, try Supabase
+                if (!redemption) {
+                    redemption = await clubManager.db.getRedemptionFromSupabase(redemptionId);
+                    if (redemption) {
+                        // Add to local cache
+                        this.redemptions.push(redemption);
+                        this.saveRedemptions();
+                    }
+                }
+                
+                return redemption;
+            }
+
+            async processRedemption(qrCodeData, salespersonName) {
                 console.log("Processing redemption with data:", qrCodeData);
                 
                 if (!salespersonName || salespersonName.trim() === '') {
@@ -4758,7 +4891,7 @@ async function handleQRCodeDetected(qrData) {
 
                 // Check if it's a pay-with-points QR code (starts with RED)
                 if (qrCodeData.startsWith('RED')) {
-                    const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
+                    const redemption = await this.getRedemptionById(qrCodeData);
                     if (redemption) {
                         if (redemption.status === 'completed') {
                             return { success: false, message: "Redemption has already been completed" };
@@ -4773,6 +4906,9 @@ async function handleQRCodeDetected(qrData) {
                         redemption.redeemedDate = new Date().toISOString();
                         this.saveRedemptions();
                         
+                        // 🔥 FIXED: Update Supabase
+                        await clubManager.db.saveRedemptionToSupabase(redemption);
+                        
                         return {
                             success: true,
                             message: `Pay-with-points redemption completed successfully by ${salespersonName}`,
@@ -4784,7 +4920,7 @@ async function handleQRCodeDetected(qrData) {
                 
                 // If not starting with RED, check if it's a voucher code (starts with JC)
                 if (qrCodeData.startsWith('JC')) {
-                    const voucherResult = voucherSystem.redeemVoucher(qrCodeData, salespersonName);
+                    const voucherResult = await voucherSystem.redeemVoucher(qrCodeData, salespersonName);
                     if (voucherResult.success) {
                         return {
                             success: true,
@@ -4796,7 +4932,7 @@ async function handleQRCodeDetected(qrData) {
                 }
                 
                 // Also check for any other redemption ID that might not start with RED
-                const redemption = this.redemptions.find(r => r.redemptionId === qrCodeData);
+                const redemption = await this.getRedemptionById(qrCodeData);
                 if (redemption) {
                     if (redemption.status === 'completed') {
                         return { success: false, message: "Redemption has already been completed" };
@@ -4810,6 +4946,9 @@ async function handleQRCodeDetected(qrData) {
                     redemption.redeemedBy = salespersonName.trim();
                     redemption.redeemedDate = new Date().toISOString();
                     this.saveRedemptions();
+                    
+                    // 🔥 FIXED: Update Supabase
+                    await clubManager.db.saveRedemptionToSupabase(redemption);
                     
                     return {
                         success: true,
@@ -4830,26 +4969,44 @@ async function handleQRCodeDetected(qrData) {
                     .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
             }
 
-            getAllRedemptions() {
-                return this.redemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
+            async getAllRedemptions() {
+                // Also get from Supabase to ensure we have all data
+                const supabaseRedemptions = await clubManager.db.getAllRedemptionsFromSupabase();
+                
+                // Merge with local redemptions
+                const allRedemptions = [...this.redemptions];
+                
+                supabaseRedemptions.forEach(supabaseRedemption => {
+                    const exists = allRedemptions.some(r => r.redemptionId === supabaseRedemption.redemptionId);
+                    if (!exists) {
+                        allRedemptions.push(supabaseRedemption);
+                    }
+                });
+                
+                // Update local storage
+                this.redemptions = allRedemptions;
+                this.saveRedemptions();
+                
+                return allRedemptions.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate));
             }
 
             saveRedemptions() {
                 localStorage.setItem('jeansClubRedemptions', JSON.stringify(this.redemptions));
             }
 
-            getRedemptionStats() {
-                const total = this.redemptions.length;
-                const pending = this.redemptions.filter(r => r.status === 'pending').length;
-                const completed = this.redemptions.filter(r => r.status === 'completed').length;
-                const expired = this.redemptions.filter(r => r.status === 'expired').length;
+            async getRedemptionStats() {
+                const allRedemptions = await this.getAllRedemptions();
+                const total = allRedemptions.length;
+                const pending = allRedemptions.filter(r => r.status === 'pending').length;
+                const completed = allRedemptions.filter(r => r.status === 'completed').length;
+                const expired = allRedemptions.filter(r => r.status === 'expired').length;
                 
-                const totalValue = this.redemptions
+                const totalValue = allRedemptions
                     .filter(r => r.status === 'completed')
                     .reduce((sum, r) => {
-                        if (r.selectedOption.type === 'points_redemption') {
+                        if (r.selectedOption && r.selectedOption.type === 'points_redemption') {
                             return sum + (r.selectedOption.maxRedemption || 0);
-                        } else if (r.selectedOption.type === 'discount_voucher') {
+                        } else if (r.selectedOption && r.selectedOption.type === 'discount_voucher') {
                             return sum + (r.selectedOption.discountAmount || 0);
                         }
                         return sum;
@@ -4942,7 +5099,7 @@ async function handleQRCodeDetected(qrData) {
             }
         };
 
-        // Main JeansClubManager
+        // Main JeansClubManager - UPDATED
         class JeansClubManager {
             constructor() {
                 this.db = new SupabaseDB();
@@ -5390,7 +5547,8 @@ async function handleQRCodeDetected(qrData) {
                     points: -points
                 });
                 
-                const voucher = voucherSystem.createVoucher(
+                // 🔥 FIXED: Wait for voucher creation to complete
+                const voucher = await voucherSystem.createVoucher(
                     this.currentMember.jcId,
                     this.currentMember.name,
                     points,
@@ -5421,7 +5579,7 @@ async function handleQRCodeDetected(qrData) {
             }
 
             async redeemVoucher(voucherCode, redeemedBy = 'staff') {
-                const result = voucherSystem.redeemVoucher(voucherCode, redeemedBy);
+                const result = await voucherSystem.redeemVoucher(voucherCode, redeemedBy);
                 
                 if (result.success) {
                     const member = await this.db.getMemberByJCId(result.voucher.memberJCId);
@@ -5668,7 +5826,8 @@ async function handleQRCodeDetected(qrData) {
                     return { success: false, message: "You must be logged in" };
                 }
                 
-                const redemption = qrRedemptionSystem.createRedemption(
+                // 🔥 FIXED: Wait for redemption creation to complete
+                const redemption = await qrRedemptionSystem.createRedemption(
                     this.currentMember,
                     selectedOption,
                     purchaseAmount
@@ -6597,7 +6756,8 @@ async function handleQRCodeDetected(qrData) {
                 
                 showToast("Generating QR code...", "info");
                 
-                const redemption = qrRedemptionSystem.createRedemption(
+                // 🔥 FIXED: Wait for redemption creation
+                const redemption = await qrRedemptionSystem.createRedemption(
                     clubManager.currentMember,
                     selectedOption,
                     purchaseAmount
@@ -6685,8 +6845,8 @@ async function handleQRCodeDetected(qrData) {
             }
         }
 
-        function loadQRRedemptionData() {
-            const stats = qrRedemptionSystem.getRedemptionStats();
+        async function loadQRRedemptionData() {
+            const stats = await qrRedemptionSystem.getRedemptionStats();
             document.getElementById('qrRedemptionStats').innerHTML = `
                 <div class="info-card">
                     <h4>Redemption Statistics</h4>
@@ -6699,7 +6859,7 @@ async function handleQRCodeDetected(qrData) {
                 </div>
             `;
             
-            const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+            const allRedemptions = await qrRedemptionSystem.getAllRedemptions();
             const allRedemptionsList = document.getElementById('allRedemptionsList');
             
             if (allRedemptions.length === 0) {
@@ -6720,9 +6880,9 @@ async function handleQRCodeDetected(qrData) {
                             <span class="redemption-status ${statusClass}">${statusText}</span>
                         </div>
                         <p><strong>Redemption ID:</strong> <span class="redemption-id">${redemption.redemptionId}</span></p>
-                        <p><strong>Type:</strong> ${redemption.selectedOption.type === 'points_redemption' ? 'Pay with Points (RED)' : 'Discount Voucher (JC)'}</p>
+                        <p><strong>Type:</strong> ${redemption.selectedOption && redemption.selectedOption.type === 'points_redemption' ? 'Pay with Points (RED)' : 'Discount Voucher (JC)'}</p>
                         <p><strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX</p>
-                        <p><strong>Option:</strong> ${redemption.selectedOption.description}</p>
+                        <p><strong>Option:</strong> ${redemption.selectedOption ? redemption.selectedOption.description : 'N/A'}</p>
                         <p><strong>Created:</strong> ${new Date(redemption.createdDate).toLocaleString()}</p>
                         ${redemption.redeemedDate ? `
                             <p><strong>Redeemed:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}</p>
@@ -6740,7 +6900,7 @@ async function handleQRCodeDetected(qrData) {
                 
                 // Check if it's a pay-with-points QR code (starts with RED)
                 if (qrData.startsWith('RED')) {
-                    const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                    const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
                     if (redemptionResult.success) {
                         return {
                             success: true,
@@ -6753,7 +6913,7 @@ async function handleQRCodeDetected(qrData) {
                 }
                 // Check if it's a discount voucher (starts with JC)
                 else if (qrData.startsWith('JC')) {
-                    const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
+                    const voucherResult = await voucherSystem.redeemVoucher(qrData, salespersonName);
                     if (voucherResult.success) {
                         return {
                             success: true,
@@ -6767,7 +6927,7 @@ async function handleQRCodeDetected(qrData) {
                 // Try both systems as fallback
                 else {
                     // First try voucher
-                    const voucherResult = voucherSystem.redeemVoucher(qrData, salespersonName);
+                    const voucherResult = await voucherSystem.redeemVoucher(qrData, salespersonName);
                     if (voucherResult.success) {
                         return {
                             success: true,
@@ -6779,7 +6939,7 @@ async function handleQRCodeDetected(qrData) {
                     }
                     
                     // Then try redemption
-                    const redemptionResult = qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                    const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
                     if (redemptionResult.success) {
                         return {
                             success: true,
@@ -6898,7 +7058,7 @@ async function handleQRCodeDetected(qrData) {
             }
         }
 
-        // Process scan manually
+        // Process scan manually - FIXED
         async function processScan() {
             const qrData = document.getElementById('voucherCodeInput').value.trim();
             const salespersonName = document.getElementById('salespersonName').value.trim();
