@@ -2746,6 +2746,14 @@
 
     <script>
         // ===========================
+        // GLOBAL VARIABLE DECLARATIONS
+        // ===========================
+        
+        let voucherSystem;
+        let qrRedemptionSystem;
+        let clubManager;
+        
+        // ===========================
         // NEW IMPROVED CAMERA SCANNER FUNCTIONALITY
         // ===========================
         
@@ -3074,349 +3082,9 @@ async function handleQRCodeDetected(qrData) {
         }
 
         // ===========================
-        // VOUCHER CLEANUP FUNCTION
-        // ===========================
-        
-        function cleanupExpiredVouchers() {
-            const now = new Date();
-            const vouchers = voucherSystem.getAllVouchers();
-            let removedCount = 0;
-            
-            // Remove vouchers expired more than 30 days ago
-            vouchers.forEach((voucher, index) => {
-                if (voucher.status === 'expired') {
-                    const expiryDate = new Date(voucher.expiryDate);
-                    const daysSinceExpiry = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
-                    
-                    if (daysSinceExpiry > 30) {
-                        // Remove from array
-                        voucherSystem.vouchers.splice(index, 1);
-                        removedCount++;
-                    }
-                }
-            });
-            
-            if (removedCount > 0) {
-                voucherSystem.saveVouchers();
-                console.log(`Cleaned up ${removedCount} expired vouchers`);
-            }
-            
-            // Schedule next cleanup in 24 hours
-            setTimeout(cleanupExpiredVouchers, 24 * 60 * 60 * 1000);
-        }
-
-        // ===========================
-        // REMAINING EXISTING CODE
-        // ===========================
-        
-        // Search Functionality
-        function showSearch() {
-            const modal = document.getElementById('searchModal');
-            modal.classList.add('active');
-            document.getElementById('searchInput').focus();
-        }
-
-        function hideSearch() {
-            const modal = document.getElementById('searchModal');
-            modal.classList.remove('active');
-            document.getElementById('searchInput').value = '';
-            document.getElementById('searchResults').innerHTML = '';
-        }
-
-        // Enhanced search functionality
-        document.getElementById('searchInput').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase().trim();
-            const resultsContainer = document.getElementById('searchResults');
-            
-            if (searchTerm.length < 2) {
-                resultsContainer.innerHTML = '<div class="search-result-item">Type at least 2 characters to search</div>';
-                return;
-            }
-            
-            performSearch(searchTerm).then(results => {
-                if (results.length === 0) {
-                    resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
-                    return;
-                }
-                
-                resultsContainer.innerHTML = results.map(result => `
-                    <div class="search-result-item" onclick="handleSearchResult('${result.type}', '${result.id}')">
-                        <strong>${result.title}</strong>
-                        <div style="font-size: 12px; opacity: 0.8;">${result.description}</div>
-                        <div style="font-size: 11px; margin-top: 5px; color: #00AFF0;">${result.type.toUpperCase()}</div>
-                    </div>
-                `).join('');
-            });
-        });
-
-        async function performSearch(term) {
-            const results = [];
-            
-            try {
-                // Search members
-                const allMembers = await clubManager.db.getAllMembers();
-                allMembers.forEach(member => {
-                    if (
-                        member.jcId.toLowerCase().includes(term) ||
-                        member.name.toLowerCase().includes(term) ||
-                        member.email.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'member',
-                            id: member.jcId,
-                            title: `${member.name} (${member.jcId})`,
-                            description: `Tier: ${member.tier} | Points: ${member.points || 0} | Email: ${member.email}`
-                        });
-                    }
-                });
-                
-                // Search vouchers
-                const allVouchers = voucherSystem.getAllVouchers();
-                allVouchers.forEach(voucher => {
-                    if (
-                        voucher.code.toLowerCase().includes(term) ||
-                        voucher.memberJCId.toLowerCase().includes(term) ||
-                        voucher.memberName.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'voucher',
-                            id: voucher.code,
-                            title: `Voucher: ${voucher.code}`,
-                            description: `Member: ${voucher.memberName} (${voucher.memberJCId}) | Discount: ${voucher.discountPercentage}% | Status: ${voucher.status}`
-                        });
-                    }
-                });
-                
-                // Search QR redemptions
-                const allRedemptions = qrRedemptionSystem.getAllRedemptions();
-                allRedemptions.forEach(redemption => {
-                    if (
-                        redemption.redemptionId.toLowerCase().includes(term) ||
-                        redemption.memberJCId.toLowerCase().includes(term) ||
-                        redemption.memberName.toLowerCase().includes(term)
-                    ) {
-                        results.push({
-                            type: 'redemption',
-                            id: redemption.redemptionId,
-                            title: `Redemption: ${redemption.redemptionId}`,
-                            description: `Member: ${redemption.memberName} | Amount: ${redemption.purchaseAmount} UGX | Status: ${redemption.status}`
-                        });
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Search error:', error);
-            }
-            
-            return results.slice(0, 20);
-        }
-
-        function handleSearchResult(type, id) {
-            hideSearch();
-            
-            switch(type) {
-                case 'member':
-                    if (clubManager.isAdmin) {
-                        showAdminPanel();
-                        showToast(`Member: ${id} selected`, 'info');
-                    }
-                    break;
-                    
-                case 'voucher':
-                    if (clubManager.isAdmin) {
-                        showAdminPanel();
-                        document.getElementById('voucherCodeInput').value = id;
-                        showToast(`Voucher: ${id} selected`, 'info');
-                    }
-                    break;
-                    
-                case 'redemption':
-                    if (clubManager.isAdmin) {
-                        showQRRedemptionManagementPanel();
-                        showToast(`Redemption: ${id} selected`, 'info');
-                    }
-                    break;
-            }
-        }
-
-        // Information Page Functions
-        function showMembershipInfo() {
-            hideAllSections();
-            document.getElementById('membershipInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showBenefits() {
-            hideAllSections();
-            document.getElementById('benefitsInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showTiers() {
-            hideAllSections();
-            document.getElementById('tiersInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showContact() {
-            hideAllSections();
-            document.getElementById('contactInfoPage').classList.remove('hidden');
-            toggleMobileMenu();
-        }
-
-        function showRewards() {
-            showQRRedemptionPanel();
-            toggleMobileMenu();
-        }
-
-        function hideAllSections() {
-            const sections = document.querySelectorAll('.card:not(.qr-share-section)');
-            sections.forEach(section => section.classList.add('hidden'));
-            
-            const infoPages = document.querySelectorAll('.info-page');
-            infoPages.forEach(page => page.classList.add('hidden'));
-        }
-
-        // Header and Navigation Functions
-        function toggleMobileMenu() {
-            const navLinks = document.getElementById('navLinks');
-            navLinks.classList.toggle('active');
-        }
-
-        function toggleUserMenu() {
-            if (clubManager.currentMember) {
-                showDashboard(clubManager.currentMember);
-            } else {
-                showLoginScreen();
-            }
-        }
-
-        // Navigation link handlers
-        function showDashboardSection() {
-            if (clubManager.currentMember) {
-                showDashboard(clubManager.currentMember);
-            } else {
-                showLoginScreen();
-            }
-            toggleMobileMenu();
-        }
-
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
-            const navLinks = document.getElementById('navLinks');
-            const menuToggle = document.querySelector('.menu-toggle');
-            
-            if (!menuToggle.contains(event.target) && !navLinks.contains(event.target)) {
-                navLinks.classList.remove('active');
-            }
-            
-            const searchModal = document.getElementById('searchModal');
-            if (searchModal.classList.contains('active') && 
-                !searchModal.contains(event.target) && 
-                event.target !== document.querySelector('.search-icon')) {
-                hideSearch();
-            }
-            
-            const cameraModal = document.getElementById('cameraScannerModal');
-            if (cameraModal.classList.contains('active') && 
-                !cameraModal.contains(event.target) && 
-                event.target !== document.querySelector('.quick-scan-btn')) {
-                closeCameraScanner();
-            }
-        });
-
-        // Close search with Escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                const searchModal = document.getElementById('searchModal');
-                if (searchModal.classList.contains('active')) {
-                    hideSearch();
-                }
-                
-                const cameraModal = document.getElementById('cameraScannerModal');
-                if (cameraModal.classList.contains('active')) {
-                    closeCameraScanner();
-                }
-            }
-        });
-
-        // Enhanced email validation function
-        function isValidEmail(email) {
-            if (!email || typeof email !== 'string') return false;
-            
-            const trimmedEmail = email.trim();
-            if (trimmedEmail.length < 8) return false;
-            
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(trimmedEmail)) return false;
-            
-            const [localPart, domain] = trimmedEmail.toLowerCase().split('@');
-            if (localPart.length === 0 || localPart.length > 64) return false;
-            
-            const localPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
-            if (!localPartRegex.test(localPart)) return false;
-            
-            if (domain.length < 4) return false;
-            const domainParts = domain.split('.');
-            if (domainParts.length < 2) return false;
-            
-            for (const part of domainParts) {
-                if (part.length === 0 || part.length > 63) return false;
-                if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(part)) return false;
-            }
-            
-            const commonDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com'];
-            const domainWithoutTld = domain.slice(0, domain.lastIndexOf('.'));
-            
-            for (const commonDomain of commonDomains) {
-                const commonDomainWithoutTld = commonDomain.slice(0, commonDomain.lastIndexOf('.'));
-                if (domainWithoutTld === commonDomainWithoutTld) {
-                    const expectedTld = commonDomain.slice(commonDomain.lastIndexOf('.') + 1);
-                    const actualTld = domainParts[domainParts.length - 1];
-                    
-                    if (actualTld !== expectedTld) {
-                        return false;
-                    }
-                }
-            }
-            
-            const tld = domainParts[domainParts.length - 1];
-            const validCommonTlds = ['com', 'org', 'net', 'edu', 'gov', 'mil', 'io', 'co', 'uk', 'us', 
-                                   'ca', 'au', 'de', 'fr', 'jp', 'cn', 'in', 'br', 'ru', 'it', 'es', 
-                                   'mx', 'kr', 'za', 'ng', 'ke', 'tz', 'ug'];
-            
-            if (tld.length <= 2 && !validCommonTlds.includes(tld.toLowerCase())) {
-                return false;
-            }
-            
-            if (tld.length < 2) return false;
-            
-            const fakePatterns = [
-                'test@', 'example@', 'fake@', 'admin@', 'user@', 'temp@', 'dummy@',
-                'a@a.a', 'aa@aa.aa', 'aaa@aaa.aaa',
-                'con', 'c', 'com',
-            ];
-            
-            const lowerEmail = trimmedEmail.toLowerCase();
-            for (const pattern of fakePatterns) {
-                if (lowerEmail.includes(pattern) && trimmedEmail.length < 10) {
-                    return false;
-                }
-            }
-            
-            if (trimmedEmail.includes('..')) return false;
-            if (trimmedEmail.includes('@@')) return false;
-            if (trimmedEmail.startsWith('.') || trimmedEmail.endsWith('.')) return false;
-            if (trimmedEmail.startsWith('@') || trimmedEmail.endsWith('@')) return false;
-            
-            if (/(\w)\1\1/.test(localPart)) {
-                return false;
-            }
-            
-            return true;
-        }
-
         // VOUCHER SYSTEM IMPLEMENTATION - FIXED VERSION
+        // ===========================
+        
         class VoucherSystem {
             constructor() {
                 this.vouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
@@ -3630,7 +3298,12 @@ async function handleQRCodeDetected(qrData) {
                 try {
                     console.log("💾 Saving voucher to Supabase:", voucher.code);
                     
-                    const { supabase } = clubManager.db;
+                    if (!window.supabaseDbInstance) {
+                        console.error("❌ Supabase DB not initialized");
+                        return false;
+                    }
+                    
+                    const { supabase } = window.supabaseDbInstance;
                     
                     // Convert camelCase to snake_case for Supabase
                     const voucherData = {
@@ -3715,7 +3388,12 @@ async function handleQRCodeDetected(qrData) {
             // 🔥 NEW: Get voucher from Supabase with snake_case column names
             async getVoucherFromSupabase(code) {
                 try {
-                    const { supabase } = clubManager.db;
+                    if (!window.supabaseDbInstance) {
+                        console.error("❌ Supabase DB not initialized");
+                        return null;
+                    }
+                    
+                    const { supabase } = window.supabaseDbInstance;
                     
                     const { data: voucher, error } = await supabase
                         .from('vouchers')
@@ -3724,6 +3402,10 @@ async function handleQRCodeDetected(qrData) {
                         .single();
 
                     if (error) {
+                        // If no voucher found, it's okay - return null
+                        if (error.code === 'PGRST116') {
+                            return null;
+                        }
                         console.error("❌ Supabase voucher fetch error:", error);
                         return null;
                     }
@@ -3767,6 +3449,9 @@ async function handleQRCodeDetected(qrData) {
                 this.cacheKey = 'jeansClubCache';
                 this.init();
                 console.log('🚀 SupabaseDB initialized with URL:', this.supabaseUrl);
+                
+                // Store globally for easy access
+                window.supabaseDbInstance = this;
             }
 
             async init() {
@@ -4160,6 +3845,10 @@ async function handleQRCodeDetected(qrData) {
                         .single();
 
                     if (error) {
+                        // If no redemption found, it's okay - return null
+                        if (error.code === 'PGRST116') {
+                            return null;
+                        }
                         console.error("❌ Supabase redemption fetch error:", error);
                         return null;
                     }
@@ -4497,7 +4186,6 @@ async function handleQRCodeDetected(qrData) {
             }
 
             // Other email template methods (purchase, discount, referral, password_reset, etc.)
-            // They remain the same as in your original code
             buildPurchaseEmail(memberData, extraData) {
                 return `<div>Purchase email content...</div>`;
             }
@@ -4997,7 +4685,9 @@ async function handleQRCodeDetected(qrData) {
                 this.saveRedemptions();
                 
                 // 🔥 FIXED: Save to Supabase
-                await clubManager.db.saveRedemptionToSupabase(redemptionData);
+                if (window.supabaseDbInstance) {
+                    await window.supabaseDbInstance.saveRedemptionToSupabase(redemptionData);
+                }
 
                 return redemptionData;
             }
@@ -5007,8 +4697,8 @@ async function handleQRCodeDetected(qrData) {
                 let redemption = this.redemptions.find(r => r.redemptionId === redemptionId);
                 
                 // If not found locally, try Supabase
-                if (!redemption) {
-                    redemption = await clubManager.db.getRedemptionFromSupabase(redemptionId);
+                if (!redemption && window.supabaseDbInstance) {
+                    redemption = await window.supabaseDbInstance.getRedemptionFromSupabase(redemptionId);
                     if (redemption) {
                         // Add to local cache
                         this.redemptions.push(redemption);
@@ -5044,7 +4734,9 @@ async function handleQRCodeDetected(qrData) {
                         this.saveRedemptions();
                         
                         // 🔥 FIXED: Update Supabase
-                        await clubManager.db.saveRedemptionToSupabase(redemption);
+                        if (window.supabaseDbInstance) {
+                            await window.supabaseDbInstance.saveRedemptionToSupabase(redemption);
+                        }
                         
                         return {
                             success: true,
@@ -5085,7 +4777,9 @@ async function handleQRCodeDetected(qrData) {
                     this.saveRedemptions();
                     
                     // 🔥 FIXED: Update Supabase
-                    await clubManager.db.saveRedemptionToSupabase(redemption);
+                    if (window.supabaseDbInstance) {
+                        await window.supabaseDbInstance.saveRedemptionToSupabase(redemption);
+                    }
                     
                     return {
                         success: true,
@@ -5108,7 +4802,10 @@ async function handleQRCodeDetected(qrData) {
 
             async getAllRedemptions() {
                 // Also get from Supabase to ensure we have all data
-                const supabaseRedemptions = await clubManager.db.getAllRedemptionsFromSupabase();
+                let supabaseRedemptions = [];
+                if (window.supabaseDbInstance) {
+                    supabaseRedemptions = await window.supabaseDbInstance.getAllRedemptionsFromSupabase();
+                }
                 
                 // Merge with local redemptions
                 const allRedemptions = [...this.redemptions];
@@ -5159,9 +4856,6 @@ async function handleQRCodeDetected(qrData) {
                 };
             }
         }
-
-        // Initialize QR redemption system
-        const qrRedemptionSystem = new QRRedemptionSystem();
 
         // Jeans Club Configuration
         const jeansClubConfig = {
@@ -6002,8 +5696,23 @@ async function handleQRCodeDetected(qrData) {
             }
         }
 
-        // Initialize Jeans Club Manager
-        const clubManager = new JeansClubManager();
+        // ===========================
+        // INITIALIZATION FUNCTION
+        // ===========================
+        
+        function initializeSystems() {
+            // Initialize systems in correct order
+            voucherSystem = new VoucherSystem();
+            qrRedemptionSystem = new QRRedemptionSystem();
+            clubManager = new JeansClubManager();
+            
+            // Make systems globally available
+            window.voucherSystem = voucherSystem;
+            window.qrRedemptionSystem = qrRedemptionSystem;
+            window.clubManager = clubManager;
+            
+            console.log("✅ All systems initialized successfully");
+        }
 
         // Google Sign-In Initialization
         function initGoogleSignIn() {
@@ -7109,47 +6818,49 @@ async function handleQRCodeDetected(qrData) {
                 console.log("☁️ Checking Supabase for code...");
                 
                 // First check vouchers in Supabase
-                const { supabase } = clubManager.db;
-                const { data: supabaseVoucher, error: voucherError } = await supabase
-                    .from('vouchers')
-                    .select('*')
-                    .eq('code', qrData)
-                    .single();
-                    
-                if (supabaseVoucher && !voucherError) {
-                    console.log("✅ Found voucher in Supabase:", supabaseVoucher);
-                    // Try to redeem it
-                    const voucherResult = await voucherSystem.redeemVoucher(qrData, salespersonName);
-                    if (voucherResult.success) {
-                        return {
-                            success: true,
-                            type: 'voucher',
-                            message: voucherResult.message,
-                            data: voucherResult.voucher,
-                            status: 'VERIFIED'
-                        };
+                if (window.supabaseDbInstance) {
+                    const { supabase } = window.supabaseDbInstance;
+                    const { data: supabaseVoucher, error: voucherError } = await supabase
+                        .from('vouchers')
+                        .select('*')
+                        .eq('code', qrData)
+                        .single();
+                        
+                    if (supabaseVoucher && !voucherError) {
+                        console.log("✅ Found voucher in Supabase:", supabaseVoucher);
+                        // Try to redeem it
+                        const voucherResult = await voucherSystem.redeemVoucher(qrData, salespersonName);
+                        if (voucherResult.success) {
+                            return {
+                                success: true,
+                                type: 'voucher',
+                                message: voucherResult.message,
+                                data: voucherResult.voucher,
+                                status: 'VERIFIED'
+                            };
+                        }
                     }
-                }
-                
-                // Then check redemptions in Supabase
-                const { data: supabaseRedemption, error: redemptionError } = await supabase
-                    .from('redemptions')
-                    .select('*')
-                    .eq('redemption_id', qrData) // Using snake_case column name
-                    .single();
                     
-                if (supabaseRedemption && !redemptionError) {
-                    console.log("✅ Found redemption in Supabase:", supabaseRedemption);
-                    // Try to redeem it
-                    const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
-                    if (redemptionResult.success) {
-                        return {
-                            success: true,
-                            type: redemptionResult.type || 'redemption',
-                            message: redemptionResult.message,
-                            data: redemptionResult.redemption || redemptionResult.voucher,
-                            status: 'VERIFIED'
-                        };
+                    // Then check redemptions in Supabase
+                    const { data: supabaseRedemption, error: redemptionError } = await supabase
+                        .from('redemptions')
+                        .select('*')
+                        .eq('redemption_id', qrData) // Using snake_case column name
+                        .single();
+                        
+                    if (supabaseRedemption && !redemptionError) {
+                        console.log("✅ Found redemption in Supabase:", supabaseRedemption);
+                        // Try to redeem it
+                        const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                        if (redemptionResult.success) {
+                            return {
+                                success: true,
+                                type: redemptionResult.type || 'redemption',
+                                message: redemptionResult.message,
+                                data: redemptionResult.redemption || redemptionResult.voucher,
+                                status: 'VERIFIED'
+                            };
+                        }
                     }
                 }
                 
@@ -7287,6 +6998,82 @@ async function handleQRCodeDetected(qrData) {
                 displayScanResults(result, false);
             }
         }
+
+        // Enhanced email validation function
+        function isValidEmail(email) {
+            if (!email || typeof email !== 'string') return false;
+            
+            const trimmedEmail = email.trim();
+            if (trimmedEmail.length < 8) return false;
+            
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(trimmedEmail)) return false;
+            
+            const [localPart, domain] = trimmedEmail.toLowerCase().split('@');
+            if (localPart.length === 0 || localPart.length > 64) return false;
+            
+            const localPartRegex = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*$/;
+            if (!localPartRegex.test(localPart)) return false;
+            
+            if (domain.length < 4) return false;
+            const domainParts = domain.split('.');
+            if (domainParts.length < 2) return false;
+            
+            for (const part of domainParts) {
+                if (part.length === 0 || part.length > 63) return false;
+                if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(part)) return false;
+            }
+            
+            const commonDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com', 'protonmail.com'];
+            const domainWithoutTld = domain.slice(0, domain.lastIndexOf('.'));
+            
+            for (const commonDomain of commonDomains) {
+                const commonDomainWithoutTld = commonDomain.slice(0, commonDomain.lastIndexOf('.'));
+                if (domainWithoutTld === commonDomainWithoutTld) {
+                    const expectedTld = commonDomain.slice(commonDomain.lastIndexOf('.') + 1);
+                    const actualTld = domainParts[domainParts.length - 1];
+                    
+                    if (actualTld !== expectedTld) {
+                        return false;
+                    }
+                }
+            }
+            
+            const tld = domainParts[domainParts.length - 1];
+            const validCommonTlds = ['com', 'org', 'net', 'edu', 'gov', 'mil', 'io', 'co', 'uk', 'us', 
+                                   'ca', 'au', 'de', 'fr', 'jp', 'cn', 'in', 'br', 'ru', 'it', 'es', 
+                                   'mx', 'kr', 'za', 'ng', 'ke', 'tz', 'ug'];
+            
+            if (tld.length <= 2 && !validCommonTlds.includes(tld.toLowerCase())) {
+                return false;
+            }
+            
+            if (tld.length < 2) return false;
+            
+            const fakePatterns = [
+                'test@', 'example@', 'fake@', 'admin@', 'user@', 'temp@', 'dummy@',
+                'a@a.a', 'aa@aa.aa', 'aaa@aaa.aaa',
+                'con', 'c', 'com',
+            ];
+            
+            const lowerEmail = trimmedEmail.toLowerCase();
+            for (const pattern of fakePatterns) {
+                if (lowerEmail.includes(pattern) && trimmedEmail.length < 10) {
+                    return false;
+                }
+            }
+            
+            if (trimmedEmail.includes('..')) return false;
+            if (trimmedEmail.includes('@@')) return false;
+            if (trimmedEmail.startsWith('.') || trimmedEmail.endsWith('.')) return false;
+            if (trimmedEmail.startsWith('@') || trimmedEmail.endsWith('@')) return false;
+            
+            if (/(\w)\1\1/.test(localPart)) {
+                return false;
+            }
+            
+            return true;
+        }
          
         // Toast notification system
         function showToast(message, type = "info") {
@@ -7333,8 +7120,242 @@ async function handleQRCodeDetected(qrData) {
         `;
         document.head.appendChild(style);
 
+        // Information Page Functions
+        function showMembershipInfo() {
+            hideAllSections();
+            document.getElementById('membershipInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showBenefits() {
+            hideAllSections();
+            document.getElementById('benefitsInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showTiers() {
+            hideAllSections();
+            document.getElementById('tiersInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showContact() {
+            hideAllSections();
+            document.getElementById('contactInfoPage').classList.remove('hidden');
+            toggleMobileMenu();
+        }
+
+        function showRewards() {
+            showQRRedemptionPanel();
+            toggleMobileMenu();
+        }
+
+        function hideAllSections() {
+            const sections = document.querySelectorAll('.card:not(.qr-share-section)');
+            sections.forEach(section => section.classList.add('hidden'));
+            
+            const infoPages = document.querySelectorAll('.info-page');
+            infoPages.forEach(page => page.classList.add('hidden'));
+        }
+
+        // Header and Navigation Functions
+        function toggleMobileMenu() {
+            const navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('active');
+        }
+
+        function toggleUserMenu() {
+            if (clubManager.currentMember) {
+                showDashboard(clubManager.currentMember);
+            } else {
+                showLoginScreen();
+            }
+        }
+
+        // Navigation link handlers
+        function showDashboardSection() {
+            if (clubManager.currentMember) {
+                showDashboard(clubManager.currentMember);
+            } else {
+                showLoginScreen();
+            }
+            toggleMobileMenu();
+        }
+
+        // Search Functionality
+        function showSearch() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.add('active');
+            document.getElementById('searchInput').focus();
+        }
+
+        function hideSearch() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.remove('active');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+        }
+
+        // Enhanced search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const resultsContainer = document.getElementById('searchResults');
+            
+            if (searchTerm.length < 2) {
+                resultsContainer.innerHTML = '<div class="search-result-item">Type at least 2 characters to search</div>';
+                return;
+            }
+            
+            performSearch(searchTerm).then(results => {
+                if (results.length === 0) {
+                    resultsContainer.innerHTML = '<div class="search-result-item">No results found</div>';
+                    return;
+                }
+                
+                resultsContainer.innerHTML = results.map(result => `
+                    <div class="search-result-item" onclick="handleSearchResult('${result.type}', '${result.id}')">
+                        <strong>${result.title}</strong>
+                        <div style="font-size: 12px; opacity: 0.8;">${result.description}</div>
+                        <div style="font-size: 11px; margin-top: 5px; color: #00AFF0;">${result.type.toUpperCase()}</div>
+                    </div>
+                `).join('');
+            });
+        });
+
+        async function performSearch(term) {
+            const results = [];
+            
+            try {
+                // Search members
+                const allMembers = await clubManager.db.getAllMembers();
+                allMembers.forEach(member => {
+                    if (
+                        member.jcId.toLowerCase().includes(term) ||
+                        member.name.toLowerCase().includes(term) ||
+                        member.email.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'member',
+                            id: member.jcId,
+                            title: `${member.name} (${member.jcId})`,
+                            description: `Tier: ${member.tier} | Points: ${member.points || 0} | Email: ${member.email}`
+                        });
+                    }
+                });
+                
+                // Search vouchers
+                const allVouchers = voucherSystem.getAllVouchers();
+                allVouchers.forEach(voucher => {
+                    if (
+                        voucher.code.toLowerCase().includes(term) ||
+                        voucher.memberJCId.toLowerCase().includes(term) ||
+                        voucher.memberName.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'voucher',
+                            id: voucher.code,
+                            title: `Voucher: ${voucher.code}`,
+                            description: `Member: ${voucher.memberName} (${voucher.memberJCId}) | Discount: ${voucher.discountPercentage}% | Status: ${voucher.status}`
+                        });
+                    }
+                });
+                
+                // Search QR redemptions
+                const allRedemptions = qrRedemptionSystem.getAllRedemptions();
+                allRedemptions.forEach(redemption => {
+                    if (
+                        redemption.redemptionId.toLowerCase().includes(term) ||
+                        redemption.memberJCId.toLowerCase().includes(term) ||
+                        redemption.memberName.toLowerCase().includes(term)
+                    ) {
+                        results.push({
+                            type: 'redemption',
+                            id: redemption.redemptionId,
+                            title: `Redemption: ${redemption.redemptionId}`,
+                            description: `Member: ${redemption.memberName} | Amount: ${redemption.purchaseAmount} UGX | Status: ${redemption.status}`
+                        });
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+            
+            return results.slice(0, 20);
+        }
+
+        function handleSearchResult(type, id) {
+            hideSearch();
+            
+            switch(type) {
+                case 'member':
+                    if (clubManager.isAdmin) {
+                        showAdminPanel();
+                        showToast(`Member: ${id} selected`, 'info');
+                    }
+                    break;
+                    
+                case 'voucher':
+                    if (clubManager.isAdmin) {
+                        showAdminPanel();
+                        document.getElementById('voucherCodeInput').value = id;
+                        showToast(`Voucher: ${id} selected`, 'info');
+                    }
+                    break;
+                    
+                case 'redemption':
+                    if (clubManager.isAdmin) {
+                        showQRRedemptionManagementPanel();
+                        showToast(`Redemption: ${id} selected`, 'info');
+                    }
+                    break;
+            }
+        }
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const navLinks = document.getElementById('navLinks');
+            const menuToggle = document.querySelector('.menu-toggle');
+            
+            if (!menuToggle.contains(event.target) && !navLinks.contains(event.target)) {
+                navLinks.classList.remove('active');
+            }
+            
+            const searchModal = document.getElementById('searchModal');
+            if (searchModal.classList.contains('active') && 
+                !searchModal.contains(event.target) && 
+                event.target !== document.querySelector('.search-icon')) {
+                hideSearch();
+            }
+            
+            const cameraModal = document.getElementById('cameraScannerModal');
+            if (cameraModal.classList.contains('active') && 
+                !cameraModal.contains(event.target) && 
+                event.target !== document.querySelector('.quick-scan-btn')) {
+                closeCameraScanner();
+            }
+        });
+
+        // Close search with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const searchModal = document.getElementById('searchModal');
+                if (searchModal.classList.contains('active')) {
+                    hideSearch();
+                }
+                
+                const cameraModal = document.getElementById('cameraScannerModal');
+                if (cameraModal.classList.contains('active')) {
+                    closeCameraScanner();
+                }
+            }
+        });
+
         // Initialize on load
         window.onload = function() {
+            // Initialize systems first
+            initializeSystems();
+            
             if (typeof google !== 'undefined') {
                 setTimeout(initGoogleSignIn, 1000);
             }
@@ -7391,9 +7412,6 @@ async function handleQRCodeDetected(qrData) {
         });
 
         // Export functionality for testing
-        window.jeansClubManager = clubManager;
-        window.voucherSystem = voucherSystem;
-        window.qrRedemptionSystem = qrRedemptionSystem;
         window.showToast = showToast;
         window.openCameraScanner = openCameraScanner;
         window.closeCameraScanner = closeCameraScanner;
