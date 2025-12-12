@@ -3416,7 +3416,7 @@ async function handleQRCodeDetected(qrData) {
             return true;
         }
 
-        // VOUCHER SYSTEM IMPLEMENTATION
+        // VOUCHER SYSTEM IMPLEMENTATION - FIXED VERSION
         class VoucherSystem {
             constructor() {
                 this.vouchers = JSON.parse(localStorage.getItem('jeansClubVouchers') || '[]');
@@ -3625,34 +3625,48 @@ async function handleQRCodeDetected(qrData) {
                 localStorage.setItem('jeansClubVouchers', JSON.stringify(this.vouchers));
             }
             
-            // 🔥 FIXED: Save voucher to Supabase
+            // 🔥 FIXED: Save voucher to Supabase with snake_case column names
             async saveVoucherToSupabase(voucher) {
                 try {
                     console.log("💾 Saving voucher to Supabase:", voucher.code);
                     
                     const { supabase } = clubManager.db;
                     
+                    // Convert camelCase to snake_case for Supabase
+                    const voucherData = {
+                        id: voucher.id,
+                        code: voucher.code,
+                        member_jc_id: voucher.memberJCId,  // Changed to snake_case
+                        member_name: voucher.memberName,   // Changed to snake_case
+                        points_used: voucher.pointsUsed,   // Changed to snake_case
+                        discount_percentage: voucher.discountPercentage, // Changed to snake_case
+                        created_date: voucher.createdDate, // Changed to snake_case
+                        expiry_date: voucher.expiryDate,   // Changed to snake_case
+                        status: voucher.status,
+                        used_date: voucher.usedDate,       // Changed to snake_case
+                        redeemed_by: voucher.redeemedBy,   // Changed to snake_case
+                        qr_code_data: voucher.qrCodeData   // Changed to snake_case
+                    };
+
+                    console.log("📤 Voucher data for Supabase:", voucherData);
+
                     const { data, error } = await supabase
                         .from('vouchers')
-                        .upsert({
-                            id: voucher.id,
-                            code: voucher.code,
-                            memberJCId: voucher.memberJCId,
-                            memberName: voucher.memberName,
-                            pointsUsed: voucher.pointsUsed,
-                            discountPercentage: voucher.discountPercentage,
-                            createdDate: voucher.createdDate,
-                            expiryDate: voucher.expiryDate,
-                            status: voucher.status,
-                            usedDate: voucher.usedDate,
-                            redeemedBy: voucher.redeemedBy,
-                            qrCodeData: voucher.qrCodeData
-                        }, { 
+                        .upsert(voucherData, { 
                             onConflict: 'code'
                         });
 
                     if (error) {
                         console.error("❌ Supabase voucher save error:", error);
+                        
+                        // If table doesn't exist, show instructions
+                        if (error.message.includes('relation "vouchers" does not exist')) {
+                            console.error("❌ Vouchers table doesn't exist. Creating it...");
+                            await this.createVouchersTable();
+                            // Retry after creating table
+                            return this.saveVoucherToSupabase(voucher);
+                        }
+                        
                         return false;
                     }
 
@@ -3665,7 +3679,40 @@ async function handleQRCodeDetected(qrData) {
                 }
             }
             
-            // 🔥 NEW: Get voucher from Supabase
+            // 🔥 NEW: Create vouchers table if it doesn't exist
+            async createVouchersTable() {
+                try {
+                    const sql = `
+                        CREATE TABLE IF NOT EXISTS vouchers (
+                            id TEXT PRIMARY KEY,
+                            code TEXT UNIQUE NOT NULL,
+                            member_jc_id TEXT NOT NULL,
+                            member_name TEXT NOT NULL,
+                            points_used INTEGER NOT NULL,
+                            discount_percentage DECIMAL(5,2) NOT NULL,
+                            created_date TIMESTAMP WITH TIME ZONE NOT NULL,
+                            expiry_date TIMESTAMP WITH TIME ZONE NOT NULL,
+                            status TEXT NOT NULL CHECK (status IN ('active', 'used', 'expired')),
+                            used_date TIMESTAMP WITH TIME ZONE,
+                            redeemed_by TEXT,
+                            qr_code_data TEXT,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        );
+                    `;
+                    
+                    console.log("📊 Creating vouchers table...");
+                    // Note: In production, you'd need to run this SQL in Supabase dashboard
+                    // For now, just show the SQL
+                    alert(`Please run this SQL in your Supabase SQL Editor:\n\n${sql}`);
+                    
+                    return false; // Table creation needs manual intervention
+                } catch (error) {
+                    console.error("❌ Failed to create vouchers table:", error);
+                    return false;
+                }
+            }
+            
+            // 🔥 NEW: Get voucher from Supabase with snake_case column names
             async getVoucherFromSupabase(code) {
                 try {
                     const { supabase } = clubManager.db;
@@ -3681,7 +3728,25 @@ async function handleQRCodeDetected(qrData) {
                         return null;
                     }
 
-                    return voucher;
+                    // Convert snake_case back to camelCase for app use
+                    if (voucher) {
+                        return {
+                            id: voucher.id,
+                            code: voucher.code,
+                            memberJCId: voucher.member_jc_id,
+                            memberName: voucher.member_name,
+                            pointsUsed: voucher.points_used,
+                            discountPercentage: voucher.discount_percentage,
+                            createdDate: voucher.created_date,
+                            expiryDate: voucher.expiry_date,
+                            status: voucher.status,
+                            usedDate: voucher.used_date,
+                            redeemedBy: voucher.redeemed_by,
+                            qrCodeData: voucher.qr_code_data
+                        };
+                    }
+                    
+                    return null;
                 } catch (error) {
                     console.error("❌ Failed to fetch voucher from Supabase:", error);
                     return null;
@@ -3689,13 +3754,10 @@ async function handleQRCodeDetected(qrData) {
             }
         }
 
-        // Initialize voucher system
-        const voucherSystem = new VoucherSystem();
-
         // Import Supabase
         const { createClient } = supabase;
 
-        // Supabase Database Manager - UPDATED
+        // Supabase Database Manager - FIXED VERSION
         class SupabaseDB {
             constructor() {
                 this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
@@ -4005,32 +4067,46 @@ async function handleQRCodeDetected(qrData) {
                 }
             }
             
-            // 🔥 NEW: Save redemption to Supabase
+            // 🔥 FIXED: Save redemption to Supabase with snake_case column names
             async saveRedemptionToSupabase(redemption) {
                 try {
                     console.log("💾 Saving redemption to Supabase:", redemption.redemptionId);
                     
+                    // Convert camelCase to snake_case for Supabase
+                    const redemptionData = {
+                        id: redemption.redemptionId, // Using redemptionId as primary key
+                        redemption_id: redemption.redemptionId, // Changed to snake_case
+                        member_jc_id: redemption.memberJCId, // Changed to snake_case
+                        member_name: redemption.memberName, // Changed to snake_case
+                        member_tier: redemption.memberTier, // Changed to snake_case
+                        purchase_amount: redemption.purchaseAmount, // Changed to snake_case
+                        selected_option: redemption.selectedOption, // Changed to snake_case
+                        created_date: redemption.createdDate, // Changed to snake_case
+                        status: redemption.status,
+                        redeemed_by: redemption.redeemedBy, // Changed to snake_case
+                        redeemed_date: redemption.redeemedDate, // Changed to snake_case
+                        qr_code_data: redemption.qrCodeData // Changed to snake_case
+                    };
+
+                    console.log("📤 Redemption data for Supabase:", redemptionData);
+
                     const { data, error } = await this.supabase
                         .from('redemptions') 
-                        .upsert({
-                            id: redemption.redemptionId,
-                            redemptionId: redemption.redemptionId,
-                            memberJCId: redemption.memberJCId,
-                            memberName: redemption.memberName,
-                            memberTier: redemption.memberTier,
-                            purchaseAmount: redemption.purchaseAmount,
-                            selectedOption: redemption.selectedOption,
-                            createdDate: redemption.createdDate,
-                            status: redemption.status,
-                            redeemedBy: redemption.redeemedBy,
-                            redeemedDate: redemption.redeemedDate,
-                            qrCodeData: redemption.qrCodeData
-                        }, { 
-                            onConflict: 'redemptionId'
+                        .upsert(redemptionData, { 
+                            onConflict: 'redemption_id'
                         });
 
                     if (error) {
                         console.error("❌ Supabase redemption save error:", error);
+                        
+                        // If table doesn't exist, show instructions
+                        if (error.message.includes('relation "redemptions" does not exist')) {
+                            console.error("❌ Redemptions table doesn't exist. Creating it...");
+                            await this.createRedemptionsTable();
+                            // Retry after creating table
+                            return this.saveRedemptionToSupabase(redemption);
+                        }
+                        
                         return false;
                     }
 
@@ -4043,13 +4119,44 @@ async function handleQRCodeDetected(qrData) {
                 }
             }
             
-            // 🔥 NEW: Get redemption from Supabase
+            // 🔥 NEW: Create redemptions table if it doesn't exist
+            async createRedemptionsTable() {
+                try {
+                    const sql = `
+                        CREATE TABLE IF NOT EXISTS redemptions (
+                            id TEXT PRIMARY KEY,
+                            redemption_id TEXT UNIQUE NOT NULL,
+                            member_jc_id TEXT NOT NULL,
+                            member_name TEXT NOT NULL,
+                            member_tier TEXT NOT NULL,
+                            purchase_amount DECIMAL(10,2) NOT NULL,
+                            selected_option JSONB,
+                            created_date TIMESTAMP WITH TIME ZONE NOT NULL,
+                            status TEXT NOT NULL CHECK (status IN ('pending', 'completed', 'expired')),
+                            redeemed_by TEXT,
+                            redeemed_date TIMESTAMP WITH TIME ZONE,
+                            qr_code_data TEXT,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        );
+                    `;
+                    
+                    console.log("📊 Creating redemptions table...");
+                    alert(`Please run this SQL in your Supabase SQL Editor:\n\n${sql}`);
+                    
+                    return false; // Table creation needs manual intervention
+                } catch (error) {
+                    console.error("❌ Failed to create redemptions table:", error);
+                    return false;
+                }
+            }
+            
+            // 🔥 FIXED: Get redemption from Supabase with snake_case column names
             async getRedemptionFromSupabase(redemptionId) {
                 try {
                     const { data: redemption, error } = await this.supabase
                         .from('redemptions')
                         .select('*')
-                        .eq('redemptionId', redemptionId)
+                        .eq('redemption_id', redemptionId) // Using snake_case column name
                         .single();
 
                     if (error) {
@@ -4057,27 +4164,57 @@ async function handleQRCodeDetected(qrData) {
                         return null;
                     }
 
-                    return redemption;
+                    // Convert snake_case back to camelCase for app use
+                    if (redemption) {
+                        return {
+                            redemptionId: redemption.redemption_id,
+                            memberJCId: redemption.member_jc_id,
+                            memberName: redemption.member_name,
+                            memberTier: redemption.member_tier,
+                            purchaseAmount: redemption.purchase_amount,
+                            selectedOption: redemption.selected_option,
+                            createdDate: redemption.created_date,
+                            status: redemption.status,
+                            redeemedBy: redemption.redeemed_by,
+                            redeemedDate: redemption.redeemed_date,
+                            qrCodeData: redemption.qr_code_data
+                        };
+                    }
+                    
+                    return null;
                 } catch (error) {
                     console.error("❌ Failed to fetch redemption from Supabase:", error);
                     return null;
                 }
             }
             
-            // 🔥 NEW: Get all redemptions from Supabase
+            // 🔥 FIXED: Get all redemptions from Supabase
             async getAllRedemptionsFromSupabase() {
                 try {
                     const { data: redemptions, error } = await this.supabase
                         .from('redemptions')
                         .select('*')
-                        .order('createdDate', { ascending: false });
+                        .order('created_date', { ascending: false });
 
                     if (error) {
                         console.error("❌ Supabase redemptions fetch error:", error);
                         return [];
                     }
 
-                    return redemptions || [];
+                    // Convert snake_case back to camelCase for app use
+                    return redemptions.map(redemption => ({
+                        redemptionId: redemption.redemption_id,
+                        memberJCId: redemption.member_jc_id,
+                        memberName: redemption.member_name,
+                        memberTier: redemption.member_tier,
+                        purchaseAmount: redemption.purchase_amount,
+                        selectedOption: redemption.selected_option,
+                        createdDate: redemption.created_date,
+                        status: redemption.status,
+                        redeemedBy: redemption.redeemed_by,
+                        redeemedDate: redemption.redeemed_date,
+                        qrCodeData: redemption.qr_code_data
+                    }));
                 } catch (error) {
                     console.error("❌ Failed to fetch redemptions from Supabase:", error);
                     return [];
@@ -4599,7 +4736,7 @@ async function handleQRCodeDetected(qrData) {
             clientId: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com'
         };
 
-        // QR Code Redemption System Implementation - UPDATED
+        // QR Code Redemption System Implementation - FIXED VERSION
         class QRRedemptionSystem {
             constructor() {
                 this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
@@ -6893,14 +7030,18 @@ async function handleQRCodeDetected(qrData) {
             }).join('');
         }
         
-        // Process scan data - UPDATED VERSION
+        // Process scan data - FIXED VERSION with snake_case support
         async function processScanData(qrData, salespersonName) {
             try {
-                console.log("Processing scan data:", qrData);
+                console.log("🔍 Processing scan data:", qrData);
+                console.log("🧑 Salesperson:", salespersonName);
                 
                 // Check if it's a pay-with-points QR code (starts with RED)
                 if (qrData.startsWith('RED')) {
+                    console.log("💰 Detected Pay-with-Points QR code (RED)");
                     const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                    console.log("📊 Redemption result:", redemptionResult);
+                    
                     if (redemptionResult.success) {
                         return {
                             success: true,
@@ -6909,11 +7050,16 @@ async function handleQRCodeDetected(qrData) {
                             data: redemptionResult.redemption,
                             status: 'VERIFIED'
                         };
+                    } else {
+                        console.log("❌ Redemption failed:", redemptionResult.message);
                     }
                 }
                 // Check if it's a discount voucher (starts with JC)
                 else if (qrData.startsWith('JC')) {
+                    console.log("🎫 Detected Discount Voucher QR code (JC)");
                     const voucherResult = await voucherSystem.redeemVoucher(qrData, salespersonName);
+                    console.log("📊 Voucher result:", voucherResult);
+                    
                     if (voucherResult.success) {
                         return {
                             success: true,
@@ -6922,12 +7068,18 @@ async function handleQRCodeDetected(qrData) {
                             data: voucherResult.voucher,
                             status: 'VERIFIED'
                         };
+                    } else {
+                        console.log("❌ Voucher redemption failed:", voucherResult.message);
                     }
                 }
                 // Try both systems as fallback
                 else {
+                    console.log("🔍 Unknown QR format, trying both systems...");
+                    
                     // First try voucher
                     const voucherResult = await voucherSystem.redeemVoucher(qrData, salespersonName);
+                    console.log("📊 Voucher fallback result:", voucherResult);
+                    
                     if (voucherResult.success) {
                         return {
                             success: true,
@@ -6940,6 +7092,8 @@ async function handleQRCodeDetected(qrData) {
                     
                     // Then try redemption
                     const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                    console.log("📊 Redemption fallback result:", redemptionResult);
+                    
                     if (redemptionResult.success) {
                         return {
                             success: true,
@@ -6951,15 +7105,63 @@ async function handleQRCodeDetected(qrData) {
                     }
                 }
                 
-                // If not found, it's rejected
+                // If not found in local storage, check Supabase
+                console.log("☁️ Checking Supabase for code...");
+                
+                // First check vouchers in Supabase
+                const { supabase } = clubManager.db;
+                const { data: supabaseVoucher, error: voucherError } = await supabase
+                    .from('vouchers')
+                    .select('*')
+                    .eq('code', qrData)
+                    .single();
+                    
+                if (supabaseVoucher && !voucherError) {
+                    console.log("✅ Found voucher in Supabase:", supabaseVoucher);
+                    // Try to redeem it
+                    const voucherResult = await voucherSystem.redeemVoucher(qrData, salespersonName);
+                    if (voucherResult.success) {
+                        return {
+                            success: true,
+                            type: 'voucher',
+                            message: voucherResult.message,
+                            data: voucherResult.voucher,
+                            status: 'VERIFIED'
+                        };
+                    }
+                }
+                
+                // Then check redemptions in Supabase
+                const { data: supabaseRedemption, error: redemptionError } = await supabase
+                    .from('redemptions')
+                    .select('*')
+                    .eq('redemption_id', qrData) // Using snake_case column name
+                    .single();
+                    
+                if (supabaseRedemption && !redemptionError) {
+                    console.log("✅ Found redemption in Supabase:", supabaseRedemption);
+                    // Try to redeem it
+                    const redemptionResult = await qrRedemptionSystem.processRedemption(qrData, salespersonName);
+                    if (redemptionResult.success) {
+                        return {
+                            success: true,
+                            type: redemptionResult.type || 'redemption',
+                            message: redemptionResult.message,
+                            data: redemptionResult.redemption || redemptionResult.voucher,
+                            status: 'VERIFIED'
+                        };
+                    }
+                }
+                
+                console.log("❌ QR code not found anywhere");
                 return {
                     success: false,
-                    message: "Invalid QR code or redemption ID",
+                    message: "Invalid QR code. Not found in system.",
                     status: 'REJECTED'
                 };
                 
             } catch (error) {
-                console.error("Scan processing error:", error);
+                console.error("❌ Scan processing error:", error);
                 return {
                     success: false,
                     message: "Error processing QR code: " + error.message,
