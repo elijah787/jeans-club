@@ -3471,32 +3471,35 @@ async function handleQRCodeDetected(qrData) {
             }
 
             createVoucher(memberJCId, memberName, pointsUsed, discountPercentage, expiryDays = 30) {
-                const voucherCode = this.generateVoucherCode();
-                const createdDate = new Date();
-                const expiryDate = new Date();
-                expiryDate.setDate(expiryDate.getDate() + expiryDays);
+    const voucherCode = this.generateVoucherCode();
+    const createdDate = new Date();
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + expiryDays);
 
-                const voucher = {
-                    id: 'voucher_' + Date.now(),
-                    code: voucherCode,
-                    memberJCId: memberJCId,
-                    memberName: memberName,
-                    pointsUsed: pointsUsed,
-                    discountPercentage: discountPercentage,
-                    createdDate: createdDate.toISOString(),
-                    expiryDate: expiryDate.toISOString(),
-                    status: 'active',
-                    usedDate: null,
-                    qrCodeData: this.generateQRCodeData(voucherCode) // SIMPLE TEXT
-                };
+    const voucher = {
+        id: 'voucher_' + Date.now(),
+        code: voucherCode,
+        memberJCId: memberJCId,
+        memberName: memberName,
+        pointsUsed: pointsUsed,
+        discountPercentage: discountPercentage,
+        createdDate: createdDate.toISOString(),
+        expiryDate: expiryDate.toISOString(),
+        status: 'active',
+        usedDate: null,
+        qrCodeData: this.generateQRCodeData(voucherCode)
+    };
 
-                this.vouchers.push(voucher);
-                this.saveVouchers();
+    this.vouchers.push(voucher);
+    this.saveVouchers();
+    
+    // 🔥 NEW: Also save to Supabase
+    this.saveVoucherToSupabase(voucher);
 
-                this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
+    this.logVoucherActivity(voucherCode, 'created', memberJCId, `Voucher created: ${discountPercentage}% discount`);
 
-                return voucher;
-            }
+    return voucher;
+}
 
             getMemberVouchers(memberJCId) {
                 return this.vouchers.filter(v => v.memberJCId === memberJCId)
@@ -3512,38 +3515,42 @@ async function handleQRCodeDetected(qrData) {
             }
 
             redeemVoucher(voucherCode, redeemedBy = 'system') {
-                const voucher = this.getVoucherByCode(voucherCode);
-                if (!voucher) {
-                    return { success: false, message: "Voucher not found" };
-                }
+    const voucher = this.getVoucherByCode(voucherCode);
+    if (!voucher) {
+        return { success: false, message: "Voucher not found" };
+    }
 
-                if (voucher.status === 'used') {
-                    return { success: false, message: "Voucher has already been used" };
-                }
+    if (voucher.status === 'used') {
+        return { success: false, message: "Voucher has already been used" };
+    }
 
-                if (voucher.status === 'expired') {
-                    return { success: false, message: "Voucher has expired" };
-                }
+    if (voucher.status === 'expired') {
+        return { success: false, message: "Voucher has expired" };
+    }
 
-                if (new Date() > new Date(voucher.expiryDate)) {
-                    voucher.status = 'expired';
-                    this.saveVouchers();
-                    return { success: false, message: "Voucher has expired" };
-                }
+    if (new Date() > new Date(voucher.expiryDate)) {
+        voucher.status = 'expired';
+        this.saveVouchers();
+        this.saveVoucherToSupabase(voucher); // 🔥 NEW
+        return { success: false, message: "Voucher has expired" };
+    }
 
-                voucher.status = 'used';
-                voucher.usedDate = new Date().toISOString();
-                voucher.redeemedBy = redeemedBy;
-                this.saveVouchers();
+    voucher.status = 'used';
+    voucher.usedDate = new Date().toISOString();
+    voucher.redeemedBy = redeemedBy;
+    this.saveVouchers();
+    
+    // 🔥 NEW: Also update in Supabase
+    this.saveVoucherToSupabase(voucher);
 
-                this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
+    this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
 
-                return { 
-                    success: true, 
-                    message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
-                    voucher: voucher
-                };
-            }
+    return { 
+        success: true, 
+        message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
+        voucher: voucher
+    };
+}
 
             updateVoucherStatuses() {
                 const now = new Date();
@@ -3604,6 +3611,48 @@ async function handleQRCodeDetected(qrData) {
             saveVouchers() {
                 localStorage.setItem('jeansClubVouchers', JSON.stringify(this.vouchers));
             }
+                // ... existing methods ...
+
+    // 🔥 ADD THIS NEW METHOD:
+    async saveVoucherToSupabase(voucher) {
+        try {
+            console.log("💾 Saving voucher to Supabase:", voucher.code);
+            
+            const { supabase } = clubManager.db; // Access Supabase client
+            
+            const { data, error } = await supabase
+                .from('vouchers') // You need to create this table in Supabase
+                .upsert({
+                    id: voucher.id,
+                    code: voucher.code,
+                    memberJCId: voucher.memberJCId,
+                    memberName: voucher.memberName,
+                    pointsUsed: voucher.pointsUsed,
+                    discountPercentage: voucher.discountPercentage,
+                    createdDate: voucher.createdDate,
+                    expiryDate: voucher.expiryDate,
+                    status: voucher.status,
+                    usedDate: voucher.usedDate,
+                    qrCodeData: voucher.qrCodeData
+                }, { 
+                    onConflict: 'code'
+                });
+
+            if (error) {
+                console.error("❌ Supabase voucher save error:", error);
+                return false;
+            }
+
+            console.log("✅ Voucher saved to Supabase:", voucher.code);
+            return true;
+
+        } catch (error) {
+            console.error("❌ Failed to save voucher to Supabase:", error);
+            return false;
+        }
+    }
+
+
         }
 
         // Initialize voucher system
