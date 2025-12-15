@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -211,7 +210,7 @@
             min-height: 100vh;
         }
 
-        /* Hero Section - REMOVED THE STATEMENT */
+        /* Hero Section */
         .hero-section {
             color: white;
             padding: 100px 20px;
@@ -1865,10 +1864,10 @@
         </nav>
     </header>
 
-    <!-- Hero Section - REMOVED THE PROBLEMATIC STATEMENT -->
+    <!-- Hero Section -->
     <section class="hero-section">
         <h1 class="hero-title">Raised on Denim</h1>
-        <!-- Statement removed as requested -->
+        <p class="hero-subtitle">Experience premium denim with exclusive tiered privileges. Earn 1 point for every 1,000 UGX spent. Each point = 250 UGX discount. Join our loyalty program and unlock amazing rewards with every purchase.</p>
     </section>
 
     <div class="container" id="main-content">
@@ -2375,7 +2374,6 @@
             <div class="form-group">
                 <label for="userEmail">Email Address</label>
                 <input type="email" id="userEmail" placeholder="Enter your email" autocomplete="off">
-                <small style="color: #666; display: block; margin-top: 5px;">Use your real email address. Temporary/disposable emails are blocked.</small>
             </div>
             <div class="form-group">
                 <label for="userPassword">Password</label>
@@ -2384,7 +2382,6 @@
             <div class="form-group">
                 <label for="referralCode">Referral Code (Optional)</label>
                 <input type="text" id="referralCode" placeholder="Enter referral code if any" autocomplete="off">
-                <small style="color: #666; display: block; margin-top: 5px;">Cannot use your own referral code</small>
             </div>
             
             <div class="newsletter-checkbox">
@@ -3622,7 +3619,6 @@ async getVoucherFromSupabase(code) {
                         jcId: member.jcId,
                         id: member.id || 'member_' + Date.now(),
                         email: member.email,
-                        normalized_email: normalizeEmailForDatabase(member.email), // NEW: Store normalized email
                         name: member.name,
                         password: member.password || null,
                         googleId: member.googleId || null,
@@ -3638,8 +3634,7 @@ async getVoucherFromSupabase(code) {
                         challenges: member.challenges || [],
                         referrals: member.referrals || [],
                         resetToken: member.resetToken || null,
-                        resetTokenExpiry: member.resetTokenExpiry || null,
-                        ip_address: member.ip_address || 'unknown' // NEW: Store IP for fraud detection
+                        resetTokenExpiry: member.resetTokenExpiry || null
                     };
 
                     const { data, error } = await this.supabase
@@ -3735,7 +3730,7 @@ async getVoucherFromSupabase(code) {
                     const { data: member, error } = await this.supabase
                         .from('members')
                         .select('*')
-                        .eq('normalized_email', normalizeEmailForDatabase(email)) // NEW: Use normalized email
+                        .eq('email', email)
                         .single();
 
                     if (error && error.code !== 'PGRST116') {
@@ -3750,7 +3745,7 @@ async getVoucherFromSupabase(code) {
                     
                     const cache = this.getCache();
                     if (cache?.members) {
-                        return cache.members.find(m => normalizeEmailForDatabase(m.email) === normalizeEmailForDatabase(email)) || null;
+                        return cache.members.find(m => m.email === email) || null;
                     }
                     
                     return null;
@@ -3765,7 +3760,6 @@ async getVoucherFromSupabase(code) {
                         .from('newsletter_subscriptions')
                         .upsert({
                             email: email,
-                            normalized_email: normalizeEmailForDatabase(email), // NEW: Store normalized
                             name: name,
                             is_active: true,
                             subscribed_at: new Date().toISOString(),
@@ -4012,167 +4006,6 @@ async getAllRedemptionsFromSupabase() {
     }
     }
                     
-        }
-
-        // ===========================================
-        // NEW: FRAUD PREVENTION & EMAIL NORMALIZATION
-        // ===========================================
-        
-        // List of disposable email domains to block
-        const DISPOSABLE_EMAIL_DOMAINS = [
-            'tempmail.com', 'mailinator.com', 'guerrillamail.com', '10minutemail.com',
-            'yopmail.com', 'throwawaymail.com', 'fakeinbox.com', 'temp-mail.org',
-            'sharklasers.com', 'trashmail.com', 'getairmail.com', 'maildrop.cc',
-            'tempmailaddress.com', 'fake-mail.com', 'tempinbox.com', 'dispostable.com',
-            'mailnesia.com', 'spam4.me', 'tempail.com', 'emailondeck.com',
-            'tmpmail.org', 'mailmetrash.com', 'throwawayemailaddress.com', 'deadaddress.com',
-            'mailnull.com', 'getnada.com', 'mailcatch.com', 'inboxalias.com',
-            'spamgourmet.com', 'spamfree24.org', 'spambox.us', 'tempomail.fr',
-            'mytemp.email', 'tempemail.net', 'disposable-email.ml', 'temp-mail.io'
-        ];
-
-        // Normalize email addresses to prevent Gmail tricks
-        function normalizeEmailForDatabase(email) {
-            if (!email || typeof email !== 'string') return '';
-            
-            // Convert to lowercase
-            let normalized = email.trim().toLowerCase();
-            
-            // Handle googlemail.com = gmail.com
-            normalized = normalized.replace('@googlemail.com', '@gmail.com');
-            
-            // Extract local part and domain
-            const atIndex = normalized.indexOf('@');
-            if (atIndex === -1) return normalized;
-            
-            const localPart = normalized.substring(0, atIndex);
-            const domain = normalized.substring(atIndex + 1);
-            
-            // For Gmail addresses: remove dots and everything after +
-            if (domain === 'gmail.com') {
-                // Remove all dots
-                let cleanLocal = localPart.replace(/\./g, '');
-                // Remove everything after +
-                const plusIndex = cleanLocal.indexOf('+');
-                if (plusIndex !== -1) {
-                    cleanLocal = cleanLocal.substring(0, plusIndex);
-                }
-                return cleanLocal + '@gmail.com';
-            }
-            
-            // For other domains: keep as is but remove + trick
-            const plusIndex = localPart.indexOf('+');
-            if (plusIndex !== -1) {
-                return localPart.substring(0, plusIndex) + '@' + domain;
-            }
-            
-            return normalized;
-        }
-
-        // Check if email is disposable
-        function isDisposableEmail(email) {
-            if (!email || typeof email !== 'string') return true;
-            
-            const domain = email.split('@')[1]?.toLowerCase();
-            if (!domain) return true;
-            
-            // Check against disposable domains list
-            if (DISPOSABLE_EMAIL_DOMAINS.includes(domain)) {
-                return true;
-            }
-            
-            // Check for patterns common in disposable emails
-            const disposablePatterns = [
-                /^temp\./,
-                /^tmp\./,
-                /^fake\./,
-                /^trash\./,
-                /^spam\./,
-                /^throwaway\./,
-                /^disposable\./,
-                /\.temp$/,
-                /\.tmp$/,
-                /\.mailinator\.[a-z]+$/,
-                /\.yopmail\.[a-z]+$/,
-                /\.10minutemail\.[a-z]+$/
-            ];
-            
-            return disposablePatterns.some(pattern => pattern.test(domain));
-        }
-
-        // Enhanced email validation with fraud prevention
-        function isValidEmailWithFraudPrevention(email) {
-            // First do basic validation
-            if (!isValidEmail(email)) {
-                return { valid: false, message: "Please enter a valid email address" };
-            }
-            
-            // Check if disposable
-            if (isDisposableEmail(email)) {
-                return { 
-                    valid: false, 
-                    message: "Temporary/disposable email addresses are not allowed. Please use your real email." 
-                };
-            }
-            
-            return { valid: true, message: "Email is valid" };
-        }
-
-        // Get client IP address (simplified version)
-        async function getClientIP() {
-            try {
-                // Try to get IP from multiple sources
-                const response = await fetch('https://api.ipify.org?format=json');
-                const data = await response.json();
-                return data.ip || 'unknown';
-            } catch (error) {
-                console.log('Could not fetch IP:', error);
-                return 'unknown';
-            }
-        }
-
-        // Check for self-referral
-        function isSelfReferral(referralCode, userEmail) {
-            if (!referralCode || !userEmail) return false;
-            
-            // Get all members from local storage first
-            const cache = JSON.parse(localStorage.getItem('jeansClubCache') || '{}');
-            const members = cache.members || [];
-            
-            // Find the referrer
-            const referrer = members.find(m => m.referralCode === referralCode);
-            if (!referrer) return false;
-            
-            // Check if email matches (after normalization)
-            const normalizedReferrerEmail = normalizeEmailForDatabase(referrer.email);
-            const normalizedUserEmail = normalizeEmailForDatabase(userEmail);
-            
-            return normalizedReferrerEmail === normalizedUserEmail;
-        }
-
-        // Check for multiple accounts from same IP (simplified)
-        async function checkMultipleAccountsFromIP(email, ip) {
-            if (ip === 'unknown') return { allowed: true, reason: '' };
-            
-            try {
-                const allMembers = await clubManager.db.getAllMembers();
-                const accountsFromSameIP = allMembers.filter(m => 
-                    m.ip_address === ip && 
-                    normalizeEmailForDatabase(m.email) !== normalizeEmailForDatabase(email)
-                );
-                
-                if (accountsFromSameIP.length >= 3) {
-                    return { 
-                        allowed: false, 
-                        reason: "Maximum account limit reached from this device/network. Contact support if this is an error." 
-                    };
-                }
-                
-                return { allowed: true, reason: '' };
-            } catch (error) {
-                console.error('Error checking multiple accounts:', error);
-                return { allowed: true, reason: '' };
-            }
         }
 
         // Google Apps Script Email Service - FIXED VERSION
@@ -5247,36 +5080,10 @@ async getAllRedemptionsFromSupabase() {
             async createAccount(userData, password, referralCode = null) {
                 console.log('👤 Creating account for:', userData.email);
                 
-                // NEW: Fraud prevention checks
-                const emailCheck = isValidEmailWithFraudPrevention(userData.email);
-                if (!emailCheck.valid) {
-                    return { success: false, message: emailCheck.message };
-                }
-                
-                // Check for self-referral
-                if (referralCode && isSelfReferral(referralCode, userData.email)) {
-                    return { 
-                        success: false, 
-                        message: "You cannot use your own referral code. Please remove the referral code or ask a friend for theirs." 
-                    };
-                }
-                
-                // Get client IP for fraud detection
-                const clientIP = await getClientIP();
-                
-                // Check for multiple accounts from same IP
-                const ipCheck = await checkMultipleAccountsFromIP(userData.email, clientIP);
-                if (!ipCheck.allowed) {
-                    return { success: false, message: ipCheck.reason };
-                }
-                
                 const existingMember = await this.db.getMemberByEmail(userData.email);
                 if (existingMember) {
                     console.log('❌ Email already registered:', userData.email);
-                    return { 
-                        success: false, 
-                        message: "This email is already registered. Please use a different email or login with your existing account." 
-                    };
+                    return { success: false, message: "Email already registered" };
                 }
 
                 const memberId = 'member_' + Date.now();
@@ -5286,8 +5093,7 @@ async getAllRedemptionsFromSupabase() {
                     id: memberId,
                     jcId: this.generateJCId(),
                     email: userData.email,
-                    normalized_email: normalizeEmailForDatabase(userData.email), // NEW: Store normalized
-                    name: userData.name,
+                    name:userData.name,
                     password: password,
                     googleId: null,
                     loginMethod: 'email',
@@ -5301,8 +5107,7 @@ async getAllRedemptionsFromSupabase() {
                             type: 'account_created',
                             description: 'Account created successfully',
                             date: new Date().toISOString(),
-                            points: startingPoints,
-                            fraud_prevention: 'Email normalization and IP tracking enabled'
+                            points: startingPoints
                         }
                     ],
                     joinedDate: new Date().toISOString(),
@@ -5311,8 +5116,7 @@ async getAllRedemptionsFromSupabase() {
                     referrals: [],
                     resetToken: null,
                     resetTokenExpiry: null,
-                    newsletterSubscribed: userData.newsletter || true,
-                    ip_address: clientIP // NEW: Store IP
+                    newsletterSubscribed: userData.newsletter || true
                 };
 
                 const saved = await this.db.saveMember(newMember);
@@ -5322,11 +5126,6 @@ async getAllRedemptionsFromSupabase() {
                 }
 
                 console.log('✅ Account created successfully:', newMember.jcId);
-                console.log('📊 Fraud prevention:', {
-                    normalized_email: newMember.normalized_email,
-                    ip_address: clientIP,
-                    self_referral_prevented: !!referralCode
-                });
 
                 if (referralCode) {
                     await this.processReferral(referralCode, newMember);
@@ -5352,12 +5151,7 @@ async getAllRedemptionsFromSupabase() {
                 return {
                     success: true,
                     message: "Account created successfully! Welcome to Jeans Club.",
-                    member: newMember,
-                    fraud_prevention: {
-                        email_normalized: newMember.normalized_email,
-                        ip_logged: clientIP,
-                        disposable_email_blocked: true
-                    }
+                    member: newMember
                 };
             }
 
@@ -5367,15 +5161,6 @@ async getAllRedemptionsFromSupabase() {
                     const referrer = allMembers.find(m => m.referralCode === referralCode);
                     
                     if (referrer) {
-                        // Verify this is not self-referral (double-check)
-                        const normalizedReferrerEmail = normalizeEmailForDatabase(referrer.email);
-                        const normalizedNewEmail = normalizeEmailForDatabase(newMember.email);
-                        
-                        if (normalizedReferrerEmail === normalizedNewEmail) {
-                            console.log('🚫 Self-referral prevented:', newMember.email);
-                            return;
-                        }
-                        
                         referrer.points += 100;
                         referrer.referrals = referrer.referrals || [];
                         referrer.referrals.push({
@@ -5453,18 +5238,8 @@ async getAllRedemptionsFromSupabase() {
                 
                 const profile = googleUser.getBasicProfile();
                 const googleId = googleUser.getId();
-                const email = profile.getEmail();
                 
-                // NEW: Fraud prevention check for Google signups too
-                const emailCheck = isValidEmailWithFraudPrevention(email);
-                if (!emailCheck.valid) {
-                    return { success: false, message: emailCheck.message };
-                }
-                
-                // Get client IP
-                const clientIP = await getClientIP();
-                
-                let member = await this.db.getMemberByEmail(email);
+                let member = await this.db.getMemberByEmail(profile.getEmail());
                 
                 if (member) {
                     if (!member.googleId) {
@@ -5475,8 +5250,7 @@ async getAllRedemptionsFromSupabase() {
                     member = {
                         id: 'member_' + Date.now(),
                         jcId: this.generateJCId(),
-                        email: email,
-                        normalized_email: normalizeEmailForDatabase(email), // NEW: Store normalized
+                        email: profile.getEmail(),
                         name: profile.getName(),
                         password: null,
                         googleId: googleId,
@@ -5490,8 +5264,7 @@ async getAllRedemptionsFromSupabase() {
                             type: 'account_created',
                             description: 'Account created via Google',
                             date: new Date().toISOString(),
-                            points: 10,
-                            fraud_prevention: 'Google signup with email normalization'
+                            points: 10
                         }],
                         joinedDate: new Date().toISOString(),
                         totalSpent: 0,
@@ -5499,8 +5272,7 @@ async getAllRedemptionsFromSupabase() {
                         referrals: [],
                         resetToken: null,
                         resetTokenExpiry: null,
-                        newsletterSubscribed: true,
-                        ip_address: clientIP // NEW: Store IP
+                        newsletterSubscribed: true
                     };
                     
                     await this.db.saveMember(member);
@@ -6192,10 +5964,8 @@ async getAllRedemptionsFromSupabase() {
                 return;
             }
 
-            // NEW: Use enhanced email validation with fraud prevention
-            const emailValidation = isValidEmailWithFraudPrevention(email);
-            if (!emailValidation.valid) {
-                showToast(emailValidation.message, "error");
+            if (!isValidEmail(email)) {
+                showToast("Please enter a valid email address (e.g., name@domain.com)", "error");
                 return;
             }
 
@@ -6208,15 +5978,6 @@ async getAllRedemptionsFromSupabase() {
             if (password.length < 6) {
                 showToast("Password must be at least 6 characters", "error");
                 return;
-            }
-
-            // NEW: Check for self-referral
-            if (referralCode) {
-                const selfReferral = isSelfReferral(referralCode, email);
-                if (selfReferral) {
-                    showToast("You cannot use your own referral code. Please remove it or ask a friend for theirs.", "error");
-                    return;
-                }
             }
 
             showToast("Creating account...", "info");
@@ -6620,12 +6381,10 @@ async getAllRedemptionsFromSupabase() {
                                 <div class="admin-card">
                                     <h4>${member.name} <small style="color: #666;">(${member.jcId})</small></h4>
                                     <p><strong>Email:</strong> ${member.email}</p>
-                                    <p><strong>Normalized Email:</strong> ${member.normalized_email || 'Not set'}</p>
                                     <p><strong>Tier:</strong> ${member.tier}</p>
                                     <p><strong>Points:</strong> ${member.points?.toLocaleString() || 0} (${jeansClubConfig.pointValue} UGX per point)</p>
                                     <p><strong>Total Spent:</strong> ${(member.totalSpent || 0).toLocaleString()} UGX</p>
                                     <p><strong>Points Earned:</strong> ${((member.totalSpent || 0) * jeansClubConfig.earningRate).toFixed(0)} points (approx)</p>
-                                    <p><strong>IP Address:</strong> ${member.ip_address || 'Not logged'}</p>
                                     <p><strong>Joined:</strong> ${new Date(member.joinedDate).toLocaleDateString()}</p>
                                 </div>
                             `).join('')}
@@ -7716,257 +7475,117 @@ async getAllRedemptionsFromSupabase() {
                     
                 case 'redemption':
                     if (clubManager.isAdmin) {
-                        showAdminPanel();
-                        document.getElementById('voucherCodeInput').value = id;
+                        showQRRedemptionManagementPanel();
                         showToast(`Redemption: ${id} selected`, 'info');
                     }
                     break;
             }
         }
 
-        // Show voucher details function
-        async function showVoucherDetails(voucherCode) {
-            const voucher = await voucherSystem.getVoucherByCode(voucherCode);
-            if (!voucher) {
-                showToast("Voucher not found", "error");
-                return;
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const navLinks = document.getElementById('navLinks');
+            const menuToggle = document.querySelector('.menu-toggle');
+            
+            if (!menuToggle.contains(event.target) && !navLinks.contains(event.target)) {
+                navLinks.classList.remove('active');
             }
             
-            const detailsDiv = document.getElementById('scanDetails');
-            const discountUGX = voucher.pointsUsed * jeansClubConfig.pointValue;
+            const searchModal = document.getElementById('searchModal');
+            if (searchModal.classList.contains('active') && 
+                !searchModal.contains(event.target) && 
+                event.target !== document.querySelector('.search-icon')) {
+                hideSearch();
+            }
             
-            detailsDiv.innerHTML = `
-                <h4>Voucher Details</h4>
-                <div class="details-grid">
-                    <div class="detail-item">
-                        <strong>Code</strong>
-                        <div>${voucher.code}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Member</strong>
-                        <div>${voucher.memberName} (${voucher.memberJCId})</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Discount Value</strong>
-                        <div>${discountUGX.toLocaleString()} UGX</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Points Used</strong>
-                        <div>${voucher.pointsUsed} points</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Created</strong>
-                        <div>${new Date(voucher.createdDate).toLocaleDateString()}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Expires</strong>
-                        <div>${new Date(voucher.expiryDate).toLocaleDateString()}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Status</strong>
-                        <div>${voucher.status}</div>
-                    </div>
-                </div>
-            `;
-            detailsDiv.classList.remove('hidden');
-        }
+            const cameraModal = document.getElementById('cameraScannerModal');
+            if (cameraModal.classList.contains('active') && 
+                !cameraModal.contains(event.target) && 
+                event.target !== document.querySelector('.quick-scan-btn')) {
+                closeCameraScanner();
+            }
+        });
 
-        // ===========================
-        // PAGE LOAD INITIALIZATION
-        // ===========================
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize all systems
+        // Close search with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const searchModal = document.getElementById('searchModal');
+                if (searchModal.classList.contains('active')) {
+                    hideSearch();
+                }
+                
+                const cameraModal = document.getElementById('cameraScannerModal');
+                if (cameraModal.classList.contains('active')) {
+                    closeCameraScanner();
+                }
+            }
+        });
+
+        // Initialize on load
+        window.onload = function() {
+            // Initialize systems first
             initializeSystems();
             
-            // Initialize Google Sign-In
-            initGoogleSignIn();
+            if (typeof google !== 'undefined') {
+                setTimeout(initGoogleSignIn, 1000);
+            }
             
-            // Check if user is already logged in
             if (clubManager.currentMember) {
                 showDashboard(clubManager.currentMember);
             } else {
-                showLoginScreen();
+                showSignupScreen();
             }
             
-            // Set current year in footer
-            document.querySelector('.footer-bottom p').innerHTML = 
-                document.querySelector('.footer-bottom p').innerHTML.replace('2026', new Date().getFullYear());
-            
-            // Initialize newsletter checkbox
-            const newsletterCheckbox = document.getElementById('newsletterSignup');
-            if (newsletterCheckbox) {
-                newsletterCheckbox.checked = true;
-            }
-            
-            // Set up event listeners for camera scanner
-            setupCameraScanner();
-            
-            // Make sure scanner result div is visible
-            const scannerResult = document.getElementById('scannerResult');
-            if (scannerResult) {
-                scannerResult.style.display = 'block';
-                scannerResult.style.visibility = 'visible';
-                scannerResult.style.opacity = '1';
-            }
-            
-            console.log("✅ Jeans Club application fully initialized!");
-        });
-
-        // Setup camera scanner functionality
-        function setupCameraScanner() {
-            const modal = document.getElementById('cameraScannerModal');
-            if (!modal) return;
-            
-            // Close modal when clicking outside
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    closeCameraScanner();
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('mode') === 'salesperson') {
+                if (clubManager.isAdmin) {
+                    showAdminPanel();
+                } else {
+                    showAdminLogin();
                 }
-            });
-            
-            // Prevent closing when clicking inside the scanner container
-            const cameraContainer = modal.querySelector('.camera-container');
-            if (cameraContainer) {
-                cameraContainer.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                });
             }
-        }
+            
+            // Start voucher cleanup
+            setTimeout(() => {
+                voucherSystem.cleanupExpiredVouchers();
+            }, 5000);
+        };
 
-        // ===========================
-        // ADDITIONAL HELPER FUNCTIONS
-        // ===========================
-        
-        function formatCurrency(amount) {
-            return amount.toLocaleString('en-US', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }) + ' UGX';
-        }
-
-        function formatPoints(points) {
-            return points.toLocaleString() + ' points';
-        }
-
-        function calculateDiscountFromPoints(points) {
-            return points * jeansClubConfig.pointValue;
-        }
-
-        function calculatePointsFromSpending(spending) {
-            return Math.floor(spending * jeansClubConfig.earningRate);
-        }
-
-        // Error handling for camera access
-        function handleCameraError(error) {
-            console.error('Camera error:', error);
-            updateScannerStatus('Camera error: ' + error.message, false);
-            showToast('Camera access failed: ' + error.message, 'error');
-        }
-
-        // Close scanner when pressing Escape key
+        // Add keyboard shortcuts
         document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === '/') {
+                e.preventDefault();
+                showAdminLogin();
+            }
+            
             if (e.key === 'Escape') {
-                const modal = document.getElementById('cameraScannerModal');
-                if (modal && modal.classList.contains('active')) {
-                    closeCameraScanner();
+                if (!document.getElementById('loginSection').classList.contains('hidden')) {
+                    showSignupScreen();
+                } else if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
+                } else if (!document.getElementById('adminSection').classList.contains('hidden')) {
+                    showLoginScreen();
+                } else if (!document.querySelector('.info-page:not(.hidden)')) {
+                    showDashboardSection();
                 }
+            }
+            
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                showSearch();
+            }
+            
+            // Quick camera shortcut for admins
+            if (e.ctrlKey && e.key === 's' && clubManager.isAdmin) {
+                e.preventDefault();
+                openCameraScanner();
             }
         });
 
-        // Clean up resources when page is hidden
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden && scannerStream) {
-                stopScanner();
-            }
-        });
-
-        // Initialize with proper checks
-        function safeInitialize() {
-            try {
-                initializeSystems();
-                
-                // Check for required features
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    console.warn('Camera access not supported in this browser');
-                    showToast('QR scanning requires camera access. Please use a modern browser.', 'info');
-                }
-                
-                // Check localStorage availability
-                try {
-                    localStorage.setItem('test', 'test');
-                    localStorage.removeItem('test');
-                } catch (e) {
-                    console.error('LocalStorage not available:', e);
-                    showToast('Please enable local storage for full functionality', 'error');
-                }
-                
-            } catch (error) {
-                console.error('Initialization error:', error);
-                showToast('Application initialization failed. Please refresh the page.', 'error');
-            }
-        }
-
-        // Run safe initialization
-        safeInitialize();
-
-        // Export functions to global scope
+        // Export functionality for testing
+        window.showToast = showToast;
         window.openCameraScanner = openCameraScanner;
         window.closeCameraScanner = closeCameraScanner;
         window.processScan = processScan;
-        window.showDashboardSection = showDashboardSection;
-        window.showQRRedemptionPanel = showQRRedemptionPanel;
-        window.calculateRedemptionOptions = calculateRedemptionOptions;
-        window.selectRedemptionOption = selectRedemptionOption;
-        window.generateQRCode = generateQRCode;
-        window.showAdminPanel = showAdminPanel;
-        window.showAdminLogin = showAdminLogin;
-        window.logout = logout;
-        window.refreshData = refreshData;
-        window.showSignupScreen = showSignupScreen;
-        window.showLoginScreen = showLoginScreen;
-        window.signUpWithEmail = signUpWithEmail;
-        window.loginWithCredentials = loginWithCredentials;
-        window.calculateDiscount = calculateDiscount;
-        window.redeemPoints = redeemPoints;
-        window.shareReferral = shareReferral;
-        window.toggleNewsletter = toggleNewsletter;
-        window.showSearch = showSearch;
-        window.hideSearch = hideSearch;
-        window.showMembershipInfo = showMembershipInfo;
-        window.showBenefits = showBenefits;
-        window.showTiers = showTiers;
-        window.showContact = showContact;
-        window.showRewards = showRewards;
-        window.showPasswordResetScreen = showPasswordResetScreen;
-        window.requestPasswordReset = requestPasswordReset;
-        window.executePasswordReset = executePasswordReset;
-        window.showDeleteMemberSection = showDeleteMemberSection;
-        window.confirmDeleteMember = confirmDeleteMember;
-        window.adminAddPurchase = adminAddPurchase;
-        window.sendNewsletter = sendNewsletter;
-        window.showVoucherManagementPanel = showVoucherManagementPanel;
-        window.refreshVouchers = refreshVouchers;
-        window.showQRRedemptionManagementPanel = showQRRedemptionManagementPanel;
-
-        // Mobile menu toggle
-        window.toggleMobileMenu = toggleMobileMenu;
-
-        // Final initialization message
-        console.log("🚀 Jeans Club Loyalty Program Loaded Successfully!");
-        console.log("📊 Point System: 1 point per 1,000 UGX spent, 1 point = 250 UGX discount");
-        console.log("🔒 Fraud Prevention: Active with email normalization and IP tracking");
-        console.log("📱 Camera Scanner: Ready for QR code scanning");
-        console.log("☁️ Supabase Database: Connected and ready");
-
-        // Show welcome message if new visitor
-        const firstVisit = !localStorage.getItem('jeansClubVisited');
-        if (firstVisit) {
-            localStorage.setItem('jeansClubVisited', 'true');
-            setTimeout(() => {
-                showToast("🎉 Welcome to Jeans Club Loyalty Program! Earn points, redeem rewards, and enjoy exclusive benefits!", "info");
-            }, 1000);
-        }
     </script>
 </body>
 </html>
