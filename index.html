@@ -7,18 +7,22 @@
     <title>Jeans Club - Raised on Denim</title>
      <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" defer></script>
 <script>
-  window.OneSignal = window.OneSignal || [];
-  OneSignal.push(function() {
+  // Wait for OneSignal to be fully ready
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  
+  // Queue the initialization
+  OneSignalDeferred.push(function(OneSignal) {
     OneSignal.init({
-      appId: "d1126f8b-8799-41dc-8f13-9b921989582b", // Your existing App ID
-      // No safari_web_id needed for testing
-      // Let OneSignal use its default CDN worker
+      appId: "d1126f8b-8799-41dc-8f13-9b921989582b"
     });
     
-    // Optional: Show prompt immediately
-    OneSignal.Notifications.requestPermission();
+    // WAIT for init to complete before showing prompt
+    OneSignal.on('initialized', function() {
+      console.log("✅ OneSignal fully initialized, showing prompt...");
+      OneSignal.Notifications.requestPermission();
+    });
   });
-</script> 
+</script>
     <style>
         /* MERCEDES-BENZ INSPIRED HEADER & NAVIGATION */
         .mercedes-header {
