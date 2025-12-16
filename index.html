@@ -5,21 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jeans Club - Raised on Denim</title>
-     <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" defer></script>
+      <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" defer></script>
 <script>
-  // Wait for OneSignal to be fully ready
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  
-  // Queue the initialization
-  OneSignalDeferred.push(function(OneSignal) {
+  window.OneSignal = window.OneSignal || [];
+  OneSignal.push(function() {
     OneSignal.init({
-      appId: "d1126f8b-8799-41dc-8f13-9b921989582b"
-    });
-    
-    // WAIT for init to complete before showing prompt
-    OneSignal.on('initialized', function() {
-      console.log("✅ OneSignal fully initialized, showing prompt...");
-      OneSignal.Notifications.requestPermission();
+      appId: "b4f7a2c1-6a3d-4e5f-8a1b-9c2d3e4f5a6b" // ← TEST/DEMO ID
     });
   });
 </script>
