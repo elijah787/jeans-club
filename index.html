@@ -10,12 +10,8 @@
   window.OneSignal = window.OneSignal || [];
   OneSignal.push(function() {
     OneSignal.init({
-      appId: "d1126f8b-8799-41dc-8f13-9b921989582b", // Replace with your actual App ID
-      safari_web_id: "YOUR_SAFARI_WEB_ID", // Replace if you have one
-      // This tells the SDK where your site is located
-      path: "/jeans-club/",
-      // This tells the SDK where the service worker file is
-      serviceWorkerPath: "/jeans-club/OneSignalSDKWorker.js",
+      appId: "d1126f8b-8799-41dc-8f13-9b921989582b",
+      safari_web_id: "YOUR_ACTUAL_SAFARI_ID", // IMPORTANT: Get this from dashboard
       serviceWorkerParam: { scope: '/jeans-club/' }
     });
   });
