@@ -5,16 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jeans Club - Raised on Denim</title>
-      <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" defer></script>
+     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
-  window.OneSignal = window.OneSignal || [];
-  OneSignal.push(function() {
-    OneSignal.init({
-      appId: "b4f7a2c1-6a3d-4e5f-8a1b-9c2d3e4f5a6b" // ← TEST/DEMO ID
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "348b3087-9546-4ec9-bd60-d7a3ea63c24c",
     });
   });
 </script>
-    <style>
         /* MERCEDES-BENZ INSPIRED HEADER & NAVIGATION */
         .mercedes-header {
             background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
