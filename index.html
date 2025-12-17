@@ -2350,6 +2350,352 @@
         grid-template-columns: 1fr;
     }
 }
+    /* ===== NEW DASHBOARD LAYOUT STYLES ===== */
+.dashboard-container {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Sidebar Navigation */
+.dashboard-sidebar {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    height: fit-content;
+    position: sticky;
+    top: 30px;
+}
+
+.sidebar-header {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 20px;
+}
+
+.sidebar-header h2 {
+    color: #333;
+    font-size: 22px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nav-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav-item {
+    margin-bottom: 5px;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    color: #555;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    font-size: 15px;
+}
+
+.nav-link:hover {
+    background: #f8f9fa;
+    color: #667eea;
+}
+
+.nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Main Content Area */
+.dashboard-main {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+/* Section Cards */
+.section-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    display: none;
+}
+
+.section-card.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.card-header h3 {
+    color: #333;
+    font-size: 18px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Personal Details Grid */
+.personal-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.detail-item {
+    padding: 18px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.detail-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.detail-value {
+    font-size: 15px;
+    color: #333;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+/* Points Summary */
+.points-summary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.points-display {
+    margin-bottom: 15px;
+}
+
+.points-value {
+    font-size: 48px;
+    font-weight: bold;
+    line-height: 1;
+    margin-bottom: 5px;
+}
+
+.points-label {
+    font-size: 13px;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.points-subtitle {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* Tier Progress */
+.tier-progress {
+    margin-top: 20px;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #eaeaea;
+    border-radius: 4px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.progress-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #666;
+}
+
+/* Quick Stats */
+.referral-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.stat-card {
+    background: #f8f9fa;
+    padding: 18px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+}
+
+/* Membership Card Display */
+.membership-card-display {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.membership-card {
+    width: 340px;
+    height: 210px;
+    border-radius: 18px;
+    padding: 22px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    background: linear-gradient(135deg, #FFF8DC 0%, #F5DEB3 100%);
+    color: #333;
+}
+
+/* Account Settings */
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.setting-label {
+    font-weight: 500;
+    color: #333;
+}
+
+/* Buttons */
+.btn-edit {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .dashboard-container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .dashboard-sidebar {
+        position: static;
+    }
+    
+    .personal-details-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 15px;
+    }
+    
+    .personal-details-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .referral-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .membership-card {
+        width: 300px;
+        height: 180px;
+        padding: 18px;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 480px) {
+    .membership-card {
+        width: 280px;
+        height: 170px;
+        padding: 15px;
+    }
+    
+    .points-value {
+        font-size: 36px;
+    }
+}
     </style>
     <!-- Add Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3079,326 +3425,240 @@
             </div>
         </div>
 
-          <!-- Replace your entire dashboardSection div with this Emirates-style version -->
+         
+    
 
-<div id="dashboardSection" class="card hidden emirates-dashboard">
-    <!-- Emirates-style Top Navigation Bar -->
-    <div class="dashboard-header">
-        <div class="header-left">
-            <button class="btn btn-secondary" onclick="logout()">
-                <span class="icon">←</span> Logout
-            </button>
-            <h2 class="section-title">My Dashboard</h2>
-        </div>
-        <div class="header-right">
-            <button class="btn btn-primary" onclick="refreshData()">
-                <span class="icon">↻</span> Refresh
-            </button>
-            <button class="btn btn-primary" onclick="showQRRedemptionPanel()">
-                <span class="icon">🎫</span> QR Redemption
-            </button>
-        </div>
-    </div>
-
-    <!-- Emirates-style Top Banner -->
-    <div class="welcome-banner">
-        <div class="welcome-content">
-            <h1>Welcome back, <span id="welcomeName">-</span>!</h1>
-            <p id="welcomeTier">Jeans Club Member</p>
-        </div>
-        <div class="welcome-actions">
-            <div class="tier-badge" id="tierBadge">
-                <span class="tier-icon">⭐</span>
-                <span class="tier-name">-</span>
+      <!-- ========== START COPY FROM HERE ========== -->
+<div id="dashboardSection" class="card hidden">
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <h2>👤 My Account</h2>
             </div>
-        </div>
-    </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#personal-details" class="nav-link active" onclick="showSection('personal-details')">
+                        <span class="nav-icon">📋</span>
+                        Personal Details
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#digital-card" class="nav-link" onclick="showSection('digital-card')">
+                        <span class="nav-icon">💳</span>
+                        Digital Membership Card
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#manage-account" class="nav-link" onclick="showSection('manage-account')">
+                        <span class="nav-icon">⚙️</span>
+                        Manage My Account
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#my-rewards" class="nav-link" onclick="showSection('my-rewards')">
+                        <span class="nav-icon">💰</span>
+                        My Rewards & Points
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#vouchers" class="nav-link" onclick="showSection('vouchers')">
+                        <span class="nav-icon">🎫</span>
+                        Vouchers & Redemptions
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#refer-earn" class="nav-link" onclick="showSection('refer-earn')">
+                        <span class="nav-icon">👥</span>
+                        Refer & Earn
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#activity" class="nav-link" onclick="showSection('activity')">
+                        <span class="nav-icon">📊</span>
+                        Activity Log
+                    </a>
+                </li>
+            </ul>
+        </aside>
 
-    <!-- Emirates-style Main Content Grid -->
-    <div class="dashboard-grid">
-        <!-- Column 1: Points & Account Summary -->
-        <div class="dashboard-column">
-            <!-- Points Balance Card -->
-            <div class="dashboard-card points-card">
+        <!-- Main Content Area -->
+        <main class="dashboard-main">
+            <!-- Personal Details Section -->
+            <div id="personal-details" class="section-card nav-content active">
                 <div class="card-header">
-                    <h3>
-                        <span class="icon">💰</span>
-                        My Points Balance
-                    </h3>
-                    <button class="btn-icon" onclick="calculateDiscount()" title="Redeem Points">
-                        <span class="icon">🎁</span>
-                    </button>
+                    <h3>📋 Personal Details</h3>
+                    <button class="btn-edit" onclick="editPersonalDetails()">Edit Details</button>
                 </div>
-                <div class="card-content">
+                <div class="personal-details-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Full Name</div>
+                        <div class="detail-value" id="detailName">-</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">JC ID</div>
+                        <div class="detail-value" id="detailJCId">-</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Email Address</div>
+                        <div class="detail-value" id="detailEmail">-</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Joined Date</div>
+                        <div class="detail-value" id="detailJoined">-</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Login Method</div>
+                        <div class="detail-value" id="detailLoginMethod">-</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Account Status</div>
+                        <div class="detail-value" id="detailStatus">Active</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Digital Membership Card Section -->
+            <div id="digital-card" class="section-card nav-content">
+                <div class="card-header">
+                    <h3>💳 Digital Membership Card</h3>
+                    <div class="card-actions">
+                        <button class="btn-small" onclick="downloadCard()">Download</button>
+                        <button class="btn-small" onclick="shareCard()">Share</button>
+                    </div>
+                </div>
+                <div class="membership-card-display">
+                    <div id="memberCard" class="membership-card">
+                        <div class="card-background-pattern"></div>
+                        <div class="card-logo">JEANS CLUB</div>
+                        <div class="card-chip"></div>
+                        <div class="card-hologram"></div>
+                        <div class="card-number" id="cardNumber">XXXX XXXX XXXX XXXX</div>
+                        <div class="card-holder">
+                            CARD HOLDER
+                            <div class="card-holder-name" id="cardHolderName">-</div>
+                        </div>
+                        <div class="card-tier" id="cardTier">-</div>
+                        <div class="card-date" id="cardDate">MM/YY</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Rewards & Points Section -->
+            <div id="my-rewards" class="section-card nav-content">
+                <div class="card-header">
+                    <h3>💰 My Rewards & Points</h3>
+                    <button class="btn-primary" onclick="calculateDiscount()">Redeem Points</button>
+                </div>
+                
+                <div class="points-summary">
                     <div class="points-display">
-                        <div class="points-value" id="pointsBalance">0</div>
+                        <div class="points-value" id="pointsValue">0</div>
                         <div class="points-label">TOTAL POINTS</div>
                     </div>
-                    <div class="points-details">
-                        <div class="detail-item">
-                            <span class="label">Point Value</span>
-                            <span class="value">1 point = 250 UGX</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="label">Discount Value</span>
-                            <span class="value" id="pointsValue">0 UGX</span>
-                        </div>
+                    <div class="points-subtitle">Value: <span id="pointsUGX">0 UGX</span></div>
+                </div>
+
+                <div class="tier-progress">
+                    <h4 style="margin-bottom: 15px;">Current Tier: <span id="currentTier" style="color: #667eea;">PEARL</span></h4>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="tierProgress"></div>
                     </div>
-                    <div class="quick-actions">
-                        <button class="btn btn-small" onclick="calculateDiscount()">Redeem Points</button>
-                        <button class="btn btn-small btn-secondary" onclick="showBenefits()">Learn More</button>
+                    <div class="progress-text">
+                        <span id="currentPoints">0 points</span>
+                        <span id="nextTier">Next: Bronze</span>
+                    </div>
+                </div>
+
+                <div class="points-actions" style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button class="btn" onclick="calculateDiscount()" style="flex: 1;">Redeem Points</button>
+                    <button class="btn secondary" onclick="showQRRedemptionPanel()" style="flex: 1;">QR Redemption</button>
+                </div>
+            </div>
+
+            <!-- Manage My Account Section -->
+            <div id="manage-account" class="section-card nav-content">
+                <div class="card-header">
+                    <h3>⚙️ Manage My Account</h3>
+                </div>
+                <div class="account-settings">
+                    <div class="setting-item">
+                        <div class="setting-label">Newsletter Preferences</div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="newsletterToggle" onchange="toggleNewsletter()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-label">Change Password</div>
+                        <button class="btn-small" onclick="changePassword()">Change</button>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-label">Account Security</div>
+                        <button class="btn-small" onclick="showSecuritySettings()">View</button>
+                    </div>
+                </div>
+                <div class="account-actions" style="margin-top: 20px;">
+                    <button class="btn" onclick="refreshData()">Refresh Data</button>
+                    <button class="btn secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <!-- Vouchers & Redemptions Section -->
+            <div id="vouchers" class="section-card nav-content">
+                <div class="card-header">
+                    <h3>🎫 Vouchers & Redemptions</h3>
+                    <button class="btn-primary" onclick="createNewVoucher()">Create Voucher</button>
+                </div>
+                <div id="vouchersList" class="vouchers-grid">
+                    <!-- Vouchers will be loaded here -->
+                    <div class="empty-state">
+                        <div class="icon">🎫</div>
+                        <h4>No Vouchers Yet</h4>
+                        <p>Redeem your points to create discount vouchers</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Member Information Card -->
-            <div class="dashboard-card account-card">
+            <!-- Refer & Earn Section -->
+            <div id="refer-earn" class="section-card nav-content">
                 <div class="card-header">
-                    <h3>
-                        <span class="icon">👤</span>
-                        Account Information
-                    </h3>
+                    <h3>👥 Refer & Earn</h3>
                 </div>
-                <div class="card-content">
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="label">JC ID</span>
-                            <span class="value" id="memberJcId">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="label">Full Name</span>
-                            <span class="value" id="memberName">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="label">Email</span>
-                            <span class="value" id="memberEmail">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="label">Joined Date</span>
-                            <span class="value" id="memberJoinDate">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="label">Total Spent</span>
-                            <span class="value" id="totalSpentValue">- UGX</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="label">Login Method</span>
-                            <span class="value" id="memberLoginMethod">-</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Column 2: Tier Status & Progress -->
-        <div class="dashboard-column">
-            <!-- Tier Status Card -->
-            <div class="dashboard-card tier-card">
-                <div class="card-header">
-                    <h3>
-                        <span class="icon">⭐</span>
-                        My Tier Status
-                    </h3>
-                </div>
-                <div class="card-content">
-                    <div class="tier-display">
-                        <div class="current-tier" id="currentTierDisplay">PEARL</div>
-                        <div class="tier-progress">
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="tierProgressFill" style="width: 0%"></div>
-                            </div>
-                            <div class="progress-text">
-                                <span id="currentProgress">0/7,500 points</span>
-                                <span id="nextTierName">Bronze</span>
-                            </div>
-                        </div>
-                        <div class="tier-benefits">
-                            <div class="benefit">
-                                <span class="icon">💰</span>
-                                <span>1.0x Points Multiplier</span>
-                            </div>
-                            <div class="benefit">
-                                <span class="icon">🎫</span>
-                                <span>Discount Vouchers</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Referral Program Card -->
-            <div class="dashboard-card referral-card">
-                <div class="card-header">
-                    <h3>
-                        <span class="icon">👥</span>
-                        Refer & Earn
-                    </h3>
-                </div>
-                <div class="card-content">
+                <div class="referral-section">
                     <div class="referral-code-display">
                         <div class="code-label">Your Referral Code</div>
                         <div class="code-value" id="referralCodeDisplay">-</div>
-                        <button class="btn btn-small" onclick="shareReferral()">Share Code</button>
                     </div>
                     <div class="referral-stats">
-                        <div class="stat">
+                        <div class="stat-card">
                             <div class="stat-value" id="referralCount">0</div>
                             <div class="stat-label">Friends Referred</div>
                         </div>
-                        <div class="stat">
+                        <div class="stat-card">
                             <div class="stat-value" id="referralPoints">0</div>
                             <div class="stat-label">Bonus Points</div>
                         </div>
                     </div>
-                    <div class="referral-note">
-                        Earn <strong>100 points</strong> for each friend who joins using your code
-                    </div>
+                    <button class="btn" onclick="shareReferral()" style="width: 100%; margin-top: 15px;">Share Referral Code</button>
                 </div>
             </div>
-        </div>
 
-        <!-- Column 3: Quick Actions & Newsletter -->
-        <div class="dashboard-column">
-            <!-- Quick Actions Card -->
-            <div class="dashboard-card actions-card">
+            <!-- Activity Log Section -->
+            <div id="activity" class="section-card nav-content">
                 <div class="card-header">
-                    <h3>
-                        <span class="icon">⚡</span>
-                        Quick Actions
-                    </h3>
+                    <h3>📊 Activity Log</h3>
+                    <button class="btn-small" onclick="refreshActivity()">Refresh</button>
                 </div>
-                <div class="card-content">
-                    <div class="action-grid">
-                        <button class="action-btn" onclick="calculateDiscount()">
-                            <span class="icon">🎫</span>
-                            <span>Redeem Points</span>
-                        </button>
-                        <button class="action-btn" onclick="showQRRedemptionPanel()">
-                            <span class="icon">📱</span>
-                            <span>QR Redemption</span>
-                        </button>
-                        <button class="action-btn" onclick="shareReferral()">
-                            <span class="icon">👥</span>
-                            <span>Refer Friends</span>
-                        </button>
-                        <button class="action-btn" onclick="showBenefits()">
-                            <span class="icon">💎</span>
-                            <span>View Benefits</span>
-                        </button>
-                        <button class="action-btn" onclick="showTiers()">
-                            <span class="icon">📊</span>
-                            <span>Tier Progress</span>
-                        </button>
-                        <button class="action-btn" onclick="refreshData()">
-                            <span class="icon">↻</span>
-                            <span>Refresh Data</span>
-                        </button>
-                    </div>
+                <div id="activityLog" class="activity-log">
+                    <!-- Activity will be loaded here -->
+                    <div class="activity-item">Loading activity...</div>
                 </div>
             </div>
-
-            <!-- Newsletter Card -->
-            <div class="dashboard-card newsletter-card">
-                <div class="card-header">
-                    <h3>
-                        <span class="icon">📧</span>
-                        Newsletter Preferences
-                    </h3>
-                </div>
-                <div class="card-content">
-                    <p>Get exclusive deals, new arrivals, and style tips delivered to your inbox</p>
-                    <div class="newsletter-toggle">
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="newsletterToggleInput" onchange="toggleNewsletter()">
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="toggle-label">Subscribe to Newsletter</span>
-                    </div>
-                    <div class="newsletter-status" id="newsletterStatus">
-                        Currently subscribed
-                    </div>
-                </div>
-            </div>
-
-            <!-- Redeem Points Card -->
-            <div class="dashboard-card redeem-card">
-                <div class="card-header">
-                    <h3>
-                        <span class="icon">🎁</span>
-                        Redeem Points
-                    </h3>
-                </div>
-                <div class="card-content">
-                    <div class="form-group">
-                        <label for="discountPoints">Points to Redeem (Min: 4)</label>
-                        <input type="number" id="discountPoints" placeholder="Enter points" min="4">
-                    </div>
-                    <button class="btn btn-block" onclick="calculateDiscount()">Calculate Discount</button>
-                    <div id="discountResult" class="discount-result"></div>
-                    <button class="btn btn-secondary btn-block" onclick="redeemPoints()">Generate Voucher</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recent Activity Section -->
-    <div class="dashboard-section">
-        <div class="section-header">
-            <h3>
-                <span class="icon">📋</span>
-                Recent Activity
-            </h3>
-            <button class="btn-text" onclick="refreshData()">View All</button>
-        </div>
-        <div class="activity-list" id="activityList">
-            <div class="activity-item">Loading activity...</div>
-        </div>
-    </div>
-
-    <!-- My Vouchers Section -->
-    <div class="dashboard-section">
-        <div class="section-header">
-            <h3>
-                <span class="icon">🎫</span>
-                My Vouchers
-            </h3>
-            <button class="btn-text" onclick="showVoucherManagementPanel()">Manage Vouchers</button>
-        </div>
-        <div class="vouchers-grid" id="vouchersGrid">
-            <div class="voucher-placeholder">
-                <span class="icon">🎫</span>
-                <p>No vouchers yet</p>
-                <button class="btn btn-small" onclick="calculateDiscount()">Create First Voucher</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Member Card Display (Optional - can be toggled) -->
-    <div class="dashboard-section member-card-section">
-        <div class="section-header">
-            <h3>
-                <span class="icon">💳</span>
-                My Membership Card
-            </h3>
-            <button class="btn-text" onclick="toggleMemberCard()">Show/Hide Card</button>
-        </div>
-        <div class="member-card-container" id="memberCardContainer" style="display: none;">
-            <div id="memberCard" class="member-card">
-                <div class="card-background-pattern"></div>
-                <div class="card-logo">JEANS CLUB</div>
-                <div class="card-chip"></div>
-                <div class="card-hologram"></div>
-                <div class="card-number" id="cardNumber">XXXX XXXX XXXX XXXX</div>
-                <div class="card-holder">
-                    CARD HOLDER
-                    <div class="card-holder-name" id="cardHolderName">-</div>
-                </div>
-                <div class="card-tier" id="cardTier">-</div>
-                <div class="card-date" id="cardDate">MM/YY</div>
-            </div>
-        </div>
+        </main>
     </div>
 </div>
+
 
         <!-- Admin Section with Quick Scan Button -->
         <div id="adminSection" class="card hidden">
@@ -9202,7 +9462,98 @@ function toggleMemberCard() {
                 });
             }
         }
+          
+        // Navigation function
+function showSection(sectionId) {
+    // Update active nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Hide all sections
+    document.querySelectorAll('.section-card').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Show selected section
+    document.getElementById(sectionId).classList.add('active');
+}
 
+// Update dashboard data function (call this when loading dashboard)
+function updateDashboardData(member) {
+    // Personal Details
+    document.getElementById('detailName').textContent = member.name;
+    document.getElementById('detailJCId').textContent = member.jcId;
+    document.getElementById('detailEmail').textContent = member.email;
+    document.getElementById('detailJoined').textContent = new Date(member.joinedDate).toLocaleDateString();
+    document.getElementById('detailLoginMethod').textContent = member.loginMethod || 'Email';
+    
+    // Points & Rewards
+    document.getElementById('pointsValue').textContent = (member.points || 0).toLocaleString();
+    const pointsValue = (member.points || 0) * jeansClubConfig.pointValue;
+    document.getElementById('pointsUGX').textContent = pointsValue.toLocaleString() + ' UGX';
+    
+    // Tier Progress
+    const tier = clubManager.getTier(member);
+    document.getElementById('currentTier').textContent = tier.name;
+    
+    const progress = clubManager.getTierProgress(member);
+    document.getElementById('tierProgress').style.width = progress.progress + '%';
+    document.getElementById('currentPoints').textContent = progress.currentPoints.toLocaleString() + ' points';
+    document.getElementById('nextTier').textContent = 'Next: ' + (progress.nextTier || 'Max Tier');
+    
+    // Referral Stats
+    document.getElementById('referralCodeDisplay').textContent = member.referralCode;
+    const referrals = member.referrals || [];
+    document.getElementById('referralCount').textContent = referrals.length;
+    document.getElementById('referralPoints').textContent = (referrals.length * 100).toLocaleString();
+    
+    // Membership Card
+    updateMemberCard(member);
+    
+    // Update activity log
+    updateActivityLog(member);
+}
+
+// Function to update activity log
+function updateActivityLog(member) {
+    const activityLog = document.getElementById('activityLog');
+    const activities = member.activityLog || [];
+    
+    if (activities.length === 0) {
+        activityLog.innerHTML = '<div class="activity-item">No activity yet</div>';
+        return;
+    }
+    
+    activityLog.innerHTML = activities.slice(0, 10).map(activity => `
+        <div class="activity-item">
+            <strong>${activity.type}</strong>: ${activity.description}
+            ${activity.points ? ` (${activity.points > 0 ? '+' : ''}${activity.points} points)` : ''}
+            <small>${new Date(activity.date).toLocaleString()}</small>
+        </div>
+    `).join('');
+}
+
+// Function to refresh activity
+function refreshActivity() {
+    if (clubManager.currentMember) {
+        updateActivityLog(clubManager.currentMember);
+        showToast('Activity log refreshed', 'success');
+    }
+}
+
+// Make sure showDashboard function calls updateDashboardData
+// Replace your current showDashboard function or add this:
+function showDashboard(member = null) {
+    hideAllSections();
+    document.getElementById('dashboardSection').classList.remove('hidden');
+    
+    const memberData = member || clubManager.currentMember;
+    if (memberData) {
+        updateDashboardData(memberData);
+    }
+}
         // ===========================
         // ADDITIONAL HELPER FUNCTIONS
         // ===========================
