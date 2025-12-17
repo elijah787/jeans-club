@@ -2814,7 +2814,11 @@
                 <p>Premium Denim  program with Tiered Privileges and exclusive benefits for our valued members.</p>
                 
                 <p>Raised on Denim</p>
+
+
                 <div class="social-links">
+
+
                     <a href="https://www.tiktok.com/@jeansclubug?_r=1&_t=ZM-91wJ0p98EMG" target="_blank" class="social-link social-tiktok">
                         <span>🎵</span> TikTok
                     </a>
@@ -7380,8 +7384,21 @@ async getAllRedemptionsFromSupabase() {
         // Display scan results
         function displayScanResults(result, success) {
             const resultsDiv = document.getElementById('scanResults');
+             const detailsDiv = document.getElementById('scanDetails');
             if (!resultsDiv) return;
-            
+             // FORCE DISPLAY - FIX THE BUG
+    resultsDiv.style.display = 'block';
+    resultsDiv.style.visibility = 'visible';
+    resultsDiv.style.opacity = '1';
+    resultsDiv.classList.remove('hidden');
+    
+    // ALSO SHOW DETAILS SECTION
+    if (detailsDiv) {
+        detailsDiv.style.display = 'block';
+        detailsDiv.style.visibility = 'visible';
+        detailsDiv.style.opacity = '1';
+        detailsDiv.classList.remove('hidden');
+    }
             resultsDiv.classList.remove('hidden');
             
             if (success) {
@@ -7483,6 +7500,19 @@ async getAllRedemptionsFromSupabase() {
         // Process scan manually - FIXED
         async function processScan() {
             const qrData = document.getElementById('voucherCodeInput').value.trim();
+             // CLEAR PREVIOUS RESULTS
+    const resultsDiv = document.getElementById('scanResults');
+    const detailsDiv = document.getElementById('scanDetails');
+    
+    if (resultsDiv) {
+        resultsDiv.innerHTML = '';
+        resultsDiv.classList.add('hidden');
+    }
+    
+    if (detailsDiv) {
+        detailsDiv.innerHTML = '';
+        detailsDiv.classList.add('hidden');
+    }
             const salespersonName = document.getElementById('salespersonName').value.trim();
             
             if (!qrData) {
