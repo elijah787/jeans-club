@@ -5,16 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jeans Club - Raised on Denim</title>
-     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "348b3087-9546-4ec9-bd60-d7a3ea63c24c",
-    });
-  });
-</script>
-<style>
+    <style>
         /* MERCEDES-BENZ INSPIRED HEADER & NAVIGATION */
         .mercedes-header {
             background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
@@ -6468,48 +6459,94 @@ async getAllRedemptionsFromSupabase() {
             `).join('');
         }
 
-        function updateMemberVouchers(memberJCId) {
-            const vouchersList = document.getElementById('vouchersList');
-            const vouchers = voucherSystem.getMemberVouchers(memberJCId);
+       // COMPLETE REPLACEMENT FUNCTION - Copy and replace your existing updateMemberVouchers function
+async function updateMemberVouchers(memberJCId) {
+    const vouchersList = document.getElementById('vouchersList');
+    vouchersList.innerHTML = '<div class="activity-item">Loading vouchers...</div>';
+    
+    try {
+        // FIRST: Always get latest from Supabase
+        if (window.supabaseDbInstance) {
+            const { supabase } = window.supabaseDbInstance;
+            const { data: freshVouchers, error } = await supabase
+                .from('vouchers')
+                .select('*')
+                .eq('member_jc_id', memberJCId)
+                .order('created_date', { ascending: false });
             
-            if (vouchers.length === 0) {
-                vouchersList.innerHTML = '<div class="activity-item">No vouchers yet. Redeem your points for a discount voucher!</div>';
-                return;
+            if (!error && freshVouchers) {
+                // Convert Supabase snake_case to camelCase and update local cache
+                const formattedVouchers = freshVouchers.map(v => ({
+                    id: v.id,
+                    code: v.code,
+                    memberJCId: v.member_jc_id,
+                    memberName: v.member_name,
+                    pointsUsed: v.points_used,
+                    discountPercentage: v.discount_percentage,
+                    createdDate: v.created_date,
+                    expiryDate: v.expiry_date,
+                    status: v.status, // THIS IS THE CRITICAL UPDATE
+                    usedDate: v.used_date,
+                    redeemedBy: v.redeemed_by,
+                    qrCodeData: v.qr_code_data
+                }));
+                
+                // Update the local voucher system cache
+                window.voucherSystem.vouchers = [
+                    ...window.voucherSystem.vouchers.filter(v => v.memberJCId !== memberJCId),
+                    ...formattedVouchers
+                ];
+                window.voucherSystem.saveVouchers();
             }
-            
-            vouchersList.innerHTML = vouchers.map(voucher => {
-                const statusClass = voucher.status === 'active' ? 'status-active' : 
-                                  voucher.status === 'used' ? 'status-used' : 'status-expired';
-                const statusText = voucher.status === 'active' ? 'ACTIVE' :
-                                 voucher.status === 'used' ? 'USED' : 'EXPIRED';
-                
-                // Calculate UGX value from points
-                const discountUGX = voucher.pointsUsed * jeansClubConfig.pointValue;
-                
-                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voucher.qrCodeData)}`;
-                
-                return `
-                    <div class="voucher-item ${voucher.status}">
-                        <div class="option-header">
-                            <h4>${discountUGX.toLocaleString()} UGX Discount Voucher</h4>
-                            <span class="voucher-status ${statusClass}">${statusText}</span>
-                        </div>
-                        <p><strong>Code:</strong> <span class="voucher-code">${voucher.code}</span></p>
-                        <p><strong>Discount:</strong> ${voucher.discountPercentage}% (${discountUGX.toLocaleString()} UGX)</p>
-                        <p><strong>Points Used:</strong> ${voucher.pointsUsed} points (${jeansClubConfig.pointValue} UGX per point)</p>
-                        <p><strong>Created:</strong> ${new Date(voucher.createdDate).toLocaleDateString()}</p>
-                        <p><strong>Expires:</strong> ${new Date(voucher.expiryDate).toLocaleDateString()}</p>
-                        ${voucher.status === 'active' ? `
-                            <div class="voucher-qr">
-                                <img src="${qrCodeUrl}" alt="Voucher QR Code" style="max-width: 150px; border: 1px solid #ddd; border-radius: 5px;">
-                                <p style="font-size: 12px; color: #666;">Show this QR code at checkout</p>
-                            </div>
-                        ` : ''}
-                        ${voucher.usedDate ? `<p><strong>Redeemed:</strong> ${new Date(voucher.usedDate).toLocaleDateString()}</p>` : ''}
-                    </div>
-                `;
-            }).join('');
         }
+        
+        // SECOND: Display from updated cache
+        const vouchers = window.voucherSystem.getMemberVouchers(memberJCId);
+        
+        if (vouchers.length === 0) {
+            vouchersList.innerHTML = '<div class="activity-item">No vouchers yet. Redeem your points for a discount voucher!</div>';
+            return;
+        }
+        
+        vouchersList.innerHTML = vouchers.map(voucher => {
+            const statusClass = voucher.status === 'active' ? 'status-active' : 
+                              voucher.status === 'used' ? 'status-used' : 'status-expired';
+            const statusText = voucher.status === 'active' ? 'ACTIVE' :
+                             voucher.status === 'used' ? 'USED' : 'EXPIRED';
+            
+            // Calculate UGX value from points
+            const discountUGX = voucher.pointsUsed * jeansClubConfig.pointValue;
+            
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voucher.qrCodeData)}`;
+            
+            return `
+                <div class="voucher-item ${voucher.status}">
+                    <div class="option-header">
+                        <h4>${discountUGX.toLocaleString()} UGX Discount Voucher</h4>
+                        <span class="voucher-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <p><strong>Code:</strong> <span class="voucher-code">${voucher.code}</span></p>
+                    <p><strong>Discount:</strong> ${voucher.discountPercentage}% (${discountUGX.toLocaleString()} UGX)</p>
+                    <p><strong>Points Used:</strong> ${voucher.pointsUsed} points (${jeansClubConfig.pointValue} UGX per point)</p>
+                    <p><strong>Created:</strong> ${new Date(voucher.createdDate).toLocaleDateString()}</p>
+                    <p><strong>Expires:</strong> ${new Date(voucher.expiryDate).toLocaleDateString()}</p>
+                    ${voucher.status === 'active' ? `
+                        <div class="voucher-qr">
+                            <img src="${qrCodeUrl}" alt="Voucher QR Code" style="max-width: 150px; border: 1px solid #ddd; border-radius: 5px;">
+                            <p style="font-size: 12px; color: #666;">Show this QR code at checkout</p>
+                        </div>
+                    ` : ''}
+                    ${voucher.usedDate ? `<p><strong>Redeemed:</strong> ${new Date(voucher.usedDate).toLocaleDateString()}</p>` : ''}
+                    ${voucher.redeemedBy ? `<p><strong>Redeemed By:</strong> ${voucher.redeemedBy}</p>` : ''}
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error("Voucher refresh error:", error);
+        vouchersList.innerHTML = '<div class="activity-item error-message">Error loading vouchers</div>';
+    }
+}
 
         async function calculateDiscount() {
             const pointsInput = document.getElementById('discountPoints');
