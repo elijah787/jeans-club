@@ -3407,21 +3407,18 @@ async function handleQRCodeDetected(qrData) {
             
             // 🔥 FIXED: Save voucher to Supabase with snake_case column names
             // Replace the ENTIRE saveVoucherToSupabase method with this:
-    // REPLACE THIS FUNCTION in your code:
 async saveVoucherToSupabase(voucher) {
     try {
-        console.log("💾 FORCE-Saving voucher to Supabase:", voucher.code);
+        console.log("💾 Saving voucher to Supabase:", voucher.code);
         
         if (!window.supabaseDbInstance) {
             console.error("❌ Supabase DB not initialized");
-            // Store for later sync
-            this.queueForSync(voucher);
             return false;
         }
         
         const { supabase } = window.supabaseDbInstance;
         
-        // Prepare data for Supabase (snake_case format)
+        // Convert to snake_case for Supabase
         const voucherData = {
             id: voucher.id,
             code: voucher.code,
@@ -3431,57 +3428,33 @@ async saveVoucherToSupabase(voucher) {
             discount_percentage: voucher.discountPercentage,
             created_date: voucher.createdDate,
             expiry_date: voucher.expiryDate,
-            status: voucher.status, // CRITICAL: This must be 'used' for redeemed vouchers
+            status: voucher.status,
             used_date: voucher.usedDate,
             redeemed_by: voucher.redeemedBy,
             qr_code_data: voucher.qrCodeData
         };
 
-        console.log("📤 Voucher sync payload:", voucherData);
+        console.log("📤 Voucher data for Supabase:", voucherData);
 
-        // Use UPSERT to force update - onConflict ensures we update existing records
         const { data, error } = await supabase
             .from('vouchers')
             .upsert(voucherData, { 
-                onConflict: 'code',
-                ignoreDuplicates: false // Force update
+                onConflict: 'code'
             });
 
         if (error) {
             console.error("❌ Supabase voucher save error:", error);
-            // Queue for retry
-            this.queueForSync(voucher);
             return false;
         }
 
-        console.log("✅ Voucher successfully synced to Supabase:", voucher.code);
+        console.log("✅ Voucher saved to Supabase:", voucher.code);
         return true;
 
     } catch (error) {
-        console.error("❌ FATAL: Failed to save voucher to Supabase:", error);
-        this.queueForSync(voucher);
+        console.error("❌ Failed to save voucher to Supabase:", error);
         return false;
     }
 }
-
-// ADD THIS HELPER FUNCTION for retry logic:
-queueForSync(voucher) {
-    // Store voucher in a queue for retry
-    const syncQueue = JSON.parse(localStorage.getItem('voucherSyncQueue') || '[]');
-    syncQueue.push({
-        voucher: voucher,
-        timestamp: new Date().toISOString(),
-        retryCount: 0
-    });
-    localStorage.setItem('voucherSyncQueue', JSON.stringify(syncQueue));
-    
-    // Show admin alert
-    alert(`⚠️ Database sync failed for voucher ${voucher.code}. 
-           It has been queued for retry. 
-           Please check your internet connection and Supabase configuration.`);
-}
-        
-       
 
 // Replace the ENTIRE getVoucherFromSupabase method with this:
 async getVoucherFromSupabase(code) {
@@ -6486,7 +6459,7 @@ async getAllRedemptionsFromSupabase() {
             `).join('');
         }
 
-        // REPLACE THIS FUNCTION in your dashboard code:
+       // COMPLETE REPLACEMENT FUNCTION - Copy and replace your existing updateMemberVouchers function
 async function updateMemberVouchers(memberJCId) {
     const vouchersList = document.getElementById('vouchersList');
     vouchersList.innerHTML = '<div class="activity-item">Loading vouchers...</div>';
@@ -6531,13 +6504,42 @@ async function updateMemberVouchers(memberJCId) {
         const vouchers = window.voucherSystem.getMemberVouchers(memberJCId);
         
         if (vouchers.length === 0) {
-            vouchersList.innerHTML = '<div class="activity-item">No vouchers yet.</div>';
+            vouchersList.innerHTML = '<div class="activity-item">No vouchers yet. Redeem your points for a discount voucher!</div>';
             return;
         }
         
-        // ... rest of your display code remains the same ...
         vouchersList.innerHTML = vouchers.map(voucher => {
-            // Your existing voucher display HTML here
+            const statusClass = voucher.status === 'active' ? 'status-active' : 
+                              voucher.status === 'used' ? 'status-used' : 'status-expired';
+            const statusText = voucher.status === 'active' ? 'ACTIVE' :
+                             voucher.status === 'used' ? 'USED' : 'EXPIRED';
+            
+            // Calculate UGX value from points
+            const discountUGX = voucher.pointsUsed * jeansClubConfig.pointValue;
+            
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voucher.qrCodeData)}`;
+            
+            return `
+                <div class="voucher-item ${voucher.status}">
+                    <div class="option-header">
+                        <h4>${discountUGX.toLocaleString()} UGX Discount Voucher</h4>
+                        <span class="voucher-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <p><strong>Code:</strong> <span class="voucher-code">${voucher.code}</span></p>
+                    <p><strong>Discount:</strong> ${voucher.discountPercentage}% (${discountUGX.toLocaleString()} UGX)</p>
+                    <p><strong>Points Used:</strong> ${voucher.pointsUsed} points (${jeansClubConfig.pointValue} UGX per point)</p>
+                    <p><strong>Created:</strong> ${new Date(voucher.createdDate).toLocaleDateString()}</p>
+                    <p><strong>Expires:</strong> ${new Date(voucher.expiryDate).toLocaleDateString()}</p>
+                    ${voucher.status === 'active' ? `
+                        <div class="voucher-qr">
+                            <img src="${qrCodeUrl}" alt="Voucher QR Code" style="max-width: 150px; border: 1px solid #ddd; border-radius: 5px;">
+                            <p style="font-size: 12px; color: #666;">Show this QR code at checkout</p>
+                        </div>
+                    ` : ''}
+                    ${voucher.usedDate ? `<p><strong>Redeemed:</strong> ${new Date(voucher.usedDate).toLocaleDateString()}</p>` : ''}
+                    ${voucher.redeemedBy ? `<p><strong>Redeemed By:</strong> ${voucher.redeemedBy}</p>` : ''}
+                </div>
+            `;
         }).join('');
         
     } catch (error) {
@@ -6545,6 +6547,7 @@ async function updateMemberVouchers(memberJCId) {
         vouchersList.innerHTML = '<div class="activity-item error-message">Error loading vouchers</div>';
     }
 }
+
         async function calculateDiscount() {
             const pointsInput = document.getElementById('discountPoints');
             const points = parseInt(pointsInput.value);
