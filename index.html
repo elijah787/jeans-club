@@ -7436,75 +7436,102 @@ function displayScanResults(result, success) {
         
         let detailsHtml = '';
         
-        // PAY WITH POINTS (RED codes)
-        if (result.type === 'points_redemption' || result.data?.redemptionId?.startsWith('RED')) {
-            const redemption = result.data;
-            
-            // Get the points equivalent value
-            const selectedOption = redemption.selectedOption || {};
-            const pointsEquivalent = selectedOption.pointsEquivalent || 
-                                   redemption.selectedOption?.pointsEquivalent || 0;
-            
-            // Calculate UGX value based on points
-            const pointsValue = jeansClubConfig.pointValue || 250;
-            const discountUGX = pointsEquivalent * pointsValue;
-            
-            detailsHtml = `
-                <h4>✅ Pay-with-Points Redemption ${result.status || 'VERIFIED'}!</h4>
-                <div class="details-grid">
-                    <div class="detail-item">
-                        <strong>Redemption ID</strong>
-                        <div>${redemption.redemptionId || 'N/A'} (Pay with Points)</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Member</strong>
-                        <div>${redemption.memberName || 'N/A'} (${redemption.memberJCId || 'N/A'})</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Member Tier</strong>
-                        <div>${redemption.memberTier || selectedOption?.tier || 'N/A'}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Redemption Type</strong>
-                        <div>💰 Pay with Points</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Purchase Amount</strong>
-                        <div>${(redemption.purchaseAmount || 0).toLocaleString()} UGX</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Points Used</strong>
-                        <div>${pointsEquivalent.toLocaleString()} points</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Discount Value</strong>
-                        <div>${discountUGX.toLocaleString()} UGX</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Point Value</strong>
-                        <div>${pointsValue} UGX per point</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Status</strong>
-                        <div style="color: #28a745; font-weight: bold;">${result.status || 'COMPLETED'}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Redeemed By</strong>
-                        <div>${redemption.redeemedBy || 'N/A'}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Redemption Date</strong>
-                        <div>${new Date(redemption.redeemedDate || redemption.createdDate).toLocaleString()}</div>
-                    </div>
-                    ${selectedOption?.description ? `
-                    <div class="detail-item">
-                        <strong>Description</strong>
-                        <div>${selectedOption.description}</div>
-                    </div>
-                    ` : ''}
+         // PAY WITH POINTS (RED codes) - ENHANCED
+if (result.type === 'points_redemption' || result.data?.redemptionId?.startsWith('RED')) {
+    const redemption = result.data;
+    
+    // Get the points equivalent value
+    const selectedOption = redemption.selectedOption || {};
+    const pointsEquivalent = selectedOption.pointsEquivalent || 
+                           redemption.selectedOption?.pointsEquivalent || 0;
+    
+    // Calculate UGX value based on points
+    const pointsValue = jeansClubConfig.pointValue || 250;
+    const discountUGX = pointsEquivalent * pointsValue;
+    
+    // ADDED: Calculate redemption value from purchase amount and percentage
+    const purchaseAmount = redemption.purchaseAmount || 0;
+    let redemptionValueUGX = 0;
+    let redemptionPercentage = 0;
+    
+    if (selectedOption.maxRedemption) {
+        // If maxRedemption is specified, use that
+        redemptionValueUGX = selectedOption.maxRedemption;
+    } else if (selectedOption.percentage) {
+        // If percentage is available, calculate from purchase amount
+        redemptionPercentage = selectedOption.percentage || 0;
+        redemptionValueUGX = purchaseAmount * redemptionPercentage;
+    } else {
+        // Fallback: Use points equivalent * point value
+        redemptionValueUGX = discountUGX;
+    }
+    
+    detailsHtml = `
+        <h4>✅ Pay-with-Points Redemption ${result.status || 'VERIFIED'}!</h4>
+        <div class="details-grid">
+            <div class="detail-item">
+                <strong>Redemption ID</strong>
+                <div>${redemption.redemptionId || 'N/A'} (Pay with Points)</div>
+            </div>
+            <div class="detail-item">
+                <strong>Member</strong>
+                <div>${redemption.memberName || 'N/A'} (${redemption.memberJCId || 'N/A'})</div>
+            </div>
+            <div class="detail-item">
+                <strong>Member Tier</strong>
+                <div>${redemption.memberTier || selectedOption?.tier || 'N/A'}</div>
+            </div>
+            <div class="detail-item">
+                <strong>Redemption Type</strong>
+                <div>💰 Pay with Points</div>
+            </div>
+            <div class="detail-item">
+                <strong>Purchase Amount</strong>
+                <div>${purchaseAmount.toLocaleString()} UGX</div>
+            </div>
+            <div class="detail-item">
+                <strong>Redemption Value</strong>
+                <div style="color: #28a745; font-weight: bold; font-size: 16px;">
+                    ${redemptionValueUGX.toLocaleString()} UGX
                 </div>
-            `;
-        } 
+            </div>
+            <div class="detail-item">
+                <strong>Redemption Percentage</strong>
+                <div>${(redemptionPercentage * 100).toFixed(1)}%</div>
+            </div>
+            <div class="detail-item">
+                <strong>Points Used</strong>
+                <div>${pointsEquivalent.toLocaleString()} points</div>
+            </div>
+            <div class="detail-item">
+                <strong>Point Value</strong>
+                <div>${pointsValue} UGX per point</div>
+            </div>
+            <div class="detail-item">
+                <strong>Discount Value</strong>
+                <div>${discountUGX.toLocaleString()} UGX</div>
+            </div>
+            <div class="detail-item">
+                <strong>Status</strong>
+                <div style="color: #28a745; font-weight: bold;">${result.status || 'COMPLETED'}</div>
+            </div>
+            <div class="detail-item">
+                <strong>Redeemed By</strong>
+                <div>${redemption.redeemedBy || 'N/A'}</div>
+            </div>
+            <div class="detail-item">
+                <strong>Redemption Date</strong>
+                <div>${new Date(redemption.redeemedDate || redemption.createdDate).toLocaleString()}</div>
+            </div>
+            ${selectedOption?.description ? `
+            <div class="detail-item">
+                <strong>Description</strong>
+                <div>${selectedOption.description}</div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
         // DISCOUNT VOUCHER (JC codes)
         else if (result.type === 'voucher' || result.data?.code?.startsWith('JC')) {
             const voucher = result.data;
