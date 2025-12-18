@@ -7423,108 +7423,187 @@ async function updateMemberVouchers(memberJCId) {
             }
         }
 
-        // Display scan results
-        function displayScanResults(result, success) {
-            const resultsDiv = document.getElementById('scanResults');
-            if (!resultsDiv) return;
+      // FIXED: Display scan results function
+function displayScanResults(result, success) {
+    const resultsDiv = document.getElementById('scanResults');
+    if (!resultsDiv) return;
+    
+    resultsDiv.classList.remove('hidden');
+    
+    if (success) {
+        resultsDiv.className = 'scan-results success';
+        
+        let detailsHtml = '';
+        if (result.type === 'voucher') {
+            const voucher = result.data;
+            const discountUGX = voucher.pointsUsed * jeansClubConfig.pointValue;
+            detailsHtml = `
+                <h4>✅ Voucher ${result.status}!</h4>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <strong>Voucher Code</strong>
+                        <div>${voucher.code} (Discount Voucher)</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Member</strong>
+                        <div>${voucher.memberName} (${voucher.memberJCId})</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Discount Value</strong>
+                        <div>${discountUGX.toLocaleString()} UGX</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Discount Percentage</strong>
+                        <div>${voucher.discountPercentage}%</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Points Used</strong>
+                        <div>${voucher.pointsUsed} points (${jeansClubConfig.pointValue} UGX per point)</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Status</strong>
+                        <div style="color: #28a745; font-weight: bold;">${result.status}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redeemed By</strong>
+                        <div>${voucher.redeemedBy}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Date</strong>
+                        <div>${new Date(voucher.usedDate).toLocaleString()}</div>
+                    </div>
+                </div>
+            `;
+        } else if (result.type === 'points_redemption') {
+            const redemption = result.data;
+            // Calculate the actual value based on the selected option
+            let redemptionValue = 0;
+            let pointsUsed = 0;
             
-            resultsDiv.classList.remove('hidden');
-            
-            if (success) {
-                resultsDiv.className = 'scan-results success';
-                
-                let detailsHtml = '';
-                if (result.type === 'voucher') {
-                    const voucher = result.data;
-                    const discountUGX = voucher.pointsUsed * jeansClubConfig.pointValue;
-                    detailsHtml = `
-                        <h4>✅ Voucher ${result.status}!</h4>
-                        <div class="details-grid">
-                            <div class="detail-item">
-                                <strong>Voucher Code</strong>
-                                <div>${voucher.code} (Discount Voucher)</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Member</strong>
-                                <div>${voucher.memberName} (${voucher.memberJCId})</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Discount Value</strong>
-                                <div>${discountUGX.toLocaleString()} UGX</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Discount Percentage</strong>
-                                <div>${voucher.discountPercentage}%</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Points Used</strong>
-                                <div>${voucher.pointsUsed} points (${jeansClubConfig.pointValue} UGX per point)</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Status</strong>
-                                <div style="color: #28a745; font-weight: bold;">${result.status}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Redeemed By</strong>
-                                <div>${voucher.redeemedBy}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Date</strong>
-                                <div>${new Date(voucher.usedDate).toLocaleString()}</div>
-                            </div>
-                        </div>
-                    `;
-                } else if (result.type === 'points_redemption') {
-                    const redemption = result.data;
-                    detailsHtml = `
-                        <h4>✅ Pay-with-Points Redemption ${result.status}!</h4>
-                        <div class="details-grid">
-                            <div class="detail-item">
-                                <strong>Redemption ID</strong>
-                                <div>${redemption.redemptionId} (Pay with Points)</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Member</strong>
-                                <div>${redemption.memberName} (${redemption.memberJCId})</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Purchase Amount</strong>
-                                <div>${redemption.purchaseAmount.toLocaleString()} UGX</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Redemption Type</strong>
-                                <div>Pay with Points (RED code)</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Point Value</strong>
-                                <div>${jeansClubConfig.pointValue} UGX per point</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Status</strong>
-                                <div style="color: #28a745; font-weight: bold;">${result.status}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Redeemed By</strong>
-                                <div>${redemption.redeemedBy}</div>
-                            </div>
-                            <div class="detail-item">
-                                <strong>Date</strong>
-                                <div>${new Date(redemption.redeemedDate).toLocaleString()}</div>
-                            </div>
-                        </div>
-                    `;
+            if (redemption.selectedOption) {
+                if (redemption.selectedOption.type === 'points_redemption') {
+                    redemptionValue = redemption.selectedOption.maxRedemption || 0;
+                    pointsUsed = redemption.selectedOption.pointsEquivalent || 0;
                 }
-                
-                resultsDiv.innerHTML = detailsHtml;
-            } else {
-                resultsDiv.className = 'scan-results error';
-                resultsDiv.innerHTML = `
-                    <h4>❌ Scan ${result.status}</h4>
-                    <p><strong>Error:</strong> ${result.message}</p>
-                    <p>Please try again or enter the code manually.</p>
-                `;
             }
+            
+            detailsHtml = `
+                <h4>✅ Pay-with-Points Redemption ${result.status}!</h4>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <strong>Redemption ID</strong>
+                        <div>${redemption.redemptionId} (Pay with Points - RED)</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Member</strong>
+                        <div>${redemption.memberName} (${redemption.memberJCId})</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Member Tier</strong>
+                        <div>${redemption.memberTier}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Purchase Amount</strong>
+                        <div>${redemption.purchaseAmount ? redemption.purchaseAmount.toLocaleString() : '0'} UGX</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redemption Value</strong>
+                        <div>${redemptionValue.toLocaleString()} UGX</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Points Used</strong>
+                        <div>${pointsUsed.toLocaleString()} points (${jeansClubConfig.pointValue} UGX per point)</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redemption Type</strong>
+                        <div>Pay with Points (RED code)</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Point Value</strong>
+                        <div>${jeansClubConfig.pointValue} UGX per point</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Status</strong>
+                        <div style="color: #28a745; font-weight: bold;">${result.status}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redeemed By</strong>
+                        <div>${redemption.redeemedBy}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redemption Date</strong>
+                        <div>${new Date(redemption.redeemedDate).toLocaleString()}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Created Date</strong>
+                        <div>${new Date(redemption.createdDate).toLocaleString()}</div>
+                    </div>
+                    ${redemption.selectedOption ? `
+                        <div class="detail-item">
+                            <strong>Option Description</strong>
+                            <div>${redemption.selectedOption.description || 'N/A'}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            // Generic fallback for other redemption types
+            const data = result.data || {};
+            detailsHtml = `
+                <h4>✅ Redemption ${result.status}!</h4>
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <strong>Type</strong>
+                        <div>${result.type}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>ID</strong>
+                        <div>${data.redemptionId || data.code || 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Member</strong>
+                        <div>${data.memberName || 'N/A'} (${data.memberJCId || 'N/A'})</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Status</strong>
+                        <div style="color: #28a745; font-weight: bold;">${result.status}</div>
+                    </div>
+                    ${data.redeemedBy ? `
+                        <div class="detail-item">
+                            <strong>Redeemed By</strong>
+                            <div>${data.redeemedBy}</div>
+                        </div>
+                    ` : ''}
+                    ${data.redeemedDate ? `
+                        <div class="detail-item">
+                            <strong>Date</strong>
+                            <div>${new Date(data.redeemedDate).toLocaleString()}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
         }
+        
+        resultsDiv.innerHTML = detailsHtml;
+        
+        // Make sure it's visible
+        resultsDiv.style.display = 'block';
+        resultsDiv.style.visibility = 'visible';
+        resultsDiv.style.opacity = '1';
+    } else {
+        resultsDiv.className = 'scan-results error';
+        resultsDiv.innerHTML = `
+            <h4>❌ Scan ${result.status}</h4>
+            <p><strong>Error:</strong> ${result.message}</p>
+            <p>Please try again or enter the code manually.</p>
+        `;
+        
+        // Make sure it's visible
+        resultsDiv.style.display = 'block';
+        resultsDiv.style.visibility = 'visible';
+        resultsDiv.style.opacity = '1';
+    }
+}
 
         // Process scan manually - FIXED
         async function processScan() {
