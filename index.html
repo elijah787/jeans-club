@@ -7423,9 +7423,9 @@ async function updateMemberVouchers(memberJCId) {
             }
         }
 
-        // Display scan results - FIXED VERSION
+        
 
-        // Display scan results - UPDATED VERSION with proper value calculation
+    // Display scan results - FIXED VERSION that handles both JC codes properly
 function displayScanResults(result, success) {
     const resultsDiv = document.getElementById('scanResults');
     if (!resultsDiv) return;
@@ -7437,7 +7437,7 @@ function displayScanResults(result, success) {
         
         let detailsHtml = '';
         
-        // PAY WITH POINTS (RED codes) - UPDATED with value calculation
+        // PAY WITH POINTS REDEMPTION (starts with RED)
         if (result.type === 'points_redemption' || result.data?.redemptionId?.startsWith('RED')) {
             const redemption = result.data;
             const selectedOption = redemption.selectedOption || {};
@@ -7454,113 +7454,97 @@ function displayScanResults(result, success) {
             // Calculate UGX value based on points
             const discountUGX = pointsEquivalent * pointsValue;
             
-            // Calculate redemption value - FIXED LOGIC
-            let redemptionValueUGX = 0;
-            let redemptionPercentage = 0;
+            // Calculate discount percentage
+            const discountPercentage = purchaseAmount > 0 ? 
+                ((discountUGX / purchaseAmount) * 100).toFixed(1) : 
+                '0.0';
             
-            // Use the maxRedemption if available
-            if (selectedOption.maxRedemption) {
-                redemptionValueUGX = selectedOption.maxRedemption;
-                redemptionPercentage = (selectedOption.maxRedemption / purchaseAmount) * 100;
-            } 
-            // Use the totalAmount if available
-            else if (selectedOption.totalAmount) {
-                redemptionValueUGX = Math.min(selectedOption.totalAmount, purchaseAmount);
-                redemptionPercentage = (redemptionValueUGX / purchaseAmount) * 100;
-            }
-            // Fallback to points calculation
-            else {
-                redemptionValueUGX = discountUGX;
-                redemptionPercentage = (discountUGX / purchaseAmount) * 100;
-            }
-            
-            // Ensure we don't exceed purchase amount
-            redemptionValueUGX = Math.min(redemptionValueUGX, purchaseAmount);
+            // Make sure we don't exceed 100% discount
+            const actualDiscountUGX = Math.min(discountUGX, purchaseAmount);
+            const actualDiscountPercentage = purchaseAmount > 0 ? 
+                ((actualDiscountUGX / purchaseAmount) * 100).toFixed(1) : 
+                '0.0';
             
             detailsHtml = `
-                <h4>✅ Pay-with-Points Redemption ${result.status || 'VERIFIED'}!</h4>
+                <h4>✅ Redemption ${result.status || 'VERIFIED'}!</h4>
                 <div class="details-grid">
                     <div class="detail-item">
-                        <strong>Redemption ID</strong>
-                        <div>${redemption.redemptionId || 'N/A'} (Pay with Points)</div>
+                        <strong>Type</strong>
+                        <div>redemption</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>ID</strong>
+                        <div>${redemption.redemptionId || 'N/A'}</div>
                     </div>
                     <div class="detail-item">
                         <strong>Member</strong>
                         <div>${redemption.memberName || 'N/A'} (${redemption.memberJCId || 'N/A'})</div>
                     </div>
                     <div class="detail-item">
-                        <strong>Member Tier</strong>
-                        <div>${redemption.memberTier || selectedOption?.tier || 'N/A'}</div>
+                        <strong>Status</strong>
+                        <div style="color: #28a745; font-weight: bold;">${result.status || 'VERIFIED'}</div>
                     </div>
                     <div class="detail-item">
-                        <strong>Redemption Type</strong>
-                        <div>💰 Pay with Points</div>
+                        <strong>Discount Value</strong>
+                        <div style="color: #28a745; font-weight: bold; font-size: 16px;">
+                            ${actualDiscountUGX.toLocaleString()} UGX
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Discount Percentage</strong>
+                        <div style="color: #28a745; font-weight: bold; font-size: 16px;">
+                            ${actualDiscountPercentage}%
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Points Used</strong>
+                        <div>${pointsEquivalent.toLocaleString()} points (${pointsValue} UGX per point)</div>
                     </div>
                     <div class="detail-item">
                         <strong>Purchase Amount</strong>
                         <div>${purchaseAmount.toLocaleString()} UGX</div>
                     </div>
                     <div class="detail-item">
-                        <strong>Redemption Value</strong>
-                        <div style="color: #28a745; font-weight: bold; font-size: 16px;">
-                            ${redemptionValueUGX.toLocaleString()} UGX
+                        <strong>Final Amount to Pay</strong>
+                        <div style="font-weight: bold; color: #333;">
+                            ${Math.max(0, purchaseAmount - actualDiscountUGX).toLocaleString()} UGX
                         </div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Redemption Percentage</strong>
-                        <div>${redemptionPercentage.toFixed(1)}% of purchase</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Points Used</strong>
-                        <div>${pointsEquivalent.toLocaleString()} points</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Point Value</strong>
-                        <div>${pointsValue} UGX per point</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Points Value</strong>
-                        <div>${discountUGX.toLocaleString()} UGX</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Status</strong>
-                        <div style="color: #28a745; font-weight: bold;">${result.status || 'COMPLETED'}</div>
                     </div>
                     <div class="detail-item">
                         <strong>Redeemed By</strong>
                         <div>${redemption.redeemedBy || 'N/A'}</div>
                     </div>
                     <div class="detail-item">
-                        <strong>Redemption Date</strong>
+                        <strong>Date</strong>
                         <div>${new Date(redemption.redeemedDate || redemption.createdDate).toLocaleString()}</div>
                     </div>
-                    ${selectedOption?.description ? `
                     <div class="detail-item">
-                        <strong>Description</strong>
-                        <div>${selectedOption.description}</div>
-                    </div>
-                    ` : ''}
-                    <div class="detail-item">
-                        <strong>Final Amount</strong>
-                        <div style="font-weight: bold; color: #333;">
-                            ${Math.max(0, purchaseAmount - redemptionValueUGX).toLocaleString()} UGX to pay
-                        </div>
+                        <strong>Message</strong>
+                        <div>Redemption completed successfully by ${redemption.redeemedBy || 'N/A'}</div>
                     </div>
                 </div>
             `;
         }
-        // DISCOUNT VOUCHER (JC codes)
+        // DISCOUNT VOUCHER (starts with JC)
         else if (result.type === 'voucher' || result.data?.code?.startsWith('JC')) {
             const voucher = result.data;
             const pointsValue = jeansClubConfig.pointValue || 250;
             const discountUGX = (voucher.pointsUsed || 0) * pointsValue;
             
+            // Check if this is a regular voucher or one created from pay-with-points
+            const isFromPayWithPoints = voucher.createdFrom === 'pay_with_points';
+            const displayType = isFromPayWithPoints ? 'discount_voucher (from pay-with-points)' : 'discount_voucher';
+            
             detailsHtml = `
                 <h4>✅ Voucher ${result.status || 'VERIFIED'}!</h4>
                 <div class="details-grid">
                     <div class="detail-item">
+                        <strong>Type</strong>
+                        <div>${displayType}</div>
+                    </div>
+                    <div class="detail-item">
                         <strong>Voucher Code</strong>
-                        <div>${voucher.code || 'N/A'} (Discount Voucher)</div>
+                        <div>${voucher.code || 'N/A'}</div>
                     </div>
                     <div class="detail-item">
                         <strong>Member</strong>
@@ -7568,11 +7552,15 @@ function displayScanResults(result, success) {
                     </div>
                     <div class="detail-item">
                         <strong>Discount Value</strong>
-                        <div>${discountUGX.toLocaleString()} UGX</div>
+                        <div style="color: #28a745; font-weight: bold; font-size: 16px;">
+                            ${discountUGX.toLocaleString()} UGX
+                        </div>
                     </div>
                     <div class="detail-item">
                         <strong>Discount Percentage</strong>
-                        <div>${voucher.discountPercentage || 0}%</div>
+                        <div style="color: #28a745; font-weight: bold; font-size: 16px;">
+                            ${voucher.discountPercentage || 0}%
+                        </div>
                     </div>
                     <div class="detail-item">
                         <strong>Points Used</strong>
@@ -7580,7 +7568,7 @@ function displayScanResults(result, success) {
                     </div>
                     <div class="detail-item">
                         <strong>Status</strong>
-                        <div style="color: #28a745; font-weight: bold;">${result.status || 'REDEEMED'}</div>
+                        <div style="color: #28a745; font-weight: bold;">${result.status || 'VERIFIED'}</div>
                     </div>
                     <div class="detail-item">
                         <strong>Redeemed By</strong>
@@ -7598,6 +7586,10 @@ function displayScanResults(result, success) {
                         <strong>Redemption Date</strong>
                         <div>${new Date(voucher.usedDate).toLocaleString()}</div>
                     </div>
+                    <div class="detail-item">
+                        <strong>Message</strong>
+                        <div>Voucher redeemed successfully! ${voucher.discountPercentage || 0}% discount applied.</div>
+                    </div>
                 </div>
             `;
         }
@@ -7609,7 +7601,7 @@ function displayScanResults(result, success) {
                 <div class="details-grid">
                     <div class="detail-item">
                         <strong>Type</strong>
-                        <div>${result.type || 'Unknown'}</div>
+                        <div>${result.type || 'redemption'}</div>
                     </div>
                     <div class="detail-item">
                         <strong>ID</strong>
@@ -7621,15 +7613,19 @@ function displayScanResults(result, success) {
                     </div>
                     <div class="detail-item">
                         <strong>Status</strong>
-                        <div style="color: #28a745; font-weight: bold;">${result.status || 'COMPLETED'}</div>
+                        <div style="color: #28a745; font-weight: bold;">${result.status || 'VERIFIED'}</div>
                     </div>
                     <div class="detail-item">
                         <strong>Message</strong>
-                        <div>${result.message || 'Redemption successful'}</div>
+                        <div>${result.message || 'Redemption completed successfully'}</div>
                     </div>
                     <div class="detail-item">
                         <strong>Date</strong>
                         <div>${new Date().toLocaleString()}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Redeemed By</strong>
+                        <div>${data.redeemedBy || 'N/A'}</div>
                     </div>
                 </div>
             `;
@@ -7665,6 +7661,8 @@ function displayScanResults(result, success) {
         resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 100);
 }
+    
+    
 
         // Process scan manually - FIXED
         async function processScan() {
