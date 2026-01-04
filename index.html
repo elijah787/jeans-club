@@ -7373,10 +7373,7 @@ buildPasswordResetSuccessEmail(memberData) {
                     
                     ${voucher.status === 'active' ? `
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <button onclick="shareVoucher('${voucher.code}', '${voucher.discountPercentage}%')" 
-                                class="btn" style="padding: 5px 10px; font-size: 12px; flex: 1;">
-                            📱 Share
-                        </button>
+                        
                         <button onclick="showVoucherQR('${voucher.code}')" 
                                 class="btn secondary" style="padding: 5px 10px; font-size: 12px; flex: 1;">
                             🔍 Show QR
