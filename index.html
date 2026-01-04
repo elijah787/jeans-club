@@ -3640,66 +3640,100 @@
                 };
             }
             
-            // Update dashboard display
-            updateDashboardDisplay(member) {
-                const rewards = this.calculateMonthlyRewards(member);
-                const streakData = JSON.parse(localStorage.getItem('jeansClubMonthlyStreak'));
-                
-                // Update streak badge
-                document.getElementById('monthlyStreakBadge').textContent = `Month ${rewards.streak}`;
-                
-                // Update cashback display
-                document.getElementById('cashbackValue').textContent = `${rewards.cashbackPercentage}%`;
-                document.getElementById('cashbackText').textContent = `${rewards.cashbackAmount.toLocaleString()} UGX cashback`;
-                document.getElementById('cashbackProgressFill').style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
-                
-                // Update bonus points display
-                document.getElementById('bonusPointsValue').textContent = `+${rewards.bonusPoints}`;
-                document.getElementById('bonusPointsText').textContent = `${rewards.bonusPointsValue.toLocaleString()} UGX value`;
-                document.getElementById('bonusPointsProgressFill').style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
-                
-                // Update overspending display
-                document.getElementById('overspendingValue').textContent = `${rewards.overspendingBonus}%`;
-                document.getElementById('overspendingText').textContent = `${rewards.monthlySpending.toLocaleString()}/${rewards.monthlyMinimum.toLocaleString()} UGX`;
-                document.getElementById('minimumText').textContent = `${rewards.tier} monthly minimum`;
-                document.getElementById('overspendingProgressFill').style.width = `${rewards.percentageOfMinimum / 5}%`; // Divided by 5 because we show up to 500%
-                
-                // Update total value
-                document.getElementById('totalMonthlyValue').textContent = `${rewards.totalMonthlyValue.toLocaleString()} UGX`;
-                
-                // Update milestone info
-                document.getElementById('nextMilestone').textContent = rewards.nextMilestone;
-                document.getElementById('daysUntilReset').textContent = rewards.daysUntilReset;
-                
-                // Update rewards text
-                const rewardsText = document.getElementById('monthlyRewardsText');
-                if (rewards.streak === 0) {
-                    rewardsText.textContent = "Start your streak by meeting this month's minimum!";
-                    rewardsText.style.color = '#666';
-                } else if (rewards.meetsMinimum) {
-                    rewardsText.textContent = `Great job! You're on Month ${rewards.streak} of your streak!`;
-                    rewardsText.style.color = '#28a745';
-                } else {
-                    rewardsText.textContent = `Spend ${(rewards.monthlyMinimum - rewards.monthlySpending).toLocaleString()} more UGX to maintain your ${rewards.streak}-month streak!`;
-                    rewardsText.style.color = '#dc3545';
-                }
-                
-                // Update item styles
-                const cashbackItem = document.getElementById('cashbackItem');
-                const bonusPointsItem = document.getElementById('bonusPointsItem');
-                const overspendingItem = document.getElementById('overspendingItem');
-                
-                if (rewards.cashbackPercentage > 0) cashbackItem.classList.add('active');
-                else cashbackItem.classList.remove('active');
-                
-                if (rewards.bonusPoints > 0) bonusPointsItem.classList.add('active');
-                else bonusPointsItem.classList.remove('active');
-                
-                if (rewards.overspendingBonus > 0) overspendingItem.classList.add('active');
-                else overspendingItem.classList.remove('active');
-                
-                return rewards;
+                  // Update dashboard display - FIXED VERSION
+updateDashboardDisplay(member) {
+    if (!member) {
+        console.error('No member data provided to updateDashboardDisplay');
+        return;
+    }
+    
+    try {
+        const rewards = this.calculateMonthlyRewards(member);
+        console.log('Final System Rewards:', rewards);
+        
+        // Update streak badge
+        const streakBadge = document.getElementById('monthlyStreakBadge');
+        if (streakBadge) streakBadge.textContent = `Month ${rewards.streak}`;
+        
+        // Update cashback display
+        const cashbackValue = document.getElementById('cashbackValue');
+        const cashbackText = document.getElementById('cashbackText');
+        const cashbackProgressFill = document.getElementById('cashbackProgressFill');
+        if (cashbackValue) cashbackValue.textContent = `${rewards.cashbackPercentage}%`;
+        if (cashbackText) cashbackText.textContent = `${rewards.cashbackAmount.toLocaleString()} UGX cashback`;
+        if (cashbackProgressFill) cashbackProgressFill.style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
+        
+        // Update bonus points display
+        const bonusPointsValue = document.getElementById('bonusPointsValue');
+        const bonusPointsText = document.getElementById('bonusPointsText');
+        const bonusPointsProgressFill = document.getElementById('bonusPointsProgressFill');
+        if (bonusPointsValue) bonusPointsValue.textContent = `+${rewards.bonusPoints}`;
+        if (bonusPointsText) bonusPointsText.textContent = `${rewards.bonusPointsValue.toLocaleString()} UGX value`;
+        if (bonusPointsProgressFill) bonusPointsProgressFill.style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
+        
+        // Update overspending display
+        const overspendingValue = document.getElementById('overspendingValue');
+        const overspendingText = document.getElementById('overspendingText');
+        const minimumText = document.getElementById('minimumText');
+        const overspendingProgressFill = document.getElementById('overspendingProgressFill');
+        if (overspendingValue) overspendingValue.textContent = `${rewards.overspendingBonus}%`;
+        if (overspendingText) overspendingText.textContent = `${rewards.monthlySpending.toLocaleString()}/${rewards.monthlyMinimum.toLocaleString()} UGX`;
+        if (minimumText) minimumText.textContent = `${rewards.tier} monthly minimum`;
+        if (overspendingProgressFill) overspendingProgressFill.style.width = `${rewards.percentageOfMinimum / 5}%`;
+        
+        // Update total value
+        const totalMonthlyValue = document.getElementById('totalMonthlyValue');
+        if (totalMonthlyValue) totalMonthlyValue.textContent = `${rewards.totalMonthlyValue.toLocaleString()} UGX`;
+        
+        // Update milestone info
+        const nextMilestone = document.getElementById('nextMilestone');
+        const daysUntilReset = document.getElementById('daysUntilReset');
+        if (nextMilestone) nextMilestone.textContent = rewards.nextMilestone;
+        if (daysUntilReset) daysUntilReset.textContent = rewards.daysUntilReset;
+        
+        // Update rewards text
+        const rewardsText = document.getElementById('monthlyRewardsText');
+        if (rewardsText) {
+            if (rewards.streak === 0) {
+                rewardsText.textContent = "Start your streak by meeting this month's minimum!";
+                rewardsText.style.color = '#666';
+            } else if (rewards.meetsMinimum) {
+                rewardsText.textContent = `Great job! You're on Month ${rewards.streak} of your streak!`;
+                rewardsText.style.color = '#28a745';
+            } else {
+                rewardsText.textContent = `Spend ${(rewards.monthlyMinimum - rewards.monthlySpending).toLocaleString()} more UGX to maintain your ${rewards.streak}-month streak!`;
+                rewardsText.style.color = '#dc3545';
             }
+        }
+        
+        // Update item styles
+        const cashbackItem = document.getElementById('cashbackItem');
+        const bonusPointsItem = document.getElementById('bonusPointsItem');
+        const overspendingItem = document.getElementById('overspendingItem');
+        
+        if (cashbackItem) {
+            if (rewards.cashbackPercentage > 0) cashbackItem.classList.add('active');
+            else cashbackItem.classList.remove('active');
+        }
+        
+        if (bonusPointsItem) {
+            if (rewards.bonusPoints > 0) bonusPointsItem.classList.add('active');
+            else bonusPointsItem.classList.remove('active');
+        }
+        
+        if (overspendingItem) {
+            if (rewards.overspendingBonus > 0) overspendingItem.classList.add('active');
+            else overspendingItem.classList.remove('active');
+        }
+        
+        console.log('Dashboard updated successfully');
+        return rewards;
+        
+    } catch (error) {
+        console.error('Error updating dashboard display:', error);
+        return null;
+    }
+}
             
             // Get overspending bonus examples
             getOverspendingExamples() {
@@ -6274,7 +6308,15 @@ buildPasswordResetSuccessEmail(memberData) {
                 this.voucherSystem = new VoucherSystem();
                 this.qrRedemptionSystem = new QRRedemptionSystem();
                 this.finalSystem = new FinalSystem();
-                
+                console.log('✅ ClubManager initialized with:');
+        console.log('- Voucher System:', !!this.voucherSystem);
+        console.log('- QR Redemption System:', !!this.qrRedemptionSystem);
+        console.log('- Final System:', !!this.finalSystem);
+        
+        // Set global references
+        voucherSystem = this.voucherSystem;
+        qrRedemptionSystem = this.qrRedemptionSystem;
+        finalSystem = this.finalSystem;
                 this.init();
             }
 
@@ -7027,17 +7069,25 @@ buildPasswordResetSuccessEmail(memberData) {
         }
 
         function showDashboard(member) {
-            hideAllSections();
-            document.getElementById('dashboardSection').classList.remove('hidden');
-            
-            // Update dashboard display
-            updateMemberDashboard(member);
-            
-            // Update final system dashboard
-            if (finalSystem) {
-                finalSystem.updateDashboardDisplay(member);
-            }
+    hideAllSections();
+    document.getElementById('dashboardSection').classList.remove('hidden');
+    
+    // Update dashboard display with member data
+    updateMemberDashboard(member);
+    
+    // Update final system dashboard - check if finalSystem exists
+    if (finalSystem && typeof finalSystem.updateDashboardDisplay === 'function') {
+        console.log('Updating final system dashboard for member:', member.jcId);
+        finalSystem.updateDashboardDisplay(member);
+    } else {
+        console.error('Final system not properly initialized');
+        // Try to get it from clubManager
+        if (clubManager && clubManager.finalSystem) {
+            finalSystem = clubManager.finalSystem;
+            finalSystem.updateDashboardDisplay(member);
         }
+    }
+}
 
         function showAdminPanel() {
             hideAllSections();
@@ -7257,71 +7307,90 @@ buildPasswordResetSuccessEmail(memberData) {
                 .join('');
         }
 
-       function updateMemberVouchers(jcId) {
+ function updateMemberVouchers(jcId) {
     const vouchersList = document.getElementById('vouchersList');
-    const vouchers = voucherSystem.getMemberVouchers(jcId);
     
-    if (vouchers.length === 0) {
-        vouchersList.innerHTML = '<div class="activity-item">No vouchers yet</div>';
-        return;
+    // Check if voucherSystem exists
+    if (!voucherSystem) {
+        console.error('voucherSystem is not initialized');
+        vouchersList.innerHTML = '<div class="activity-item">System loading...</div>';
+        
+        // Try to get it from clubManager
+        if (window.clubManager && clubManager.voucherSystem) {
+            voucherSystem = clubManager.voucherSystem;
+            console.log('voucherSystem retrieved from clubManager');
+        } else {
+            return;
+        }
     }
     
-    vouchersList.innerHTML = vouchers.map(voucher => {
-        const statusClass = voucher.status === 'active' ? 'status-active' : 
-                           voucher.status === 'used' ? 'status-used' : 'status-expired';
-        const statusText = voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1);
-        const expiryDate = new Date(voucher.expiryDate).toLocaleDateString();
-        const createdDate = new Date(voucher.createdDate).toLocaleDateString();
-        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(voucher.code)}`;
+    try {
+        const vouchers = voucherSystem.getMemberVouchers(jcId);
         
-        return `
-            <div class="voucher-item ${voucher.status}">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>${voucher.discountPercentage}% OFF</strong>
-                        <span class="voucher-status ${statusClass}">${statusText}</span>
-                    </div>
-                    <div style="font-size: 12px; color: #666;">
-                        Created: ${createdDate}
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 15px; margin-top: 10px;">
-                    <div style="flex: 1;">
-                        <div class="voucher-code">${voucher.code}</div>
-                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                            Points used: ${voucher.pointsUsed}<br>
-                            Expires: ${expiryDate}
-                            ${voucher.usedDate ? `<br>Used: ${new Date(voucher.usedDate).toLocaleDateString()}` : ''}
+        if (vouchers.length === 0) {
+            vouchersList.innerHTML = '<div class="activity-item">No vouchers yet</div>';
+            return;
+        }
+        
+        vouchersList.innerHTML = vouchers.map(voucher => {
+            const statusClass = voucher.status === 'active' ? 'status-active' : 
+                               voucher.status === 'used' ? 'status-used' : 'status-expired';
+            const statusText = voucher.status.charAt(0).toUpperCase() + voucher.status.slice(1);
+            const expiryDate = new Date(voucher.expiryDate).toLocaleDateString();
+            const createdDate = new Date(voucher.createdDate).toLocaleDateString();
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(voucher.code)}`;
+            
+            return `
+                <div class="voucher-item ${voucher.status}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${voucher.discountPercentage}% OFF</strong>
+                            <span class="voucher-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div style="font-size: 12px; color: #666;">
+                            Created: ${createdDate}
                         </div>
                     </div>
                     
+                    <div style="display: flex; gap: 15px; margin-top: 10px;">
+                        <div style="flex: 1;">
+                            <div class="voucher-code">${voucher.code}</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                                Points used: ${voucher.pointsUsed}<br>
+                                Expires: ${expiryDate}
+                                ${voucher.usedDate ? `<br>Used: ${new Date(voucher.usedDate).toLocaleDateString()}` : ''}
+                            </div>
+                        </div>
+                        
+                        ${voucher.status === 'active' ? `
+                        <div style="text-align: center;">
+                            <img src="${qrCodeUrl}" alt="QR Code" 
+                                 style="width: 80px; height: 80px; border: 1px solid #ddd; border-radius: 5px; padding: 5px;">
+                            <div style="font-size: 10px; color: #666; margin-top: 5px;">Scan at checkout</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
                     ${voucher.status === 'active' ? `
-                    <div style="text-align: center;">
-                        <img src="${qrCodeUrl}" alt="QR Code" 
-                             style="width: 80px; height: 80px; border: 1px solid #ddd; border-radius: 5px; padding: 5px;">
-                        <div style="font-size: 10px; color: #666; margin-top: 5px;">Scan at checkout</div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button onclick="shareVoucher('${voucher.code}', '${voucher.discountPercentage}%')" 
+                                class="btn" style="padding: 5px 10px; font-size: 12px; flex: 1;">
+                            📱 Share
+                        </button>
+                        <button onclick="showVoucherQR('${voucher.code}')" 
+                                class="btn secondary" style="padding: 5px 10px; font-size: 12px; flex: 1;">
+                            🔍 Show QR
+                        </button>
                     </div>
                     ` : ''}
                 </div>
-                
-                ${voucher.status === 'active' ? `
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <button onclick="shareVoucher('${voucher.code}', '${voucher.discountPercentage}%')" 
-                            class="btn" style="padding: 5px 10px; font-size: 12px; flex: 1;">
-                        📱 Share
-                    </button>
-                    <button onclick="showVoucherQR('${voucher.code}')" 
-                            class="btn secondary" style="padding: 5px 10px; font-size: 12px; flex: 1;">
-                        🔍 Show QR
-                    </button>
-                </div>
-                ` : ''}
-            </div>
-        `;
-    }).join('');
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading vouchers:', error);
+        vouchersList.innerHTML = '<div class="activity-item">Error loading vouchers</div>';
+    }
 }
-
 // Add this function to show QR code in modal
 function showVoucherQR(voucherCode) {
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(voucherCode)}`;
@@ -8475,44 +8544,55 @@ function showVoucherQR(voucherCode) {
             return re.test(String(email).toLowerCase());
         }
 
-        // Initialize the application
-        window.onload = function() {
-            clubManager = new ClubManager();
+      // Replace the ENTIRE window.onload function (around line 8480):
+window.onload = function() {
+    console.log('=== PAGE LOAD START ===');
+    
+    // Initialize ClubManager first
+    clubManager = new ClubManager();
+    
+    // Wait for ClubManager to be fully initialized
+    setTimeout(() => {
+        // Now assign the systems from clubManager
+        if (clubManager) {
             voucherSystem = clubManager.voucherSystem;
             qrRedemptionSystem = clubManager.qrRedemptionSystem;
             finalSystem = clubManager.finalSystem;
             
-            // Check for URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            const action = urlParams.get('action');
-            
-            if (action === 'login') {
-                showLoginScreen();
-            } else if (action === 'signup') {
-                showSignupScreen();
-            } else if (action === 'admin') {
-                showAdminLogin();
-            }
-            
-            // Close search when clicking outside
-            document.getElementById('searchModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    hideSearch();
-                }
-            });
-            
-            // Close camera scanner when clicking outside
-            document.getElementById('cameraScannerModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeCameraScanner();
-                }
-            });
-            
-            // Initialize with login screen if not logged in
-            if (!clubManager.currentMember && !clubManager.isAdmin) {
-                showSignupScreen();
-            }
-        };
-    </script>
+            console.log('Systems initialized:');
+            console.log('- voucherSystem:', !!voucherSystem);
+            console.log('- qrRedemptionSystem:', !!qrRedemptionSystem);
+            console.log('- finalSystem:', !!finalSystem);
+        }
+        
+        // Check for URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const action = urlParams.get('action');
+        
+        if (action === 'login') {
+            showLoginScreen();
+        } else if (action === 'signup') {
+            showSignupScreen();
+        } else if (action === 'admin') {
+            showAdminLogin();
+        }
+        
+        console.log('=== PAGE LOAD COMPLETE ===');
+    }, 1000);
+    
+    // Initialize event listeners
+    document.getElementById('searchModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            hideSearch();
+        }
+    });
+    
+    document.getElementById('cameraScannerModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeCameraScanner();
+        }
+    });
+};
+ </script>
 </body>
 </html>  
