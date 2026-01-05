@@ -3987,16 +3987,36 @@ updateDashboardDisplay(member) {
 
         
         // Handle detected QR code
+// Handle detected QR code
 async function handleQRCodeDetected(qrData) {
-    console.log("QR Code detected:", qrData);
+    console.log("🔍 QR Code detected:", qrData);
+    
+    // Validate QR data
+    if (!qrData || qrData.trim() === '') {
+        console.error("❌ Empty QR code data");
+        updateScannerStatus('Invalid QR code - no data found', false);
+        return;
+    }
     
     // Stop scanner immediately
     scannerScanning = false;
     
+    // Clean the QR data
+    const cleanQRData = qrData.trim();
+    
+    // Check if it looks like a valid code
+    if (cleanQRData.length < 3) {
+        updateScannerStatus('Invalid QR code - too short', false);
+        showToast("Invalid QR code detected", "error");
+        return;
+    }
+    
+    console.log("✅ Clean QR data:", cleanQRData);
+    
     // Update result display
     const resultElement = document.getElementById('scannerResult');
     if (resultElement) {
-        resultElement.textContent = qrData;
+        resultElement.textContent = cleanQRData;
         resultElement.style.backgroundColor = '#d4edda';
         resultElement.style.color = '#155724';
         resultElement.style.borderColor = '#28a745';
@@ -4034,13 +4054,20 @@ async function handleQRCodeDetected(qrData) {
                 salespersonInput.select();
             }
             
-            // Fill the voucher code input with scanned data
+            // Fill the voucher code input with cleaned data
             const voucherInput = document.getElementById('voucherCodeInput');
             if (voucherInput) {
-                voucherInput.value = qrData;
+                voucherInput.value = cleanQRData;
             }
             
-            showToast("QR code scanned! Please enter your name and click 'Process Scan'", "info");
+            showToast(`QR code scanned: ${cleanQRData.substring(0, 20)}...`, "success");
+            
+            // AUTO-PROCESS the scan
+            setTimeout(() => {
+                console.log("🔄 Auto-processing scanned code...");
+                processScan();
+            }, 500);
+            
         }, 500);
     }, 1000);
 }
