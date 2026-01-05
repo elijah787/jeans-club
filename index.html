@@ -6131,49 +6131,82 @@ buildPasswordResetSuccessEmail(memberData) {
                 return redemptionId;
             }
 
-            createRedemption(memberJCId, memberName, memberTier, purchaseAmount, selectedOption) {
-                const redemptionId = this.generateRedemptionId();
-                const createdDate = new Date();
-                
-                const redemption = {
-                    redemptionId: redemptionId,
-                    memberJCId: memberJCId,
-                    memberName: memberName,
-                    memberTier: memberTier,
-                    purchaseAmount: purchaseAmount,
-                    selectedOption: selectedOption,
-                    createdDate: createdDate.toISOString(),
-                    status: 'pending',
-                    redeemedBy: null,
-                    redeemedDate: null,
-                    qrCodeData: this.generateQRCodeData(redemptionId)
-                };
+            async createRedemption(memberJCId, memberName, memberTier, purchaseAmount, selectedOption) {
+    const redemptionId = this.generateRedemptionId();
+    const createdDate = new Date();
+    
+    const redemption = {
+        redemptionId: redemptionId,
+        memberJCId: memberJCId,
+        memberName: memberName,
+        memberTier: memberTier,
+        purchaseAmount: purchaseAmount,
+        selectedOption: selectedOption,
+        createdDate: createdDate.toISOString(),
+        status: 'pending',
+        redeemedBy: null,
+        redeemedDate: null,
+        qrCodeData: this.generateQRCodeData(redemptionId)
+    };
 
-                this.redemptions.push(redemption);
-                this.saveRedemptions();
-                
-                this.logRedemptionActivity(redemptionId, 'created', memberJCId, `Redemption created: ${purchaseAmount} UGX purchase`);
+    // Save locally
+    this.redemptions.push(redemption);
+    this.saveRedemptions();
+    
+    // 🔥 CRITICAL: Save to Supabase for cross-device access
+    try {
+        if (window.supabaseDbInstance) {
+            await window.supabaseDbInstance.saveRedemptionToSupabase(redemption);
+            console.log('✅ Redemption saved to Supabase:', redemptionId);
+        } else {
+            console.error('❌ Supabase not initialized');
+        }
+    } catch (error) {
+        console.error('❌ Failed to save redemption to Supabase:', error);
+    }
+    
+    this.logRedemptionActivity(redemptionId, 'created', memberJCId, `Redemption created: ${purchaseAmount} UGX purchase`);
 
-                return redemption;
-            }
-
-            async getRedemptionById(redemptionId) {
-                // First check local storage
-                let redemption = this.redemptions.find(r => r.redemptionId === redemptionId);
-                
-                // If not found locally, try Supabase
-                if (!redemption) {
-                    redemption = await clubManager.db.getRedemptionFromSupabase(redemptionId);
-                    if (redemption) {
-                        // Add to local cache
-                        this.redemptions.push(redemption);
-                        this.saveRedemptions();
-                    }
+    return redemption;
+}
+      async getRedemptionById(redemptionId) {
+    console.log('🔍 Looking for redemption:', redemptionId);
+    
+    // Always check Supabase first for cross-device access
+    let redemption = null;
+    
+    // 1. Check Supabase (Primary source)
+    try {
+        if (window.supabaseDbInstance) {
+            redemption = await window.supabaseDbInstance.getRedemptionFromSupabase(redemptionId);
+            console.log('📱 Supabase result:', redemption ? 'Found' : 'Not found');
+            
+            if (redemption) {
+                // Check if exists locally
+                const localIndex = this.redemptions.findIndex(r => r.redemptionId === redemptionId);
+                if (localIndex === -1) {
+                    // Add to local cache
+                    this.redemptions.push(redemption);
+                    this.saveRedemptions();
+                } else {
+                    // Update local with Supabase data
+                    this.redemptions[localIndex] = redemption;
+                    this.saveRedemptions();
                 }
-                
-                return redemption;
             }
-
+        }
+    } catch (supabaseError) {
+        console.error('❌ Supabase fetch error:', supabaseError);
+    }
+    
+    // 2. Fallback to local storage
+    if (!redemption) {
+        redemption = this.redemptions.find(r => r.redemptionId === redemptionId);
+        console.log('💾 Local storage result:', redemption ? 'Found' : 'Not found');
+    }
+    
+    return redemption;
+}
             async redeemRedemption(redemptionId, redeemedBy = 'system') {
                 let redemption = await this.getRedemptionById(redemptionId);
                 if (!redemption) {
@@ -7937,99 +7970,112 @@ function showVoucherQR(voucherCode) {
             loadAllVouchers();
             showToast('Vouchers refreshed!', 'success');
         }
-
-        async function processScan() {
-            const codeInput = document.getElementById('voucherCodeInput').value.trim();
-            const salespersonName = document.getElementById('salespersonName').value.trim();
+async function processScan() {
+    const codeInput = document.getElementById('voucherCodeInput').value.trim();
+    const salespersonName = document.getElementById('salespersonName').value.trim();
+    
+    if (!codeInput) {
+        showToast('Please enter voucher code or scan QR code', 'error');
+        return;
+    }
+    
+    if (!salespersonName) {
+        showToast('Please enter your name as salesperson', 'error');
+        return;
+    }
+    
+    // Clear previous results
+    document.getElementById('voucherRedeemResult').innerHTML = '';
+    document.getElementById('scanDetails').classList.add('hidden');
+    
+    // Try to process as voucher first
+    let voucher = await voucherSystem.getVoucherByCode(codeInput);
+    
+    if (voucher) {
+        // Process voucher redemption
+        const result = await voucherSystem.redeemVoucher(codeInput, salespersonName);
+        
+        if (result.success) {
+            // Calculate final price (for display)
+            const discountAmount = voucher.discountPercentage; // This is percentage
+            const purchaseAmount = 0; // We don't know the purchase amount for vouchers
+            const finalPrice = purchaseAmount; // Cannot calculate without purchase amount
             
-            if (!codeInput) {
-                showToast('Please enter voucher code or scan QR code', 'error');
-                return;
-            }
-            
-            if (!salespersonName) {
-                showToast('Please enter your name as salesperson', 'error');
-                return;
-            }
-            
-            // Try to process as voucher first
-            let voucher = await voucherSystem.getVoucherByCode(codeInput);
-            
-            if (voucher) {
-                // Process voucher redemption
-                const result = await voucherSystem.redeemVoucher(codeInput, salespersonName);
-                
-                if (result.success) {
-                    document.getElementById('voucherRedeemResult').innerHTML = `
-                        <div class="success-message">
-                            <strong>Voucher Redeemed Successfully!</strong><br>
-                            Member: ${voucher.memberName} (${voucher.memberJCId})<br>
-                            Discount: ${voucher.discountPercentage}%<br>
-                            Redeemed by: ${salespersonName}<br>
-                            Time: ${new Date().toLocaleString()}
-                        </div>
-                    `;
-                    showToast('Voucher redeemed successfully!', 'success');
-                } else {
-                    document.getElementById('voucherRedeemResult').innerHTML = `
-                        <div class="error-message">
-                            <strong>Voucher Redemption Failed</strong><br>
-                            ${result.message}
-                        </div>
-                    `;
-                    showToast(result.message, 'error');
-                }
-                
-                // Show voucher details
-                showVoucherDetails(voucher);
-                
-            } else {
-                // Try to process as redemption
-                let redemption = await qrRedemptionSystem.getRedemptionById(codeInput);
-                
-                if (redemption) {
-                    // Process redemption
-                    const result = await qrRedemptionSystem.redeemRedemption(codeInput, salespersonName);
-                    
-                    if (result.success) {
-                        document.getElementById('voucherRedeemResult').innerHTML = `
-                            <div class="success-message">
-                                <strong>Redemption Completed Successfully!</strong><br>
-                                Member: ${redemption.memberName} (${redemption.memberJCId})<br>
-                                Purchase Amount: ${redemption.purchaseAmount.toLocaleString()} UGX<br>
-                                Discount: ${redemption.selectedOption.discountPercentage}%<br>
-                                Redeemed by: ${salespersonName}<br>
-                                Time: ${new Date().toLocaleString()}
-                            </div>
-                        `;
-                        showToast('Redemption completed successfully!', 'success');
-                    } else {
-                        document.getElementById('voucherRedeemResult').innerHTML = `
-                            <div class="error-message">
-                                <strong>Redemption Failed</strong><br>
-                                ${result.message}
-                            </div>
-                        `;
-                        showToast(result.message, 'error');
-                    }
-                    
-                    // Show redemption details
-                    showRedemptionDetails(redemption);
-                    
-                } else {
-                    document.getElementById('voucherRedeemResult').innerHTML = `
-                        <div class="error-message">
-                            <strong>Not Found</strong><br>
-                            No voucher or redemption found with code: ${codeInput}
-                        </div>
-                    `;
-                    showToast('Code not found', 'error');
-                }
-            }
-            
-            // Clear input
-            document.getElementById('voucherCodeInput').value = '';
+            document.getElementById('voucherRedeemResult').innerHTML = `
+                <div class="success-message">
+                    <strong>✅ Voucher Redeemed Successfully!</strong><br>
+                    <strong>Member:</strong> ${voucher.memberName} (${voucher.memberJCId})<br>
+                    <strong>Discount:</strong> ${voucher.discountPercentage}%<br>
+                    <strong>Redeemed by:</strong> ${salespersonName}<br>
+                    <strong>Time:</strong> ${new Date().toLocaleString()}
+                </div>
+            `;
+            showToast('Voucher redeemed successfully!', 'success');
+        } else {
+            document.getElementById('voucherRedeemResult').innerHTML = `
+                <div class="error-message">
+                    <strong>❌ Voucher Redemption Failed</strong><br>
+                    ${result.message}
+                </div>
+            `;
+            showToast(result.message, 'error');
         }
+        
+        // Show voucher details
+        showVoucherDetails(voucher);
+        
+    } else {
+        // Try to process as redemption
+        let redemption = await qrRedemptionSystem.getRedemptionById(codeInput);
+        
+        if (redemption) {
+            // Process redemption
+            const result = await qrRedemptionSystem.redeemRedemption(codeInput, salespersonName);
+            
+            if (result.success) {
+                // Calculate final price
+                const discountAmount = redemption.purchaseAmount * (redemption.selectedOption.discountPercentage / 100);
+                const finalPrice = redemption.purchaseAmount - discountAmount;
+                
+                document.getElementById('voucherRedeemResult').innerHTML = `
+                    <div class="success-message">
+                        <strong>✅ Redemption Completed Successfully!</strong><br>
+                        <strong>Member:</strong> ${redemption.memberName} (${redemption.memberJCId})<br>
+                        <strong>Purchase Amount:</strong> ${redemption.purchaseAmount.toLocaleString()} UGX<br>
+                        <strong>Discount:</strong> ${redemption.selectedOption.discountPercentage}% (${discountAmount.toLocaleString()} UGX)<br>
+                        <strong>Final Price:</strong> <span style="color: #28a745; font-weight: bold;">${finalPrice.toLocaleString()} UGX</span><br>
+                        <strong>Redeemed by:</strong> ${salespersonName}<br>
+                        <strong>Time:</strong> ${new Date().toLocaleString()}
+                    </div>
+                `;
+                showToast('Redemption completed successfully!', 'success');
+            } else {
+                document.getElementById('voucherRedeemResult').innerHTML = `
+                    <div class="error-message">
+                        <strong>❌ Redemption Failed</strong><br>
+                        ${result.message}
+                    </div>
+                `;
+                showToast(result.message, 'error');
+            }
+            
+            // Show redemption details
+            showRedemptionDetails(redemption);
+            
+        } else {
+            document.getElementById('voucherRedeemResult').innerHTML = `
+                <div class="error-message">
+                    <strong>❌ Not Found</strong><br>
+                    No voucher or redemption found with code: ${codeInput}
+                </div>
+            `;
+            showToast('Code not found', 'error');
+        }
+    }
+    
+    // Clear input
+    document.getElementById('voucherCodeInput').value = '';
+}
 
         function showVoucherDetails(voucher) {
             const detailsDiv = document.getElementById('scanDetails');
@@ -8069,45 +8115,83 @@ function showVoucherQR(voucherCode) {
                 </div>
             `;
         }
-
-        function showRedemptionDetails(redemption) {
-            const detailsDiv = document.getElementById('scanDetails');
-            detailsDiv.classList.remove('hidden');
-            
-            detailsDiv.innerHTML = `
-                <h4>Redemption Details</h4>
-                <div class="details-grid">
-                    <div class="detail-item">
-                        <strong>Redemption ID</strong>
-                        <div>${redemption.redemptionId}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Member</strong>
-                        <div>${redemption.memberName} (${redemption.memberJCId})</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Tier</strong>
-                        <div>${redemption.memberTier}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Purchase Amount</strong>
-                        <div>${redemption.purchaseAmount.toLocaleString()} UGX</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Discount</strong>
-                        <div>${redemption.selectedOption.discountPercentage}%</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Created</strong>
-                        <div>${new Date(redemption.createdDate).toLocaleDateString()}</div>
-                    </div>
-                    <div class="detail-item">
-                        <strong>Status</strong>
-                        <div class="redemption-status status-${redemption.status}">${redemption.status.toUpperCase()}</div>
-                    </div>
-                </div>
-            `;
-        }
+function showRedemptionDetails(redemption) {
+    const detailsDiv = document.getElementById('scanDetails');
+    detailsDiv.classList.remove('hidden');
+    
+    // Calculate prices
+    const discountAmount = redemption.purchaseAmount * (redemption.selectedOption.discountPercentage / 100);
+    const finalPrice = redemption.purchaseAmount - discountAmount;
+    
+    detailsDiv.innerHTML = `
+        <h4>📋 Redemption Details</h4>
+        <div class="details-grid">
+            <div class="detail-item">
+                <strong>Redemption ID</strong>
+                <div style="font-family: 'Courier New', monospace; font-weight: bold;">${redemption.redemptionId}</div>
+            </div>
+            <div class="detail-item">
+                <strong>Member</strong>
+                <div>${redemption.memberName}<br><small>(${redemption.memberJCId})</small></div>
+            </div>
+            <div class="detail-item">
+                <strong>Member Tier</strong>
+                <div><span class="tier-${redemption.memberTier.toLowerCase()}">${redemption.memberTier}</span></div>
+            </div>
+            <div class="detail-item">
+                <strong>Original Price</strong>
+                <div>${redemption.purchaseAmount.toLocaleString()} UGX</div>
+            </div>
+            <div class="detail-item">
+                <strong>Discount</strong>
+                <div style="color: #28a745; font-weight: bold;">${redemption.selectedOption.discountPercentage}% OFF</div>
+            </div>
+            <div class="detail-item">
+                <strong>Discount Amount</strong>
+                <div style="color: #dc3545;">${discountAmount.toLocaleString()} UGX</div>
+            </div>
+            <div class="detail-item">
+                <strong>FINAL PRICE</strong>
+                <div style="font-size: 18px; color: #28a745; font-weight: bold;">${finalPrice.toLocaleString()} UGX</div>
+            </div>
+            <div class="detail-item">
+                <strong>Created</strong>
+                <div>${new Date(redemption.createdDate).toLocaleDateString()}<br>
+                <small>${new Date(redemption.createdDate).toLocaleTimeString()}</small></div>
+            </div>
+            <div class="detail-item">
+                <strong>Status</strong>
+                <div class="redemption-status status-${redemption.status}">${redemption.status.toUpperCase()}</div>
+            </div>
+            ${redemption.selectedOption.type === 'points' ? `
+            <div class="detail-item">
+                <strong>Points Used</strong>
+                <div>${redemption.selectedOption.pointsCost || 'N/A'} points</div>
+            </div>
+            ` : ''}
+        </div>
+        
+        ${redemption.status === 'pending' ? `
+        <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 8px;">
+            <strong>⚠️ Redemption Status:</strong> Pending - Can be redeemed within 24 hours
+        </div>
+        ` : ''}
+        
+        ${redemption.status === 'completed' ? `
+        <div style="margin-top: 15px; padding: 15px; background: #d4edda; border-radius: 8px;">
+            <strong>✅ Redemption Status:</strong> Completed<br>
+            <strong>Redeemed by:</strong> ${redemption.redeemedBy || 'Unknown'}<br>
+            <strong>Redeemed on:</strong> ${new Date(redemption.redeemedDate).toLocaleString()}
+        </div>
+        ` : ''}
+        
+        <div style="margin-top: 20px; text-align: center;">
+            <button onclick="printReceipt('${redemption.redemptionId}')" class="btn" style="padding: 10px 20px;">
+                🖨️ Print Receipt
+            </button>
+        </div>
+    `;
+}
 
         function calculateRedemptionOptions() {
             const purchaseAmount = parseFloat(document.getElementById('qrPurchaseAmount').value);
