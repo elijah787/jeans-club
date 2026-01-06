@@ -2857,7 +2857,7 @@
                 <div class="google-signin-button"></div>
             </div>
             <div class="form-group" style="text-align: center;">
-                <p>Already have an account? <a href="#" onclick="showLoginScreen()" style="color: #667eea; text-decoration: none;">Login here</a></p>
+                <p>Already have an account? <a href="#" class="login-link" style="color: #667eea; text-decoration: none;">Login here</a>
             </div>
         </div>
 
@@ -8030,4 +8030,30 @@ window.onload = function() {
     if (!clubManager.currentMember && !clubManager.isAdmin) {
         showSignupScreen();
     }
+    // Add event listeners after DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Attach click events to all login links
+    document.querySelectorAll('.login-link, a[href*="login"]').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            showLoginScreen();
+        });
+    });
+    
+    // Attach click events to all signup links
+    document.querySelectorAll('.signup-link, a[href*="signup"]').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            showSignupScreen();
+        });
+    });
+    
+    // Attach click events to all back-to-dashboard links
+    document.querySelectorAll('.back-to-dashboard').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            showDashboardSection();
+        });
+    });
+});
 };
