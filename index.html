@@ -3383,373 +3383,260 @@
         // FINAL SYSTEM IMPLEMENTATION
         // ===========================
         
-        class FinalSystem {
-            constructor() {
-                // Tier requirements for progression (based on total spent)
-                this.tierRequirements = {
-                    PEARL: { minPoints: 0, maxPoints: 7499, totalSpent: 0 },
-                    BRONZE: { minPoints: 3750, maxPoints: 24999, totalSpent: 7500000 }, // 7.5M UGX
-                    SILVER: { minPoints: 12500, maxPoints: 99999, totalSpent: 25000000 }, // 25M UGX
-                    RUBY: { minPoints: 50000, maxPoints: 249999, totalSpent: 100000000 }, // 100M UGX
-                    GOLD: { minPoints: 125000, maxPoints: 499999, totalSpent: 250000000 }, // 250M UGX
-                    SAPPHIRE: { minPoints: 250000, maxPoints: 999999, totalSpent: 500000000 }, // 500M UGX
-                    PLATINUM: { minPoints: 500000, maxPoints: 9999999, totalSpent: 1000000000 } // 1B UGX
-                };
-                
-                // MONTHLY MINIMUMS from FINAL SYSTEM
-                this.monthlyMinimums = {
-                    PEARL: 300000,      // 300K UGX
-                    BRONZE: 750000,     // 750K UGX
-                    SILVER: 1500000,    // 1.5M UGX
-                    RUBY: 3000000,      // 3M UGX
-                    GOLD: 6000000,      // 6M UGX
-                    SAPPHIRE: 12000000, // 12M UGX
-                    PLATINUM: 25000000  // 25M UGX
-                };
-                
-                // MONTHLY CASHBACK (0.5% to 2.0%)
-                this.monthlyCashback = {
-                    1: 0.5,    // Month 1: 0.5%
-                    2: 0.75,   // Month 2: 0.75%
-                    3: 1.0,    // Month 3: 1.0%
-                    4: 1.25,   // Month 4: 1.25%
-                    5: 1.5,    // Month 5: 1.5%
-                    6: 2.0     // Month 6+: 2.0%
-                };
-                
-                // MONTHLY BONUS POINTS (+50 to +200)
-                this.monthlyBonusPoints = {
-                    1: 50,     // Month 1: +50 points
-                    2: 75,     // Month 2: +75 points
-                    3: 100,    // Month 3: +100 points
-                    4: 125,    // Month 4: +125 points
-                    5: 150,    // Month 5: +150 points
-                    6: 200     // Month 6+: +200 points
-                };
-                
-                // OVERSHOPPING BONUSES (+10% to +50%)
-                this.overspendingBonuses = [
-                    { range: [100, 149], bonus: 10 },   // 100-149%: +10%
-                    { range: [150, 199], bonus: 20 },   // 150-199%: +20%
-                    { range: [200, 299], bonus: 30 },   // 200-299%: +30%
-                    { range: [300, 499], bonus: 40 },   // 300-499%: +40%
-                    { range: [500, 9999], bonus: 50 }   // 500%+: +50%
-                ];
-                
-                // DISCOUNT VOUCHER MILESTONES
-                this.voucherMilestones = {
-                    3: 5,   // Month 3: 5% off
-                    6: 10,  // Month 6: 10% off
-                    9: 15,  // Month 9: 15% off
-                    12: 20  // Month 12: 20% off
-                };
-                
-                // Initialize storage
-                this.initializeStorage();
-            }
-            
-            initializeStorage() {
-                // Monthly streak tracker
-                if (!localStorage.getItem('jeansClubMonthlyStreak')) {
-                    localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify({
-                        currentMonth: new Date().getMonth(),
-                        currentYear: new Date().getFullYear(),
-                        streak: 0,
-                        monthlySpending: 0,
-                        lastMonthMet: false,
-                        streakStartDate: new Date().toISOString()
-                    }));
-                }
-            }
-            
-            // Record monthly spending and check streak
-            recordMonthlySpending(amount) {
-                const now = new Date();
-                const currentMonth = now.getMonth();
-                const currentYear = now.getFullYear();
-                
-                const streakData = JSON.parse(localStorage.getItem('jeansClubMonthlyStreak'));
-                
-                // Check if it's a new month
-                if (streakData.currentMonth !== currentMonth || streakData.currentYear !== currentYear) {
-                    // Check if minimum was met last month
-                    const tier = this.getTierForTotalSpent(streakData.monthlySpending);
-                    const monthlyMin = this.monthlyMinimums[tier] || 0;
-                    
-                    if (streakData.monthlySpending >= monthlyMin) {
-                        streakData.streak += 1;
-                        streakData.lastMonthMet = true;
-                        
-                        // Check for voucher milestones
-                        this.checkVoucherMilestone(streakData.streak, streakData);
-                    } else {
-                        streakData.streak = 0; // Reset streak if minimum not met
-                        streakData.lastMonthMet = false;
-                        streakData.streakStartDate = new Date().toISOString();
-                    }
-                    
-                    // Reset for new month
-                    streakData.currentMonth = currentMonth;
-                    streakData.currentYear = currentYear;
-                    streakData.monthlySpending = 0;
-                }
-                
-                streakData.monthlySpending += amount;
-                localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify(streakData));
-                
-                return streakData;
-            }
-            
-            // Check for voucher milestone achievement
-            checkVoucherMilestone(streak, streakData) {
-                if (this.voucherMilestones[streak]) {
-                    const voucherPercentage = this.voucherMilestones[streak];
-                    console.log(`🎉 Milestone reached! Month ${streak}: ${voucherPercentage}% off voucher earned!`);
-                    
-                    // Store milestone achievement
-                    if (!streakData.milestones) streakData.milestones = [];
-                    if (!streakData.milestones.includes(streak)) {
-                        streakData.milestones.push(streak);
-                        localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify(streakData));
-                        
-                        // In a real system, you would create a voucher here
-                        // For now, we'll just log it
-                        return {
-                            milestone: streak,
-                            voucherPercentage: voucherPercentage,
-                            message: `Congratulations! You've earned a ${voucherPercentage}% off voucher for reaching ${streak} consecutive months!`
-                        };
-                    }
-                }
-                return null;
-            }
-            
-            // Get monthly cashback percentage
-            getMonthlyCashback(streak) {
-                if (streak >= 6) return this.monthlyCashback[6];
-                return this.monthlyCashback[streak] || 0;
-            }
-            
-            // Get monthly bonus points
-            getMonthlyBonusPoints(streak) {
-                if (streak >= 6) return this.monthlyBonusPoints[6];
-                return this.monthlyBonusPoints[streak] || 0;
-            }
-            
-            // Calculate overspending bonus
-            calculateOverspendingBonus(tier, monthlySpending) {
-                const monthlyMin = this.monthlyMinimums[tier] || 0;
-                if (monthlyMin === 0 || monthlySpending < monthlyMin) return 0;
-                
-                const percentage = (monthlySpending / monthlyMin) * 100;
-                
-                for (const bonus of this.overspendingBonuses) {
-                    if (percentage >= bonus.range[0] && percentage <= bonus.range[1]) {
-                        return bonus.bonus;
-                    }
-                }
-                
-                return 0;
-            }
-            
-            // Get tier based on total spent
-            getTierForTotalSpent(totalSpent) {
-                for (const [tier, requirements] of Object.entries(this.tierRequirements)) {
-                    if (totalSpent >= requirements.totalSpent) {
-                        return tier;
-                    }
-                }
-                return 'PEARL';
-            }
-            
-            // Calculate total monthly rewards
-            calculateMonthlyRewards(member) {
-                const streakData = JSON.parse(localStorage.getItem('jeansClubMonthlyStreak'));
-                const tier = this.getTierForTotalSpent(member.totalSpent || 0);
-                const monthlyMin = this.monthlyMinimums[tier] || 0;
-                
-                const cashbackPercentage = this.getMonthlyCashback(streakData.streak);
-                const bonusPoints = this.getMonthlyBonusPoints(streakData.streak);
-                const overspendingBonus = this.calculateOverspendingBonus(tier, streakData.monthlySpending);
-                
-                // Calculate cashback amount
-                const cashbackAmount = streakData.monthlySpending * (cashbackPercentage / 100);
-                
-                // Calculate bonus points value (1 point = 250 UGX)
-                const bonusPointsValue = bonusPoints * 50;
-                
-                // Calculate overspending bonus value
-                const overspendingBonusValue = streakData.monthlySpending * (overspendingBonus / 100);
-                
-                // Total monthly value
-                const totalMonthlyValue = cashbackAmount + bonusPointsValue + overspendingBonusValue;
-                
-                // Check for next milestone
-                let nextMilestone = null;
-                let nextMilestoneMonth = null;
-                
-                if (streakData.streak < 3) {
-                    nextMilestone = "Month 3 - 5% off voucher";
-                    nextMilestoneMonth = 3;
-                } else if (streakData.streak < 6) {
-                    nextMilestone = "Month 6 - 10% off voucher";
-                    nextMilestoneMonth = 6;
-                } else if (streakData.streak < 9) {
-                    nextMilestone = "Month 9 - 15% off voucher";
-                    nextMilestoneMonth = 9;
-                } else if (streakData.streak < 12) {
-                    nextMilestone = "Month 12 - 20% off voucher";
-                    nextMilestoneMonth = 12;
-                } else {
-                    nextMilestone = "Max milestone reached!";
-                }
-                
-                // Calculate days until month reset
-                const now = new Date();
-                const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                const daysUntilReset = Math.ceil((lastDayOfMonth - now) / (1000 * 60 * 60 * 24));
-                
-                return {
-                    streak: streakData.streak,
-                    monthlySpending: streakData.monthlySpending,
-                    tier: tier,
-                    monthlyMinimum: monthlyMin,
-                    meetsMinimum: streakData.monthlySpending >= monthlyMin,
-                    
-                    // Rewards
-                    cashbackPercentage: cashbackPercentage,
-                    cashbackAmount: cashbackAmount,
-                    bonusPoints: bonusPoints,
-                    bonusPointsValue: bonusPointsValue,
-                    overspendingBonus: overspendingBonus,
-                    overspendingBonusValue: overspendingBonusValue,
-                    totalMonthlyValue: totalMonthlyValue,
-                    
-                    // Milestones
-                    nextMilestone: nextMilestone,
-                    nextMilestoneMonth: nextMilestoneMonth,
-                    daysUntilReset: daysUntilReset,
-                    
-                    // For display
-                    percentageOfMinimum: monthlyMin > 0 ? Math.min((streakData.monthlySpending / monthlyMin) * 100, 500) : 0,
-                    streakProgress: Math.min((streakData.streak / 12) * 100, 100)
-                };
-            }
-            
-                  // Update dashboard display - FIXED VERSION
-updateDashboardDisplay(member) {
-    if (!member) {
-        console.error('No member data provided to updateDashboardDisplay');
-        return;
+class FinalSystem {
+    constructor() {
+        // Monthly minimums
+        this.monthlyMinimums = {
+            PEARL: 300000,
+            BRONZE: 750000,
+            SILVER: 1500000,
+            RUBY: 3000000,
+            GOLD: 6000000,
+            SAPPHIRE: 12000000,
+            PLATINUM: 25000000
+        };
+        
+        // Monthly cashback
+        this.monthlyCashback = {
+            1: 0.5,
+            2: 0.75,
+            3: 1.0,
+            4: 1.25,
+            5: 1.5,
+            6: 2.0
+        };
+        
+        // Monthly bonus points
+        this.monthlyBonusPoints = {
+            1: 50,
+            2: 75,
+            3: 100,
+            4: 125,
+            5: 150,
+            6: 200
+        };
+        
+        // Overspending bonuses
+        this.overspendingBonuses = [
+            { range: [100, 149], bonus: 10 },
+            { range: [150, 199], bonus: 20 },
+            { range: [200, 299], bonus: 30 },
+            { range: [300, 499], bonus: 40 },
+            { range: [500, 9999], bonus: 50 }
+        ];
     }
     
-    try {
-        const rewards = this.calculateMonthlyRewards(member);
-        console.log('Final System Rewards:', rewards);
+    // Get tier based on total spent
+    getTierForTotalSpent(totalSpent) {
+        if (totalSpent >= 1000000000) return 'PLATINUM';
+        if (totalSpent >= 500000000) return 'SAPPHIRE';
+        if (totalSpent >= 250000000) return 'GOLD';
+        if (totalSpent >= 100000000) return 'RUBY';
+        if (totalSpent >= 25000000) return 'SILVER';
+        if (totalSpent >= 7500000) return 'BRONZE';
+        return 'PEARL';
+    }
+    
+    // Check and reset monthly data if needed
+    async checkMonthlyReset(member) {
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1; // JavaScript months are 0-based
+        const currentYear = now.getFullYear();
         
-        // Update streak badge
-        const streakBadge = document.getElementById('monthlyStreakBadge');
-        if (streakBadge) streakBadge.textContent = `Month ${rewards.streak}`;
-        
-        // Update cashback display
-        const cashbackValue = document.getElementById('cashbackValue');
-        const cashbackText = document.getElementById('cashbackText');
-        const cashbackProgressFill = document.getElementById('cashbackProgressFill');
-        if (cashbackValue) cashbackValue.textContent = `${rewards.cashbackPercentage}%`;
-        if (cashbackText) cashbackText.textContent = `${rewards.cashbackAmount.toLocaleString()} UGX cashback`;
-        if (cashbackProgressFill) cashbackProgressFill.style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
-        
-        // Update bonus points display
-        const bonusPointsValue = document.getElementById('bonusPointsValue');
-        const bonusPointsText = document.getElementById('bonusPointsText');
-        const bonusPointsProgressFill = document.getElementById('bonusPointsProgressFill');
-        if (bonusPointsValue) bonusPointsValue.textContent = `+${rewards.bonusPoints}`;
-        if (bonusPointsText) bonusPointsText.textContent = `${rewards.bonusPointsValue.toLocaleString()} UGX value`;
-        if (bonusPointsProgressFill) bonusPointsProgressFill.style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
-        
-        // Update overspending display
-        const overspendingValue = document.getElementById('overspendingValue');
-        const overspendingText = document.getElementById('overspendingText');
-        const minimumText = document.getElementById('minimumText');
-        const overspendingProgressFill = document.getElementById('overspendingProgressFill');
-        if (overspendingValue) overspendingValue.textContent = `${rewards.overspendingBonus}%`;
-        if (overspendingText) overspendingText.textContent = `${rewards.monthlySpending.toLocaleString()}/${rewards.monthlyMinimum.toLocaleString()} UGX`;
-        if (minimumText) minimumText.textContent = `${rewards.tier} monthly minimum`;
-        if (overspendingProgressFill) overspendingProgressFill.style.width = `${rewards.percentageOfMinimum / 5}%`;
-        
-        // Update total value
-        const totalMonthlyValue = document.getElementById('totalMonthlyValue');
-        if (totalMonthlyValue) totalMonthlyValue.textContent = `${rewards.totalMonthlyValue.toLocaleString()} UGX`;
-        
-        // Update milestone info
-        const nextMilestone = document.getElementById('nextMilestone');
-        const daysUntilReset = document.getElementById('daysUntilReset');
-        if (nextMilestone) nextMilestone.textContent = rewards.nextMilestone;
-        if (daysUntilReset) daysUntilReset.textContent = rewards.daysUntilReset;
-        
-        // Update rewards text
-        const rewardsText = document.getElementById('monthlyRewardsText');
-        if (rewardsText) {
-            if (rewards.streak === 0) {
-                rewardsText.textContent = "Start your streak by meeting this month's minimum!";
-                rewardsText.style.color = '#666';
-            } else if (rewards.meetsMinimum) {
-                rewardsText.textContent = `Great job! You're on Month ${rewards.streak} of your streak!`;
-                rewardsText.style.color = '#28a745';
+        // Check if it's a new month
+        if (member.current_month !== currentMonth || member.current_year !== currentYear) {
+            console.log('📅 New month detected - checking streak');
+            
+            const tier = this.getTierForTotalSpent(member.totalSpent || 0);
+            const monthlyMin = this.monthlyMinimums[tier] || 0;
+            
+            // Check if minimum was met last month
+            if (member.current_monthly_spending >= monthlyMin) {
+                member.monthly_streak += 1;
+                console.log(`✅ Streak increased to ${member.monthly_streak} months`);
             } else {
-                rewardsText.textContent = `Spend ${(rewards.monthlyMinimum - rewards.monthlySpending).toLocaleString()} more UGX to maintain your ${rewards.streak}-month streak!`;
-                rewardsText.style.color = '#dc3545';
+                member.monthly_streak = 0;
+                console.log('⚠️ Streak reset - minimum not met');
+            }
+            
+            // Reset for new month
+            member.current_monthly_spending = 0;
+            member.current_month = currentMonth;
+            member.current_year = currentYear;
+            member.last_monthly_reset = now.toISOString();
+            
+            // Save to Supabase
+            await this.saveMonthlyData(member);
+            
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // Save monthly data to Supabase
+    async saveMonthlyData(member) {
+        try {
+            if (!window.supabaseDbInstance) {
+                console.error('❌ Supabase DB not initialized');
+                return false;
+            }
+            
+            const { supabase } = window.supabaseDbInstance;
+            
+            const { data, error } = await supabase
+                .from('members')
+                .update({
+                    monthly_streak: member.monthly_streak,
+                    current_monthly_spending: member.current_monthly_spending,
+                    last_monthly_reset: member.last_monthly_reset,
+                    current_month: member.current_month,
+                    current_year: member.current_year
+                })
+                .eq('jc_id', member.jcId);
+            
+            if (error) {
+                console.error('❌ Failed to save monthly data:', error);
+                return false;
+            }
+            
+            console.log('✅ Monthly data saved for:', member.jcId);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error saving monthly data:', error);
+            return false;
+        }
+    }
+    
+    // Calculate overspending bonus
+    calculateOverspendingBonus(tier, monthlySpending) {
+        const monthlyMin = this.monthlyMinimums[tier] || 0;
+        if (monthlyMin === 0 || monthlySpending < monthlyMin) return 0;
+        
+        const percentage = (monthlySpending / monthlyMin) * 100;
+        
+        for (const bonus of this.overspendingBonuses) {
+            if (percentage >= bonus.range[0] && percentage <= bonus.range[1]) {
+                return bonus.bonus;
             }
         }
         
-        // Update item styles
-        const cashbackItem = document.getElementById('cashbackItem');
-        const bonusPointsItem = document.getElementById('bonusPointsItem');
-        const overspendingItem = document.getElementById('overspendingItem');
+        return 0;
+    }
+    
+    // Calculate total monthly rewards
+    calculateMonthlyRewards(member) {
+        const streak = member.monthly_streak || 0;
+        const monthlySpending = member.current_monthly_spending || 0;
+        const tier = this.getTierForTotalSpent(member.totalSpent || 0);
+        const monthlyMin = this.monthlyMinimums[tier] || 0;
         
-        if (cashbackItem) {
-            if (rewards.cashbackPercentage > 0) cashbackItem.classList.add('active');
-            else cashbackItem.classList.remove('active');
+        // Get rewards based on streak
+        const cashbackPercentage = streak >= 6 ? this.monthlyCashback[6] : this.monthlyCashback[streak] || 0;
+        const bonusPoints = streak >= 6 ? this.monthlyBonusPoints[6] : this.monthlyBonusPoints[streak] || 0;
+        const overspendingBonus = this.calculateOverspendingBonus(tier, monthlySpending);
+        
+        // Calculate values
+        const cashbackAmount = monthlySpending * (cashbackPercentage / 100);
+        const bonusPointsValue = bonusPoints * 50; // 1 point = 50 UGX
+        const overspendingBonusValue = monthlySpending * (overspendingBonus / 100);
+        const totalMonthlyValue = cashbackAmount + bonusPointsValue + overspendingBonusValue;
+        
+        // Next milestone
+        let nextMilestone = null;
+        if (streak < 3) {
+            nextMilestone = "Month 3 - 5% off voucher";
+        } else if (streak < 6) {
+            nextMilestone = "Month 6 - 10% off voucher";
+        } else if (streak < 9) {
+            nextMilestone = "Month 9 - 15% off voucher";
+        } else if (streak < 12) {
+            nextMilestone = "Month 12 - 20% off voucher";
+        } else {
+            nextMilestone = "Max milestone reached!";
         }
         
-        if (bonusPointsItem) {
-            if (rewards.bonusPoints > 0) bonusPointsItem.classList.add('active');
-            else bonusPointsItem.classList.remove('active');
+        // Days until month reset
+        const now = new Date();
+        const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const daysUntilReset = Math.ceil((lastDayOfMonth - now) / (1000 * 60 * 60 * 24));
+        
+        return {
+            streak: streak,
+            monthlySpending: monthlySpending,
+            tier: tier,
+            monthlyMinimum: monthlyMin,
+            meetsMinimum: monthlySpending >= monthlyMin,
+            
+            // Rewards
+            cashbackPercentage: cashbackPercentage,
+            cashbackAmount: cashbackAmount,
+            bonusPoints: bonusPoints,
+            bonusPointsValue: bonusPointsValue,
+            overspendingBonus: overspendingBonus,
+            overspendingBonusValue: overspendingBonusValue,
+            totalMonthlyValue: totalMonthlyValue,
+            
+            // Milestones
+            nextMilestone: nextMilestone,
+            daysUntilReset: daysUntilReset,
+            
+            // For display
+            percentageOfMinimum: monthlyMin > 0 ? Math.min((monthlySpending / monthlyMin) * 100, 500) : 0
+        };
+    }
+    
+    // Update dashboard display
+    updateDashboardDisplay(member) {
+        if (!member) {
+            console.error('No member data');
+            return;
         }
         
-        if (overspendingItem) {
-            if (rewards.overspendingBonus > 0) overspendingItem.classList.add('active');
-            else overspendingItem.classList.remove('active');
+        try {
+            const rewards = this.calculateMonthlyRewards(member);
+            
+            // Update all display elements (same as before)
+            const elements = {
+                'monthlyStreakBadge': `Month ${rewards.streak}`,
+                'cashbackValue': `${rewards.cashbackPercentage}%`,
+                'cashbackText': `${rewards.cashbackAmount.toLocaleString()} UGX cashback`,
+                'bonusPointsValue': `+${rewards.bonusPoints}`,
+                'bonusPointsText': `${rewards.bonusPointsValue.toLocaleString()} UGX value`,
+                'overspendingValue': `${rewards.overspendingBonus}%`,
+                'overspendingText': `${rewards.monthlySpending.toLocaleString()}/${rewards.monthlyMinimum.toLocaleString()} UGX`,
+                'minimumText': `${rewards.tier} monthly minimum`,
+                'totalMonthlyValue': `${rewards.totalMonthlyValue.toLocaleString()} UGX`,
+                'nextMilestone': rewards.nextMilestone,
+                'daysUntilReset': rewards.daysUntilReset
+            };
+            
+            for (const [id, value] of Object.entries(elements)) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value;
+            }
+            
+            // Update progress bars
+            const cashbackProgress = document.getElementById('cashbackProgressFill');
+            const bonusProgress = document.getElementById('bonusPointsProgressFill');
+            const overspendingProgress = document.getElementById('overspendingProgressFill');
+            
+            if (cashbackProgress) cashbackProgress.style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
+            if (bonusProgress) bonusProgress.style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
+            if (overspendingProgress) {
+                const displayWidth = Math.min(rewards.percentageOfMinimum / 5, 100);
+                overspendingProgress.style.width = `${displayWidth}%`;
+            }
+            
+            return rewards;
+            
+        } catch (error) {
+            console.error('Error updating dashboard:', error);
+            return null;
         }
-        
-        console.log('Dashboard updated successfully');
-        return rewards;
-        
-    } catch (error) {
-        console.error('Error updating dashboard display:', error);
-        return null;
     }
 }
-            
-            // Get overspending bonus examples
-            getOverspendingExamples() {
-                const examples = [];
-                for (const [tier, minimum] of Object.entries(this.monthlyMinimums)) {
-                    for (const bonus of this.overspendingBonuses) {
-                        const midPoint = (bonus.range[0] + bonus.range[1]) / 2;
-                        const amount = Math.round(minimum * (midPoint / 100));
-                        examples.push({
-                            tier: tier,
-                            minimum: minimum,
-                            percentage: midPoint,
-                            amount: amount,
-                            bonus: bonus.bonus
-                        });
-                    }
-                }
-                return examples;
-            }
-        }
 
         // Continue with the rest of your existing JavaScript code...
         // [ALL YOUR EXISTING JAVASCRIPT CODE GOES HERE]
@@ -4687,11 +4574,11 @@ async getVoucherFromSupabase(code) {
 }
 
            
-          async saveMember(member) {
+       async saveMember(member) {
     try {
         console.log('💾 Saving member to Supabase:', member.jcId);
         
-        // Map your app's camelCase to Supabase's snake_case EXACTLY
+        // Map to snake_case for Supabase
         const memberData = {
             id: member.id || 'member_' + Date.now(),
             jc_id: member.jcId,
@@ -4699,22 +4586,24 @@ async getVoucherFromSupabase(code) {
             normalized_email: normalizeEmailForDatabase(member.email),
             name: member.name,
             password: member.password || null,
-            
-            // Note: You DON'T have googleid column - remove it
-            // googleid: member.googleId || null,
-            
-            // Note: You DON'T have loginmethod column - remove it
-            // loginmethod: member.loginMethod || 'email',
-            
             points: member.points || 0,
             tier: member.tier || 'PEARL',
-            referral_code: member.referralCode,  // snake_case
-            referred_by: member.referredBy || null,  // snake_case
-            joined_date: member.joinedDate || new Date().toISOString(),  // snake_case
-            total_spent: member.totalSpent || 0,  // snake_case
+            referral_code: member.referralCode,
+            referred_by: member.referredBy || null,
+            joined_date: member.joinedDate || new Date().toISOString(),
+            total_spent: member.totalSpent || 0,
             newsletter_subscribed: member.newsletterSubscribed !== false,
             
-            // JSON fields - must be stringified
+            // NEW MONTHLY FIELDS
+            monthly_streak: member.monthly_streak || 0,
+            current_monthly_spending: member.current_monthly_spending || 0,
+            last_monthly_reset: member.last_monthly_reset || new Date().toISOString(),
+            monthly_milestones: JSON.stringify(member.monthly_milestones || []),
+            total_monthly_cashback: member.total_monthly_cashback || 0,
+            current_month: member.current_month || new Date().getMonth() + 1,
+            current_year: member.current_year || new Date().getFullYear(),
+            
+            // JSON fields
             purchasehistory: JSON.stringify(member.purchaseHistory || []),
             activitylog: JSON.stringify(member.activityLog || []),
             challenges: JSON.stringify(member.challenges || []),
@@ -4727,7 +4616,10 @@ async getVoucherFromSupabase(code) {
             created_at: member.createdAt || new Date().toISOString()
         };
 
-        console.log('📤 Saving with EXACT column names:', memberData);
+        console.log('📤 Saving with monthly fields:', {
+            monthly_streak: memberData.monthly_streak,
+            current_monthly_spending: memberData.current_monthly_spending
+        });
 
         const { data, error } = await this.supabase
             .from('members')
@@ -4740,15 +4632,7 @@ async getVoucherFromSupabase(code) {
             throw error;
         }
 
-        console.log('✅ Member saved successfully to Supabase');
-        
-        // Update cache
-        const cache = this.getCache();
-        if (cache) {
-            cache.lastSync = 0;
-            this.setCache(cache);
-        }
-
+        console.log('✅ Member saved successfully with monthly data');
         return true;
 
     } catch (error) {
@@ -4804,7 +4688,7 @@ async deleteMember(jcId) {
         return false;
     }
 }
-             async getMemberByJCId(jcId) {
+        async getMemberByJCId(jcId) {
     try {
         console.log('🔍 Fetching member from Supabase:', jcId);
         
@@ -4820,7 +4704,7 @@ async deleteMember(jcId) {
         }
 
         if (member) {
-            // Map snake_case back to camelCase for your app
+            // Map snake_case back to camelCase
             return {
                 ...member,
                 // Map columns
@@ -4833,6 +4717,15 @@ async deleteMember(jcId) {
                 ip_address: member.ip_address,
                 lastLogin: member.last_login,
                 createdAt: member.created_at,
+                
+                // NEW: Monthly fields
+                monthly_streak: member.monthly_streak || 0,
+                current_monthly_spending: member.current_monthly_spending || 0,
+                last_monthly_reset: member.last_monthly_reset,
+                monthly_milestones: member.monthly_milestones ? JSON.parse(member.monthly_milestones) : [],
+                total_monthly_cashback: member.total_monthly_cashback || 0,
+                current_month: member.current_month || new Date().getMonth() + 1,
+                current_year: member.current_year || new Date().getFullYear(),
                 
                 // Parse JSON fields
                 purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
@@ -6765,7 +6658,16 @@ buildPasswordResetSuccessEmail(memberData) {
                     
                     // Calculate points earned (1 point per 1,000 UGX)
                     const pointsEarned = Math.floor(amount / 1000);
-                    
+                    // Record monthly spending
+member.current_monthly_spending = (member.current_monthly_spending || 0) + amount;
+
+// Check monthly reset
+if (finalSystem) {
+    await finalSystem.checkMonthlyReset(member);
+}
+
+// Save member (which now includes monthly data)
+await this.db.saveMember(member);
                     // Update member
                     member.points += pointsEarned;
                     member.totalSpent += amount;
