@@ -4907,12 +4907,13 @@ async deleteMember(jcId) {
        
             
 // Replace the ENTIRE saveRedemptionToSupabase method with this:
+// Replace the existing saveRedemptionToSupabase method with this:
 async saveRedemptionToSupabase(redemption) {
     try {
         console.log("💾 Saving redemption to Supabase:", redemption.redemptionId);
         
+        // Convert to EXACT Supabase column names (snake_case)
         const redemptionData = {
-            id: redemption.redemptionId,
             redemption_id: redemption.redemptionId,
             member_jc_id: redemption.memberJCId,
             member_name: redemption.memberName,
@@ -4926,7 +4927,7 @@ async saveRedemptionToSupabase(redemption) {
             qr_code_data: redemption.qrCodeData
         };
 
-        console.log("📤 Redemption data for Supabase:", redemptionData);
+        console.log("📤 Sending to Supabase:", redemptionData);
 
         const { data, error } = await this.supabase
             .from('redemptions')
@@ -4935,11 +4936,11 @@ async saveRedemptionToSupabase(redemption) {
             });
 
         if (error) {
-            console.error("❌ Supabase redemption save error:", error);
-            return false;
+            console.error("❌ Supabase error:", error);
+            throw error;
         }
 
-        console.log("✅ Redemption saved to Supabase:", redemption.redemptionId);
+        console.log("✅ Redemption saved to Supabase successfully");
         return true;
 
     } catch (error) {
@@ -5023,19 +5024,22 @@ async getRedemptionFromSupabase(redemptionId) {
             
             // 🔥 FIXED: Get all redemptions from Supabase
            // Replace the ENTIRE getAllRedemptionsFromSupabase method with this:
-async getAllRedemptionsFromSupabase() {
+                  
+        async getAllRedemptionsFromSupabase() {
     try {
+        console.log("🔄 Fetching all redemptions from Supabase...");
+        
         const { data: redemptions, error } = await this.supabase
             .from('redemptions')
             .select('*')
             .order('created_date', { ascending: false });
 
         if (error) {
-            console.error("❌ Supabase redemptions fetch error:", error);
+            console.error("❌ Supabase error:", error);
             return [];
         }
 
-        // Convert snake_case back to camelCase for app
+        // Convert snake_case back to camelCase for the app
         return redemptions.map(redemption => ({
             redemptionId: redemption.redemption_id,
             memberJCId: redemption.member_jc_id,
@@ -5049,14 +5053,13 @@ async getAllRedemptionsFromSupabase() {
             redeemedDate: redemption.redeemed_date,
             qrCodeData: redemption.qr_code_data
         }));
+        
     } catch (error) {
         console.error("❌ Failed to fetch redemptions from Supabase:", error);
         return [];
     }
-    }
-                    
-        }
-
+}
+}
         // ===========================================
         // NEW: FRAUD PREVENTION & EMAIL NORMALIZATION
         // ===========================================
@@ -6023,32 +6026,49 @@ buildPasswordResetSuccessEmail(memberData) {
                 // Simple text-only QR code data
                 return redemptionId;
             }
+createRedemption(memberJCId, memberName, memberTier, purchaseAmount, selectedOption) {
+    const redemptionId = this.generateRedemptionId();
+    const createdDate = new Date().toISOString();
+    
+    const redemption = {
+        redemptionId: redemptionId,
+        memberJCId: memberJCId,
+        memberName: memberName,
+        memberTier: memberTier,
+        purchaseAmount: purchaseAmount,
+        selectedOption: selectedOption,
+        createdDate: createdDate,
+        status: 'pending',
+        redeemedBy: null,
+        redeemedDate: null,
+        qrCodeData: this.generateQRCodeData(redemptionId)
+    };
 
-            createRedemption(memberJCId, memberName, memberTier, purchaseAmount, selectedOption) {
-                const redemptionId = this.generateRedemptionId();
-                const createdDate = new Date();
-                
-                const redemption = {
-                    redemptionId: redemptionId,
-                    memberJCId: memberJCId,
-                    memberName: memberName,
-                    memberTier: memberTier,
-                    purchaseAmount: purchaseAmount,
-                    selectedOption: selectedOption,
-                    createdDate: createdDate.toISOString(),
-                    status: 'pending',
-                    redeemedBy: null,
-                    redeemedDate: null,
-                    qrCodeData: this.generateQRCodeData(redemptionId)
-                };
+    this.redemptions.push(redemption);
+    this.saveRedemptions();
+    
+    // 🔥 SAVE TO SUPABASE IMMEDIATELY
+    if (window.supabaseDbInstance && window.supabaseDbInstance.supabase) {
+        console.log("🚀 Attempting to save redemption to Supabase...");
+        window.supabaseDbInstance.saveRedemptionToSupabase(redemption)
+            .then(success => {
+                if (success) {
+                    console.log("✅ Redemption saved to Supabase successfully!");
+                } else {
+                    console.error("❌ Failed to save to Supabase");
+                }
+            })
+            .catch(error => {
+                console.error("❌ Error saving to Supabase:", error);
+            });
+    } else {
+        console.error("❌ Supabase instance not available");
+    }
+    
+    this.logRedemptionActivity(redemptionId, 'created', memberJCId, `Redemption created: ${purchaseAmount} UGX purchase`);
 
-                this.redemptions.push(redemption);
-                this.saveRedemptions();
-                
-                this.logRedemptionActivity(redemptionId, 'created', memberJCId, `Redemption created: ${purchaseAmount} UGX purchase`);
-
-                return redemption;
-            }
+    return redemption;
+}
 
             async getRedemptionById(redemptionId) {
                 // First check local storage
@@ -6067,48 +6087,98 @@ buildPasswordResetSuccessEmail(memberData) {
                 return redemption;
             }
 
-            async redeemRedemption(redemptionId, redeemedBy = 'system') {
-                let redemption = await this.getRedemptionById(redemptionId);
-                if (!redemption) {
-                    return { success: false, message: "Redemption not found" };
-                }
+          async redeemRedemption(redemptionId, redeemedBy = 'system') {
+    let redemption = await this.getRedemptionById(redemptionId);
+    if (!redemption) {
+        return { success: false, message: "Redemption not found" };
+    }
 
-                if (redemption.status === 'completed') {
-                    return { success: false, message: "Redemption has already been completed" };
-                }
+    if (redemption.status === 'completed') {
+        return { success: false, message: "Redemption has already been completed" };
+    }
 
-                if (redemption.status === 'expired') {
-                    return { success: false, message: "Redemption has expired" };
-                }
+    if (redemption.status === 'expired') {
+        return { success: false, message: "Redemption has expired" };
+    }
 
-                // Check if redemption is older than 24 hours
-                const createdDate = new Date(redemption.createdDate);
-                const now = new Date();
-                const hoursDiff = (now - createdDate) / (1000 * 60 * 60);
-                
-                if (hoursDiff > 24) {
-                    redemption.status = 'expired';
-                    this.saveRedemptions();
-                    await clubManager.db.saveRedemptionToSupabase(redemption);
-                    return { success: false, message: "Redemption has expired (24 hour limit)" };
-                }
+    // Check if redemption is older than 24 hours
+    const createdDate = new Date(redemption.createdDate);
+    const now = new Date();
+    const hoursDiff = (now - createdDate) / (1000 * 60 * 60);
+    
+    if (hoursDiff > 24) {
+        redemption.status = 'expired';
+        this.saveRedemptions();
+        
+        // 🔥 UPDATE SUPABASE
+        if (window.supabaseDbInstance) {
+            await window.supabaseDbInstance.saveRedemptionToSupabase(redemption);
+        }
+        
+        return { success: false, message: "Redemption has expired (24 hour limit)" };
+    }
 
-                redemption.status = 'completed';
-                redemption.redeemedBy = redeemedBy;
-                redemption.redeemedDate = new Date().toISOString();
-                this.saveRedemptions();
-                
-                // Save to Supabase
-                await clubManager.db.saveRedemptionToSupabase(redemption);
+    redemption.status = 'completed';
+    redemption.redeemedBy = redeemedBy;
+    redemption.redeemedDate = new Date().toISOString();
+    this.saveRedemptions();
+    
+    // 🔥 UPDATE SUPABASE
+    if (window.supabaseDbInstance) {
+        const saved = await window.supabaseDbInstance.saveRedemptionToSupabase(redemption);
+        if (!saved) {
+            console.error("❌ Failed to update Supabase after redemption");
+        }
+    }
 
-                this.logRedemptionActivity(redemptionId, 'redeemed', redemption.memberJCId, `Redemption completed by ${redeemedBy}`);
+    this.logRedemptionActivity(redemptionId, 'redeemed', redemption.memberJCId, `Redemption completed by ${redeemedBy}`);
 
-                return { 
-                    success: true, 
-                    message: `Redemption completed successfully! ${redemption.selectedOption.discountPercentage}% discount applied.`,
-                    redemption: redemption
-                };
-            }
+    return { 
+        success: true, 
+        message: `Redemption completed successfully! ${redemption.selectedOption.discountPercentage}% discount applied.`,
+        redemption: redemption
+    };
+}
+// Add this method to QRRedemptionSystem:
+async loadRedemptionsFromSupabase() {
+    try {
+        if (!window.supabaseDbInstance) {
+            console.log("❌ Supabase not initialized, skipping redemption load");
+            return;
+        }
+        
+        console.log("🔄 Loading redemptions from Supabase...");
+        
+        // Use the existing method or create a new one
+        const redemptionsFromSupabase = await window.supabaseDbInstance.getAllRedemptionsFromSupabase();
+        
+        if (redemptionsFromSupabase && redemptionsFromSupabase.length > 0) {
+            console.log(`📥 Loaded ${redemptionsFromSupabase.length} redemptions from Supabase`);
+            
+            // Clear existing redemptions and replace with Supabase data
+            this.redemptions = redemptionsFromSupabase;
+            this.saveRedemptions();
+            
+            console.log("✅ Redemptions synced from Supabase");
+        } else {
+            console.log("📭 No redemptions found in Supabase");
+        }
+        
+    } catch (error) {
+        console.error("❌ Failed to load redemptions from Supabase:", error);
+    }
+}
+
+// Call this in the constructor:
+constructor() {
+    this.redemptions = JSON.parse(localStorage.getItem('jeansClubRedemptions') || '[]');
+    this.redemptionActivity = JSON.parse(localStorage.getItem('jeansClubRedemptionActivity') || '[]');
+    
+    // 🔥 Load from Supabase on startup
+    setTimeout(() => {
+        this.loadRedemptionsFromSupabase();
+    }, 2000); // Wait for Supabase to initialize
+}
 
             getMemberRedemptions(memberJCId) {
                 return this.redemptions
