@@ -2056,12 +2056,10 @@
     <!-- Mercedes-Benz Inspired Header -->
     <header class="mercedes-header">
         <div class="header-top">
-            <div class="brand-logo">
-                <div class="logo">
-                    <span class="logo-jeans">JEANS</span>
-                    <span class="logo-club">CLUB</span>
-                </div>
-            </div>
+           <!-- WITH THIS: -->
+<div class="brand-logo">
+    <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" class="header-logo">
+</div>
             
             <div class="header-actions">
                 <div class="search-icon" onclick="showSearch()">🔍</div>
@@ -2339,7 +2337,7 @@
                     <h3>PEARL</h3>
                     <p><strong>Points Range:</strong> 0 - 7,499</p>
                     <p><strong>Earning Rate:</strong> 1 point / 1,000 UGX</p>
-                    <p><strong>Discount Value:</strong> 1 point = 250 UGX</p>
+                    <p><strong>Discount Value:</strong> 1 point = 50 UGX</p>
                     <p><strong>Benefits:</strong></p>
                     <ul>
                         <li>Basic points earning</li>
@@ -2353,7 +2351,7 @@
                     <h3>BRONZE</h3>
                     <p><strong>Points Range:</strong> 7,500 - 24,999</p>
                     <p><strong>Earning Rate:</strong> 1 point / 1,000 UGX</p>
-                    <p><strong>Discount Value:</strong> 1 point = 250 UGX</p>
+                    <p><strong>Discount Value:</strong> 1 point = 50 UGX</p>
                     <p><strong>Benefits:</strong></p>
                     <ul>
                         <li>All Pearl benefits</li>
@@ -3015,7 +3013,9 @@
             <div class="member-card-container">
                 <div id="memberCard" class="member-card">
                     <div class="card-background-pattern"></div>
-                    <div class="card-logo">JEANS CLUB</div>
+                    <div class="card-logo">
+    <img src="https://i.ibb.co.com/zTqxQvwv/jeans-club.jpg" alt="JC" class="card-logo-img">
+</div>
                     <div class="card-chip"></div>
                     <div class="card-hologram"></div>
                     <div class="card-number" id="cardNumber">XXXX XXXX XXXX XXXX</div>
@@ -3448,45 +3448,20 @@
                 this.initializeStorage();
             }
             
-          initializeStorage() {
-    const storageKey = 'jeansClubMonthlyStreak';
-    const now = new Date();
-    
-    // Check if data already exists
-    const existingData = localStorage.getItem(storageKey);
-    
-    if (!existingData) {
-        // Only create new data if it doesn't exist
-        const defaultData = {
-            currentMonth: now.getMonth(),
-            currentYear: now.getFullYear(),
-            streak: 0,
-            monthlySpending: 0, // Start at 0 for new users
-            lastMonthMet: false,
-            streakStartDate: now.toISOString(),
-            milestones: []
-        };
-        
-        localStorage.setItem(storageKey, JSON.stringify(defaultData));
-        console.log('✅ Created new monthly streak data');
-    } else {
-        console.log('✅ Using existing monthly streak data');
-        
-        // Check if month has changed
-        try {
-            const data = JSON.parse(existingData);
-            if (data.currentMonth !== now.getMonth() || data.currentYear !== now.getFullYear()) {
-                // Update month but keep spending data for now
-                data.currentMonth = now.getMonth();
-                data.currentYear = now.getFullYear();
-                localStorage.setItem(storageKey, JSON.stringify(data));
-                console.log('📅 Updated month in existing data');
+            initializeStorage() {
+                // Monthly streak tracker
+                if (!localStorage.getItem('jeansClubMonthlyStreak')) {
+                    localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify({
+                        currentMonth: new Date().getMonth(),
+                        currentYear: new Date().getFullYear(),
+                        streak: 0,
+                        monthlySpending: 0,
+                        lastMonthMet: false,
+                        streakStartDate: new Date().toISOString()
+                    }));
+                }
             }
-        } catch (error) {
-            console.error('Error parsing streak data:', error);
-        }
-    }
-}
+            
             // Record monthly spending and check streak
             recordMonthlySpending(amount) {
                 const now = new Date();
@@ -3692,36 +3667,16 @@ updateDashboardDisplay(member) {
         if (bonusPointsText) bonusPointsText.textContent = `${rewards.bonusPointsValue.toLocaleString()} UGX value`;
         if (bonusPointsProgressFill) bonusPointsProgressFill.style.width = `${Math.min((rewards.streak / 6) * 100, 100)}%`;
         
-       // Update overspending display - FIXED
-const overspendingValue = document.getElementById('overspendingValue');
-const overspendingText = document.getElementById('overspendingText');
-const minimumText = document.getElementById('minimumText');
-const overspendingProgressFill = document.getElementById('overspendingProgressFill');
-
-// ADD DEBUG LOGGING
-console.log('=== SETTING OVERSPENDING DISPLAY ===');
-console.log('Overspending bonus:', rewards.overspendingBonus);
-console.log('Monthly spending:', rewards.monthlySpending);
-console.log('Monthly minimum:', rewards.monthlyMinimum);
-
-if (overspendingValue) {
-    overspendingValue.textContent = `${rewards.overspendingBonus}%`;
-    console.log('Set overspendingValue to:', overspendingValue.textContent);
-}
-if (overspendingText) {
-    overspendingText.textContent = `${rewards.monthlySpending.toLocaleString()}/${rewards.monthlyMinimum.toLocaleString()} UGX`;
-    console.log('Set overspendingText to:', overspendingText.textContent);
-}
-if (minimumText) {
-    minimumText.textContent = `${rewards.tier} monthly minimum`;
-    console.log('Set minimumText to:', minimumText.textContent);
-}
-if (overspendingProgressFill) {
-    // FIX: Cap at 100% (500% overspending = 100% width)
-    const displayWidth = Math.min(rewards.percentageOfMinimum / 5, 100);
-    overspendingProgressFill.style.width = `${displayWidth}%`;
-    console.log('Set progress width to:', displayWidth + '%');
-}
+        // Update overspending display
+        const overspendingValue = document.getElementById('overspendingValue');
+        const overspendingText = document.getElementById('overspendingText');
+        const minimumText = document.getElementById('minimumText');
+        const overspendingProgressFill = document.getElementById('overspendingProgressFill');
+        if (overspendingValue) overspendingValue.textContent = `${rewards.overspendingBonus}%`;
+        if (overspendingText) overspendingText.textContent = `${rewards.monthlySpending.toLocaleString()}/${rewards.monthlyMinimum.toLocaleString()} UGX`;
+        if (minimumText) minimumText.textContent = `${rewards.tier} monthly minimum`;
+        if (overspendingProgressFill) overspendingProgressFill.style.width = `${rewards.percentageOfMinimum / 5}%`;
+        
         // Update total value
         const totalMonthlyValue = document.getElementById('totalMonthlyValue');
         if (totalMonthlyValue) totalMonthlyValue.textContent = `${rewards.totalMonthlyValue.toLocaleString()} UGX`;
@@ -8633,4 +8588,4 @@ window.onload = function() {
 };
  </script>
 </body>
-</html>
+</html>  
