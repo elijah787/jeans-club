@@ -3448,135 +3448,57 @@
                 this.initializeStorage();
             }
             
-           initializeStorage() {
-    const storageKey = 'jeansClubMonthlyStreak';
-    const now = new Date();
-    
-    // Check if data already exists
-    const existingData = localStorage.getItem(storageKey);
-    
-    if (!existingData) {
-        // Only create new data if it doesn't exist
-        const defaultData = {
-            currentMonth: now.getMonth(),
-            currentYear: now.getFullYear(),
-            streak: 0,
-            monthlySpending: 0, // Start at 0 for new users
-            lastMonthMet: false,
-            streakStartDate: now.toISOString(),
-            milestones: []
-        };
-        
-        localStorage.setItem(storageKey, JSON.stringify(defaultData));
-        console.log('✅ Created new monthly streak data');
-    } else {
-        // Data exists - check if month has changed
-        try {
-            const data = JSON.parse(existingData);
+            initializeStorage() {
+                // Monthly streak tracker
+                if (!localStorage.getItem('jeansClubMonthlyStreak')) {
+                    localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify({
+                        currentMonth: new Date().getMonth(),
+                        currentYear: new Date().getFullYear(),
+                        streak: 0,
+                        monthlySpending: 0,
+                        lastMonthMet: false,
+                        streakStartDate: new Date().toISOString()
+                    }));
+                }
+            }
             
-            // Check if month/year has changed
-            if (data.currentMonth !== now.getMonth() || data.currentYear !== now.getFullYear()) {
-                console.log('📅 Month changed - updating data');
+            // Record monthly spending and check streak
+            recordMonthlySpending(amount) {
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
                 
-                // Check if minimum was met last month
-                const tier = this.getTierForTotalSpent(data.monthlySpending || 0);
-                const monthlyMin = this.monthlyMinimums[tier] || 0;
+                const streakData = JSON.parse(localStorage.getItem('jeansClubMonthlyStreak'));
                 
-                if (data.monthlySpending >= monthlyMin) {
-                    data.streak += 1;
-                    data.lastMonthMet = true;
+                // Check if it's a new month
+                if (streakData.currentMonth !== currentMonth || streakData.currentYear !== currentYear) {
+                    // Check if minimum was met last month
+                    const tier = this.getTierForTotalSpent(streakData.monthlySpending);
+                    const monthlyMin = this.monthlyMinimums[tier] || 0;
                     
-                    // Check for voucher milestones
-                    this.checkVoucherMilestone(data.streak, data);
-                } else {
-                    data.streak = 0; // Reset streak if minimum not met
-                    data.lastMonthMet = false;
-                    data.streakStartDate = now.toISOString();
+                    if (streakData.monthlySpending >= monthlyMin) {
+                        streakData.streak += 1;
+                        streakData.lastMonthMet = true;
+                        
+                        // Check for voucher milestones
+                        this.checkVoucherMilestone(streakData.streak, streakData);
+                    } else {
+                        streakData.streak = 0; // Reset streak if minimum not met
+                        streakData.lastMonthMet = false;
+                        streakData.streakStartDate = new Date().toISOString();
+                    }
+                    
+                    // Reset for new month
+                    streakData.currentMonth = currentMonth;
+                    streakData.currentYear = currentYear;
+                    streakData.monthlySpending = 0;
                 }
                 
-                // Reset for new month
-                data.currentMonth = now.getMonth();
-                data.currentYear = now.getFullYear();
-                data.monthlySpending = 0;
+                streakData.monthlySpending += amount;
+                localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify(streakData));
                 
-                localStorage.setItem(storageKey, JSON.stringify(data));
-                console.log('✅ Month updated and streak checked');
-            } else {
-                console.log('✅ Using existing monthly streak data');
+                return streakData;
             }
-        } catch (error) {
-            console.error('❌ Error parsing existing streak data:', error);
-            
-            // Create fresh data if corrupted
-            const defaultData = {
-                currentMonth: now.getMonth(),
-                currentYear: now.getFullYear(),
-                streak: 0,
-                monthlySpending: 0,
-                lastMonthMet: false,
-                streakStartDate: now.toISOString(),
-                milestones: []
-            };
-            
-            localStorage.setItem(storageKey, JSON.stringify(defaultData));
-            console.log('✅ Recreated corrupted streak data');
-        }
-    }
-}
-// Add this new method to handle month transitions
-handleMonthTransition(data) {
-    const now = new Date();
-    
-    // Check if month has changed
-    if (data.currentMonth !== now.getMonth() || data.currentYear !== now.getFullYear()) {
-        console.log('📅 Month transition detected');
-        
-        // Check if minimum was met last month
-        const tier = this.getTierForTotalSpent(data.monthlySpending || 0);
-        const monthlyMin = this.monthlyMinimums[tier] || 0;
-        
-        if (data.monthlySpending >= monthlyMin) {
-            data.streak += 1;
-            data.lastMonthMet = true;
-            
-            // Check for voucher milestones
-            this.checkVoucherMilestone(data.streak, data);
-            console.log(`✅ Streak increased to ${data.streak} months`);
-        } else {
-            data.streak = 0; // Reset streak if minimum not met
-            data.lastMonthMet = false;
-            data.streakStartDate = now.toISOString();
-            console.log('⚠️ Streak reset - minimum not met');
-        }
-        
-        // Reset for new month
-        data.currentMonth = now.getMonth();
-        data.currentYear = now.getFullYear();
-        data.monthlySpending = 0;
-        
-        return true; // Month was updated
-    }
-    
-    return false; // Month unchanged
-}
-            
-         // Record monthly spending and check streak
-recordMonthlySpending(amount) {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    
-    const streakData = JSON.parse(localStorage.getItem('jeansClubMonthlyStreak'));
-    
-    // Handle month transition if needed
-    this.handleMonthTransition(streakData);
-    
-    // Add the spending
-    streakData.monthlySpending += amount;
-    localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify(streakData));
-    
-    return streakData;
-}
             
             // Check for voucher milestone achievement
             checkVoucherMilestone(streak, streakData) {
@@ -8666,4 +8588,4 @@ window.onload = function() {
 };
  </script>
 </body>
-</html>  
+</html>        
