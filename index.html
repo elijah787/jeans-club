@@ -7938,99 +7938,179 @@ function showVoucherQR(voucherCode) {
             showToast('Vouchers refreshed!', 'success');
         }
 
-        async function processScan() {
-            const codeInput = document.getElementById('voucherCodeInput').value.trim();
-            const salespersonName = document.getElementById('salespersonName').value.trim();
+     async function processScan() {
+    const codeInput = document.getElementById('voucherCodeInput').value.trim();
+    const salespersonName = document.getElementById('salespersonName').value.trim();
+    
+    if (!codeInput) {
+        showToast('Please enter voucher code or scan QR code', 'error');
+        return;
+    }
+    
+    if (!salespersonName) {
+        showToast('Please enter your name as salesperson', 'error');
+        return;
+    }
+    
+    console.log("🔍 Processing scan for code:", codeInput);
+    
+    // Check if it's a REDEMPTION ID (starts with 'RED')
+    if (codeInput.startsWith('RED')) {
+        console.log("📱 Detected as REDEMPTION ID");
+        
+        // Try to process as redemption
+        let redemption = await qrRedemptionSystem.getRedemptionById(codeInput);
+        
+        if (redemption) {
+            console.log("✅ Found redemption:", redemption);
+            // Process redemption
+            const result = await qrRedemptionSystem.redeemRedemption(codeInput, salespersonName);
             
-            if (!codeInput) {
-                showToast('Please enter voucher code or scan QR code', 'error');
-                return;
-            }
-            
-            if (!salespersonName) {
-                showToast('Please enter your name as salesperson', 'error');
-                return;
-            }
-            
-            // Try to process as voucher first
-            let voucher = await voucherSystem.getVoucherByCode(codeInput);
-            
-            if (voucher) {
-                // Process voucher redemption
-                const result = await voucherSystem.redeemVoucher(codeInput, salespersonName);
+            if (result.success) {
+                document.getElementById('voucherRedeemResult').innerHTML = `
+                    <div class="success-message">
+                        <strong>🎉 QR Redemption Completed Successfully!</strong><br>
+                        Member: ${redemption.memberName} (${redemption.memberJCId})<br>
+                        Purchase Amount: ${redemption.purchaseAmount.toLocaleString()} UGX<br>
+                        Discount: ${redemption.selectedOption.discountPercentage}%<br>
+                        Discount Value: ${(redemption.purchaseAmount * redemption.selectedOption.discountPercentage / 100).toLocaleString()} UGX<br>
+                        Final Price: ${(redemption.purchaseAmount * (100 - redemption.selectedOption.discountPercentage) / 100).toLocaleString()} UGX<br>
+                        Redeemed by: ${salespersonName}<br>
+                        Time: ${new Date().toLocaleString()}
+                    </div>
+                `;
+                showToast('QR Redemption completed successfully!', 'success');
                 
-                if (result.success) {
-                    document.getElementById('voucherRedeemResult').innerHTML = `
-                        <div class="success-message">
-                            <strong>Voucher Redeemed Successfully!</strong><br>
-                            Member: ${voucher.memberName} (${voucher.memberJCId})<br>
-                            Discount: ${voucher.discountPercentage}%<br>
-                            Redeemed by: ${salespersonName}<br>
-                            Time: ${new Date().toLocaleString()}
-                        </div>
-                    `;
-                    showToast('Voucher redeemed successfully!', 'success');
-                } else {
-                    document.getElementById('voucherRedeemResult').innerHTML = `
-                        <div class="error-message">
-                            <strong>Voucher Redemption Failed</strong><br>
-                            ${result.message}
-                        </div>
-                    `;
-                    showToast(result.message, 'error');
+                // Show redemption details
+                showRedemptionDetails(redemption);
+                
+                // Also deduct points if it was a points-based redemption
+                if (redemption.selectedOption.pointsCost) {
+                    console.log("⚡ Deducting points for redemption");
+                    await updateMemberPointsAfterRedemption(redemption);
                 }
+                
+            } else {
+                document.getElementById('voucherRedeemResult').innerHTML = `
+                    <div class="error-message">
+                        <strong>❌ Redemption Failed</strong><br>
+                        ${result.message}
+                    </div>
+                `;
+                showToast(result.message, 'error');
+            }
+            
+        } else {
+            document.getElementById('voucherRedeemResult').innerHTML = `
+                <div class="error-message">
+                    <strong>❌ Redemption Not Found</strong><br>
+                    No redemption found with ID: ${codeInput}<br>
+                    <small>Note: Redemption IDs start with 'RED' and are valid for 24 hours</small>
+                </div>
+            `;
+            showToast('Redemption not found or expired', 'error');
+        }
+    } 
+    // Check if it's a VOUCHER CODE (starts with 'JC' or other pattern)
+    else if (codeInput.startsWith('JC') || codeInput.length === 8) {
+        console.log("🎫 Detected as VOUCHER CODE");
+        
+        // Try to process as voucher
+        let voucher = await voucherSystem.getVoucherByCode(codeInput);
+        
+        if (voucher) {
+            console.log("✅ Found voucher:", voucher);
+            // Process voucher redemption
+            const result = await voucherSystem.redeemVoucher(codeInput, salespersonName);
+            
+            if (result.success) {
+                document.getElementById('voucherRedeemResult').innerHTML = `
+                    <div class="success-message">
+                        <strong>✅ Voucher Redeemed Successfully!</strong><br>
+                        Member: ${voucher.memberName} (${voucher.memberJCId})<br>
+                        Discount: ${voucher.discountPercentage}%<br>
+                        Redeemed by: ${salespersonName}<br>
+                        Time: ${new Date().toLocaleString()}
+                    </div>
+                `;
+                showToast('Voucher redeemed successfully!', 'success');
                 
                 // Show voucher details
                 showVoucherDetails(voucher);
                 
             } else {
-                // Try to process as redemption
-                let redemption = await qrRedemptionSystem.getRedemptionById(codeInput);
-                
-                if (redemption) {
-                    // Process redemption
-                    const result = await qrRedemptionSystem.redeemRedemption(codeInput, salespersonName);
-                    
-                    if (result.success) {
-                        document.getElementById('voucherRedeemResult').innerHTML = `
-                            <div class="success-message">
-                                <strong>Redemption Completed Successfully!</strong><br>
-                                Member: ${redemption.memberName} (${redemption.memberJCId})<br>
-                                Purchase Amount: ${redemption.purchaseAmount.toLocaleString()} UGX<br>
-                                Discount: ${redemption.selectedOption.discountPercentage}%<br>
-                                Redeemed by: ${salespersonName}<br>
-                                Time: ${new Date().toLocaleString()}
-                            </div>
-                        `;
-                        showToast('Redemption completed successfully!', 'success');
-                    } else {
-                        document.getElementById('voucherRedeemResult').innerHTML = `
-                            <div class="error-message">
-                                <strong>Redemption Failed</strong><br>
-                                ${result.message}
-                            </div>
-                        `;
-                        showToast(result.message, 'error');
-                    }
-                    
-                    // Show redemption details
-                    showRedemptionDetails(redemption);
-                    
-                } else {
-                    document.getElementById('voucherRedeemResult').innerHTML = `
-                        <div class="error-message">
-                            <strong>Not Found</strong><br>
-                            No voucher or redemption found with code: ${codeInput}
-                        </div>
-                    `;
-                    showToast('Code not found', 'error');
-                }
+                document.getElementById('voucherRedeemResult').innerHTML = `
+                    <div class="error-message">
+                        <strong>❌ Voucher Redemption Failed</strong><br>
+                        ${result.message}
+                    </div>
+                `;
+                showToast(result.message, 'error');
             }
             
-            // Clear input
-            document.getElementById('voucherCodeInput').value = '';
+        } else {
+            document.getElementById('voucherRedeemResult').innerHTML = `
+                <div class="error-message">
+                    <strong>❌ Voucher Not Found</strong><br>
+                    No voucher found with code: ${codeInput}<br>
+                    <small>Note: Voucher codes start with 'JC' followed by 6 characters</small>
+                </div>
+            `;
+            showToast('Voucher not found', 'error');
         }
+    }
+    else {
+        // Try both as fallback
+        console.log("🔍 Trying both voucher and redemption lookup");
+        
+        let voucher = await voucherSystem.getVoucherByCode(codeInput);
+        let redemption = await qrRedemptionSystem.getRedemptionById(codeInput);
+        
+        if (voucher) {
+            // Process voucher (same as above)...
+        } 
+        else if (redemption) {
+            // Process redemption (same as above)...
+        }
+        else {
+            document.getElementById('voucherRedeemResult').innerHTML = `
+                <div class="error-message">
+                    <strong>❌ Not Found</strong><br>
+                    No voucher or redemption found with code: ${codeInput}<br><br>
+                    <strong>Tips:</strong><br>
+                    • Voucher codes start with 'JC' (e.g., JC123ABC)<br>
+                    • Redemption IDs start with 'RED' (e.g., RED17677181164690MUB)<br>
+                    • QR codes can be scanned using the camera button
+                </div>
+            `;
+            showToast('Code not found', 'error');
+        }
+    }
+    
+    // Clear input
+    document.getElementById('voucherCodeInput').value = '';
+}
 
+// Add helper function to update member points after redemption
+async function updateMemberPointsAfterRedemption(redemption) {
+    try {
+        const member = await clubManager.db.getMemberByJCId(redemption.memberJCId);
+        if (member && redemption.selectedOption.pointsCost) {
+            member.points -= redemption.selectedOption.pointsCost;
+            member.activityLog.unshift({
+                timestamp: new Date().toISOString(),
+                action: 'points_redeemed',
+                description: `Redeemed ${redemption.selectedOption.pointsCost} points for ${redemption.selectedOption.discountPercentage}% discount`,
+                points: -redemption.selectedOption.pointsCost
+            });
+            
+            await clubManager.db.saveMember(member);
+            console.log("✅ Points deducted for redemption:", redemption.selectedOption.pointsCost);
+        }
+    } catch (error) {
+        console.error("❌ Failed to update points after redemption:", error);
+    }
+}
         function showVoucherDetails(voucher) {
             const detailsDiv = document.getElementById('scanDetails');
             detailsDiv.classList.remove('hidden');
