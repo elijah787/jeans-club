@@ -7990,44 +7990,44 @@ async getAllRedemptionsFromSupabase() {
             return re.test(String(email).toLowerCase());
         }
 
-        // Initialize the application
-        window.onload = function() {
-            clubManager = new ClubManager();
-            voucherSystem = clubManager.voucherSystem;
-            qrRedemptionSystem = clubManager.qrRedemptionSystem;
-            finalSystem = clubManager.finalSystem;
-            
-            // Check for URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            const action = urlParams.get('action');
-            
-            if (action === 'login') {
-                showLoginScreen();
-            } else if (action === 'signup') {
-                showSignupScreen();
-            } else if (action === 'admin') {
-                showAdminLogin();
-            }
-            
-            // Close search when clicking outside
-            document.getElementById('searchModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    hideSearch();
-                }
-            });
-            
-            // Close camera scanner when clicking outside
-            document.getElementById('cameraScannerModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeCameraScanner();
-                }
-            });
-            
-            // Initialize with login screen if not logged in
-            if (!clubManager.currentMember && !clubManager.isAdmin) {
-                showSignupScreen();
-            }
-        };
-    </script>
-</body>
-</html>   
+      // Initialize the application
+window.onload = function() {
+    // Initialize the manager first
+    clubManager = new ClubManager();
+    
+    // Now get the systems from the manager
+    voucherSystem = clubManager.voucherSystem;
+    qrRedemptionSystem = clubManager.qrRedemptionSystem;
+    finalSystem = clubManager.finalSystem;
+    
+    // Check for URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action');
+    
+    if (action === 'login') {
+        showLoginScreen();
+    } else if (action === 'signup') {
+        showSignupScreen();
+    } else if (action === 'admin') {
+        showAdminLogin();
+    }
+    
+    // Close search when clicking outside
+    document.getElementById('searchModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            hideSearch();
+        }
+    });
+    
+    // Close camera scanner when clicking outside
+    document.getElementById('cameraScannerModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeCameraScanner();
+        }
+    });
+    
+    // Initialize with login screen if not logged in
+    if (!clubManager.currentMember && !clubManager.isAdmin) {
+        showSignupScreen();
+    }
+};
