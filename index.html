@@ -5023,41 +5023,55 @@ async deleteMember(jcId) {
 // Replace the ENTIRE saveRedemptionToSupabase method with this:
 async saveRedemptionToSupabase(redemption) {
     try {
-        console.log("💾 Saving redemption to Supabase:", redemption.redemptionId);
-        // CORRECTED saveRedemptionToSupabase method:
-const redemptionData = {
-    redemption_id: redemption.redemptionId,      // ✓ FIXED: camelCase to snake_case
-    member_jc_id: redemption.memberJCId,         // ✓ FIXED: camelCase to snake_case
-    member_name: redemption.memberName,          // ✓ FIXED: camelCase to snake_case
-    member_tier: redemption.memberTier,          // ✓ FIXED: camelCase to snake_case
-    purchase_amount: redemption.purchaseAmount,  // ✓ FIXED: camelCase to snake_case
-    selected_option: redemption.selectedOption,  // ✓ FIXED: camelCase to snake_case
-    created_date: redemption.createdDate,        // ✓ FIXED: camelCase to snake_case
-    status: redemption.status,                   // ✓ FIXED: camelCase to snake_case
-    redeemed_by: redemption.redeemedBy,          // ✓ FIXED: camelCase to snake_case
-    redeemed_date: redemption.redeemedDate,      // ✓ FIXED: camelCase to snake_case
-    qr_code_data: redemption.qrCodeData          // ✓ FIXED: camelCase to snake_case
-};
-       
+        console.log("💾 Attempting to save redemption to Supabase:", redemption.redemptionId);
+        
+        if (!window.supabaseDbInstance) {
+            console.error("❌ Supabase DB not initialized");
+            return false;
+        }
+        
+        const { supabase } = window.supabaseDbInstance;
+        
+        // CRITICAL: Match EXACT column names from your Supabase table
+        const redemptionData = {
+            id: redemption.id || 'redemption_' + Date.now(),  // Add ID field
+            redemption_id: redemption.redemptionId,      // Snake_case
+            member_jc_id: redemption.memberJCId,         // Snake_case
+            member_name: redemption.memberName,          // Snake_case
+            member_tier: redemption.memberTier,          // Snake_case
+            purchase_amount: redemption.purchaseAmount,  // Snake_case
+            selected_option: redemption.selectedOption,  // Snake_case (JSON)
+            created_date: redemption.createdDate,        // Snake_case
+            status: redemption.status,                   // Snake_case
+            redeemed_by: redemption.redeemedBy || null,  // Snake_case
+            redeemed_date: redemption.redeemedDate || null, // Snake_case
+            qr_code_data: redemption.qrCodeData          // Snake_case
+        };
 
-        console.log("📤 Redemption data for Supabase:", redemptionData);
+        console.log("📤 Redemption data being sent:", redemptionData);
 
-        const { data, error } = await this.supabase
+        // Try to save
+        const { data, error } = await supabase
             .from('redemptions')
             .upsert(redemptionData, { 
-                onConflict: 'redemption_id'
+                onConflict: 'redemption_id'  // Conflict resolution on redemption_id
             });
 
         if (error) {
-            console.error("❌ Supabase redemption save error:", error);
+            console.error("❌ Supabase error details:", error);
+            console.error("❌ Error message:", error.message);
+            console.error("❌ Error code:", error.code);
+            console.error("❌ Error details:", error.details);
             return false;
         }
 
-        console.log("✅ Redemption saved to Supabase:", redemption.redemptionId);
+        console.log("✅ Redemption saved successfully!");
+        console.log("✅ Data returned:", data);
         return true;
 
     } catch (error) {
-        console.error("❌ Failed to save redemption to Supabase:", error);
+        console.error("❌ Failed to save redemption:", error);
+        console.error("❌ Error stack:", error.stack);
         return false;
     }
 }
@@ -6170,31 +6184,43 @@ buildPasswordResetSuccessEmail(memberData) {
                 return redemptionId;
             }
 
-            createRedemption(memberJCId, memberName, memberTier, purchaseAmount, selectedOption) {
-                const redemptionId = this.generateRedemptionId();
-                const createdDate = new Date();
-                
-                const redemption = {
-                    redemptionId: redemptionId,
-                    memberJCId: memberJCId,
-                    memberName: memberName,
-                    memberTier: memberTier,
-                    purchaseAmount: purchaseAmount,
-                    selectedOption: selectedOption,
-                    createdDate: createdDate.toISOString(),
-                    status: 'pending',
-                    redeemedBy: null,
-                    redeemedDate: null,
-                    qrCodeData: this.generateQRCodeData(redemptionId)
-                };
+         createRedemption(memberJCId, memberName, memberTier, purchaseAmount, selectedOption) {
+    const redemptionId = this.generateRedemptionId();
+    const createdDate = new Date();
+    
+    const redemption = {
+        id: 'redemption_' + Date.now(),  // ADD THIS LINE
+        redemptionId: redemptionId,
+        memberJCId: memberJCId,
+        memberName: memberName,
+        memberTier: memberTier,
+        purchaseAmount: purchaseAmount,
+        selectedOption: selectedOption,
+        createdDate: createdDate.toISOString(),
+        status: 'pending',
+        redeemedBy: null,
+        redeemedDate: null,
+        qrCodeData: this.generateQRCodeData(redemptionId)
+    };
 
-                this.redemptions.push(redemption);
-                this.saveRedemptions();
-                
-                this.logRedemptionActivity(redemptionId, 'created', memberJCId, `Redemption created: ${purchaseAmount} UGX purchase`);
+    console.log("🎫 Creating redemption:", redemption);
+    
+    this.redemptions.push(redemption);
+    this.saveRedemptions();
+    
+    // SAVE TO SUPABASE WITH DEBUGGING
+    clubManager.db.saveRedemptionToSupabase(redemption).then(success => {
+        if (success) {
+            console.log("✅ Redemption saved to Supabase successfully!");
+        } else {
+            console.log("❌ Failed to save to Supabase");
+        }
+    });
 
-                return redemption;
-            }
+    this.logRedemptionActivity(redemptionId, 'created', memberJCId, `Redemption created: ${purchaseAmount} UGX purchase`);
+
+    return redemption;
+}
 
             async getRedemptionById(redemptionId) {
                 // First check local storage
