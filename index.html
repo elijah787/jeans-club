@@ -4602,7 +4602,18 @@ async getVoucherFromSupabase(code) {
                 this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
                 this.anonKey = 'sb_publishable__gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA';
                 
-                this.supabase = createClient(this.supabaseUrl, this.anonKey);
+                this.supabase = createClient(this.supabaseUrl, this.anonKey, {
+                  db: {
+                schema: 'public'
+            },
+            global: {
+                headers: {
+                    'apikey': this.anonKey,
+                    'Authorization': `Bearer ${this.anonKey}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        })
                 this.cacheKey = 'jeansClubCache';
                 this.init();
                 console.log('🚀 SupabaseDB initialized with URL:', this.supabaseUrl);
@@ -5083,47 +5094,55 @@ const redemptionData = {
             
             // 🔥 FIXED: Get redemption from Supabase with snake_case column names
               // Replace the ENTIRE getRedemptionFromSupabase method with this:
-async getRedemptionFromSupabase(redemptionId) {
+
+            async getRedemptionFromSupabase(redemptionId) {
     try {
-        const { data: redemption, error } = await this.supabase
+        console.log('🔍 Fetching redemption from Supabase:', redemptionId);
+        
+        if (!this.supabase) {
+            console.error('❌ Supabase client not initialized');
+            return null;
+        }
+        
+        // Use the correct syntax for Supabase query
+        const { data, error } = await this.supabase
             .from('redemptions')
             .select('*')
             .eq('redemption_id', redemptionId)
-            .single();
-
+            .maybeSingle(); // Use maybeSingle instead of single
+        
         if (error) {
-            if (error.code === 'PGRST116') {
-                return null;
-            }
-            console.error("❌ Supabase redemption fetch error:", error);
+            console.error('❌ Supabase fetch error:', error);
+            console.error('Error details:', error.message, error.code);
             return null;
         }
-
-        // Convert snake_case back to camelCase for app
-        if (redemption) {
+        
+        if (data) {
+            console.log('✅ Found redemption:', data);
+            // Convert snake_case back to camelCase
             return {
-                redemptionId: redemption.redemption_id,
-                memberJCId: redemption.member_jc_id,
-                memberName: redemption.member_name,
-                memberTier: redemption.member_tier,
-                purchaseAmount: redemption.purchase_amount,
-                selectedOption: redemption.selected_option,
-                createdDate: redemption.created_date,
-                status: redemption.status,
-                redeemedBy: redemption.redeemed_by,
-                redeemedDate: redemption.redeemed_date,
-                qrCodeData: redemption.qr_code_data
+                redemptionId: data.redemption_id,
+                memberJCId: data.member_jc_id,
+                memberName: data.member_name,
+                memberTier: data.member_tier,
+                purchaseAmount: data.purchase_amount,
+                selectedOption: data.selected_option,
+                createdDate: data.created_date,
+                status: data.status,
+                redeemedBy: data.redeemed_by,
+                redeemedDate: data.redeemed_date,
+                qrCodeData: data.qr_code_data
             };
         }
         
+        console.log('ℹ️ No redemption found with ID:', redemptionId);
         return null;
+        
     } catch (error) {
-        console.error("❌ Failed to fetch redemption from Supabase:", error);
+        console.error('❌ Failed to fetch redemption from Supabase:', error);
         return null;
     }
 }
-
-            
             // 🔥 FIXED: Get all redemptions from Supabase
            // Replace the ENTIRE getAllRedemptionsFromSupabase method with this:
 async getAllRedemptionsFromSupabase() {
