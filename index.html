@@ -3448,57 +3448,59 @@
                 this.initializeStorage();
             }
             
-            initializeStorage() {
-                // Monthly streak tracker
-                if (!localStorage.getItem('jeansClubMonthlyStreak')) {
-                    localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify({
-                        currentMonth: new Date().getMonth(),
-                        currentYear: new Date().getFullYear(),
-                        streak: 0,
-                        monthlySpending: 0,
-                        lastMonthMet: false,
-                        streakStartDate: new Date().toISOString()
-                    }));
-                }
-            }
+            async initializeStorage(memberJCId) {
+    // Check if member has monthly data in Supabase
+    const monthlyData = await this.getMonthlyDataFromSupabase(memberJCId);
+    
+    if (!monthlyData) {
+        // Create initial monthly data in Supabase
+        await this.createInitialMonthlyDataInSupabase(memberJCId);
+    }
+}
             
             // Record monthly spending and check streak
-            recordMonthlySpending(amount) {
-                const now = new Date();
-                const currentMonth = now.getMonth();
-                const currentYear = now.getFullYear();
-                
-                const streakData = JSON.parse(localStorage.getItem('jeansClubMonthlyStreak'));
-                
-                // Check if it's a new month
-                if (streakData.currentMonth !== currentMonth || streakData.currentYear !== currentYear) {
-                    // Check if minimum was met last month
-                    const tier = this.getTierForTotalSpent(streakData.monthlySpending);
-                    const monthlyMin = this.monthlyMinimums[tier] || 0;
-                    
-                    if (streakData.monthlySpending >= monthlyMin) {
-                        streakData.streak += 1;
-                        streakData.lastMonthMet = true;
-                        
-                        // Check for voucher milestones
-                        this.checkVoucherMilestone(streakData.streak, streakData);
-                    } else {
-                        streakData.streak = 0; // Reset streak if minimum not met
-                        streakData.lastMonthMet = false;
-                        streakData.streakStartDate = new Date().toISOString();
-                    }
-                    
-                    // Reset for new month
-                    streakData.currentMonth = currentMonth;
-                    streakData.currentYear = currentYear;
-                    streakData.monthlySpending = 0;
-                }
-                
-                streakData.monthlySpending += amount;
-                localStorage.setItem('jeansClubMonthlyStreak', JSON.stringify(streakData));
-                
-                return streakData;
-            }
+           async recordMonthlySpending(memberJCId, amount, memberTier) {
+    // 1. Get from Supabase FIRST
+    const monthlyData = await this.getMonthlyDataFromSupabase(memberJCId);
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // 2. Check if it's a new month
+    if (monthlyData.currentMonth !== currentMonth || monthlyData.currentYear !== currentYear) {
+        // Check if minimum was met last month
+        const monthlyMin = this.monthlyMinimums[memberTier] || 0;
+        
+        if (monthlyData.monthlySpending >= monthlyMin) {
+            monthlyData.streak += 1;
+            monthlyData.lastMonthMet = true;
+            
+            // Check for voucher milestones
+            this.checkVoucherMilestone(monthlyData.streak, monthlyData);
+        } else {
+            monthlyData.streak = 0; // Reset streak if minimum not met
+            monthlyData.lastMonthMet = false;
+            monthlyData.streakStartDate = new Date().toISOString();
+        }
+        
+        // Reset for new month
+        monthlyData.currentMonth = currentMonth;
+        monthlyData.currentYear = currentYear;
+        monthlyData.monthlySpending = 0;
+    }
+    
+    // 3. Add the new amount
+    monthlyData.monthlySpending += amount;
+    
+    // 4. Save back to Supabase
+    await this.updateMonthlyDataInSupabase(memberJCId, monthlyData);
+    
+    // 5. Also keep localStorage for quick access
+    localStorage.setItem('jeansClubMonthlyStreak_' + memberJCId, JSON.stringify(monthlyData));
+    
+    return monthlyData;
+}
             
             // Check for voucher milestone achievement
             checkVoucherMilestone(streak, streakData) {
@@ -5018,7 +5020,46 @@ async deleteMember(jcId) {
             }
             
             // 🔥 FIXED: Save redemption to Supabase with snake_case column names
-       
+       // Add to SupabaseDB class (around line ~1000)
+async getMonthlyDataFromSupabase(memberJCId) {
+    try {
+        const { data, error } = await this.supabase
+            .from('members')
+            .select('monthly_streak, current_monthly_spending, last_monthly_reset, monthly_milestones, total_monthly_cashback, current_month, current_year, streak_start_date, last_month_met')
+            .eq('jc_id', memberJCId)
+            .single();
+            
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error getting monthly data:', error);
+        return null;
+    }
+}
+
+async updateMonthlyDataInSupabase(memberJCId, monthlyData) {
+    try {
+        const { error } = await this.supabase
+            .from('members')
+            .update({
+                monthly_streak: monthlyData.streak,
+                current_monthly_spending: monthlyData.monthlySpending,
+                current_month: monthlyData.currentMonth,
+                current_year: monthlyData.currentYear,
+                last_month_met: monthlyData.lastMonthMet,
+                streak_start_date: monthlyData.streakStartDate,
+                monthly_milestones: monthlyData.milestones || [],
+                last_monthly_reset: new Date().toISOString() // Update reset time
+            })
+            .eq('jc_id', memberJCId);
+            
+        if (error) throw error;
+        return true;
+    } catch (error) {
+        console.error('Error updating monthly data:', error);
+        return false;
+    }
+}
             
 // Replace the ENTIRE saveRedemptionToSupabase method with this:
 async saveRedemptionToSupabase(redemption) {
@@ -8338,7 +8379,7 @@ async function updateMemberPointsAfterRedemption(redemption) {
             
             // Pay with points option (except for Pearl)
             if (tier !== 'PEARL' && memberPoints >= 4) {
-                const maxPointsToUse = Math.min(memberPoints, Math.floor(purchaseAmount / 250));
+                const maxPointsToUse = Math.min(memberPoints, Math.floor(purchaseAmount / 50));
                 if (maxPointsToUse >= 4) {
                     // Calculate best points usage (multiple of 4 points for 1,000 UGX discount)
                     const pointsToUse = Math.floor(maxPointsToUse / 4) * 4;
@@ -8354,7 +8395,7 @@ async function updateMemberPointsAfterRedemption(redemption) {
                             finalPrice: purchaseAmount - discountValue,
                             pointsCost: pointsToUse,
                             description: `Use ${pointsToUse} points for ${discountValue.toLocaleString()} UGX discount`,
-                            requirements: `${pointsToUse} points required (1 point = 250 UGX)`
+                            requirements: `${pointsToUse} points required (1 point = 50 UGX)`
                         });
                     }
                 }
