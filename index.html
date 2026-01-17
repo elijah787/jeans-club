@@ -3444,14 +3444,23 @@
                     12: 20  // Month 12: 20% off
                 };
                 
-                // Initialize storage
-                this.initializeStorage();
-            }
-            async initializeStorage(memberJCId) {
+               }
+               // Add this method to FinalSystem class
+async initializeForMember(memberJCId) {
+    if (!memberJCId) {
+        console.error("❌ No memberJCId provided to initializeForMember");
+        return;
+    }
+    
+    console.log("🔄 Initializing FinalSystem for member:", memberJCId);
+    await this.initializeStorage(memberJCId);
+}
+async initializeStorage(memberJCId) {
     console.log("🔄 Initializing storage for member:", memberJCId);
     
+    // Don't try to initialize if no memberJCId
     if (!memberJCId) {
-        console.error("❌ No memberJCId provided to initializeStorage");
+        console.log("⚠️ No memberJCId provided, skipping storage initialization");
         return;
     }
     
@@ -3560,6 +3569,101 @@
     return monthlyData;
 }
             
+// Add this method to the FinalSystem class
+async getMonthlyDataFromSupabase(memberJCId) {
+    try {
+        console.log("📊 Fetching monthly data from Supabase for:", memberJCId);
+        
+        if (!window.supabaseDbInstance || !window.supabaseDbInstance.supabase) {
+            console.error("❌ Supabase DB not initialized");
+            return null;
+        }
+        
+        const { supabase } = window.supabaseDbInstance;
+        
+        const { data, error } = await supabase
+            .from('members')
+            .select('monthly_streak, monthly_spending, current_month, current_year, last_month_met, streak_start_date, milestones, last_monthly_reset')
+            .eq('jc_id', memberJCId)
+            .single();
+        
+        if (error) {
+            if (error.code === 'PGRST116') { // No rows returned
+                console.log("ℹ️ No monthly data found for member:", memberJCId);
+                return null;
+            }
+            console.error("❌ Supabase error fetching monthly data:", error);
+            return null;
+        }
+        
+        if (data) {
+            const monthlyData = {
+                streak: data.monthly_streak || 0,
+                monthlySpending: data.monthly_spending || 0,
+                currentMonth: data.current_month || new Date().getMonth(),
+                currentYear: data.current_year || new Date().getFullYear(),
+                lastMonthMet: data.last_month_met || false,
+                streakStartDate: data.streak_start_date || new Date().toISOString(),
+                milestones: data.milestones || [],
+                lastMonthlyReset: data.last_monthly_reset || new Date().toISOString()
+            };
+            
+            console.log("✅ Retrieved monthly data:", monthlyData);
+            return monthlyData;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error("❌ Failed to get monthly data from Supabase:", error);
+        return null;
+    }
+}
+
+
+// Add this method to FinalSystem
+async updateMonthlyDataInSupabase(memberJCId, monthlyData) {
+    try {
+        console.log("💾 Updating monthly data in Supabase for:", memberJCId);
+        
+        if (!window.supabaseDbInstance || !window.supabaseDbInstance.supabase) {
+            console.error("❌ Supabase DB not initialized");
+            return false;
+        }
+        
+        const { supabase } = window.supabaseDbInstance;
+        
+        // Prepare data for Supabase (snake_case)
+        const updateData = {
+            monthly_streak: monthlyData.streak,
+            monthly_spending: monthlyData.monthlySpending,
+            current_month: monthlyData.currentMonth,
+            current_year: monthlyData.currentYear,
+            last_month_met: monthlyData.lastMonthMet,
+            streak_start_date: monthlyData.streakStartDate,
+            milestones: monthlyData.milestones || [],
+            last_monthly_reset: monthlyData.lastMonthlyReset || new Date().toISOString()
+        };
+        
+        console.log("📤 Updating Supabase with:", updateData);
+        
+        const { error } = await supabase
+            .from('members')
+            .update(updateData)
+            .eq('jc_id', memberJCId);
+        
+        if (error) {
+            console.error("❌ Supabase update error:", error);
+            return false;
+        }
+        
+        console.log("✅ Monthly data updated in Supabase");
+        return true;
+        
+    } catch (error) {
+        console.error("❌ Failed to update monthly data in Supabase:", error);
+        return false;
+    }
+}
             // Check for voucher milestone achievement
             checkVoucherMilestone(streak, streakData) {
                 if (this.voucherMilestones[streak]) {
@@ -5083,6 +5187,11 @@ async deleteMember(jcId) {
 async getMonthlyDataFromSupabase(memberJCId) {
     try {
         console.log("📊 Fetching monthly data for:", memberJCId);
+        
+        if (!memberJCId) {
+            console.error("❌ No memberJCId provided");
+            return null;
+        }
         
         const { data, error } = await this.supabase
             .from('members')
@@ -6871,7 +6980,7 @@ buildPasswordResetSuccessEmail(memberData) {
                         });
                     }
                     
-                    showDashboard(member);
+                     await showDashboard(member);
                     showToast(`Welcome to Jeans Club ${name}!`, 'success');
                     
                     return true;
@@ -6888,6 +6997,11 @@ buildPasswordResetSuccessEmail(memberData) {
                     if (!jcId || !password) {
                         showToast('Please enter both JC ID and password', 'error');
                         return false;
+                        // After successful login in loginWithJCId:
+// Add this after line 7161 (where you show success toast)
+if (finalSystem && member) {
+    await finalSystem.initializeStorage(member.jcId);
+}
                     }
                     
                     // Check for admin login
@@ -7255,22 +7369,30 @@ buildPasswordResetSuccessEmail(memberData) {
             document.head.appendChild(style);
         }
 
-        function showDashboard(member) {
+      async function showDashboard(member) {  // Add async here
     hideAllSections();
     document.getElementById('dashboardSection').classList.remove('hidden');
     
     // Update dashboard display with member data
     updateMemberDashboard(member);
     
-    // Update final system dashboard - check if finalSystem exists
-    if (finalSystem && typeof finalSystem.updateDashboardDisplay === 'function') {
-        console.log('Updating final system dashboard for member:', member.jcId);
-        finalSystem.updateDashboardDisplay(member);
+    // Initialize and update final system dashboard
+    if (finalSystem && member) {
+        console.log('Initializing FinalSystem for member:', member.jcId);
+        
+        // First initialize for this member
+        await finalSystem.initializeForMember(member.jcId);
+        
+        // Then update the dashboard display
+        if (typeof finalSystem.updateDashboardDisplay === 'function') {
+            finalSystem.updateDashboardDisplay(member);
+        }
     } else {
         console.error('Final system not properly initialized');
         // Try to get it from clubManager
-        if (clubManager && clubManager.finalSystem) {
+        if (clubManager && clubManager.finalSystem && member) {
             finalSystem = clubManager.finalSystem;
+            await finalSystem.initializeForMember(member.jcId);
             finalSystem.updateDashboardDisplay(member);
         }
     }
