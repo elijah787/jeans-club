@@ -3447,57 +3447,115 @@
                 // Initialize storage
                 this.initializeStorage();
             }
-            
             async initializeStorage(memberJCId) {
+    console.log("🔄 Initializing storage for member:", memberJCId);
+    
+    if (!memberJCId) {
+        console.error("❌ No memberJCId provided to initializeStorage");
+        return;
+    }
+    
     // Check if member has monthly data in Supabase
-    const monthlyData = await this.getMonthlyDataFromSupabase(memberJCId);
+    let monthlyData = await this.getMonthlyDataFromSupabase(memberJCId);
     
     if (!monthlyData) {
-        // Create initial monthly data in Supabase
-        await this.createInitialMonthlyDataInSupabase(memberJCId);
+        console.log("📝 Creating initial monthly data in Supabase...");
+        // Create initial monthly data
+        monthlyData = {
+            streak: 0,
+            monthlySpending: 0,
+            currentMonth: new Date().getMonth(),
+            currentYear: new Date().getFullYear(),
+            lastMonthMet: false,
+            streakStartDate: new Date().toISOString(),
+            milestones: [],
+            lastMonthlyReset: new Date().toISOString()
+        };
+        
+        // Save to Supabase
+        await this.updateMonthlyDataInSupabase(memberJCId, monthlyData);
     }
+    
+    // Also save to localStorage for quick access
+    localStorage.setItem('jeansClubMonthlyStreak_' + memberJCId, JSON.stringify(monthlyData));
+    console.log("✅ Storage initialized for member:", memberJCId);
 }
+        
             
             // Record monthly spending and check streak
-           async recordMonthlySpending(memberJCId, amount, memberTier) {
-    // 1. Get from Supabase FIRST
-    const monthlyData = await this.getMonthlyDataFromSupabase(memberJCId);
+   async recordMonthlySpending(memberJCId, amount, memberTier) {
+    console.log("📊 Recording monthly spending:", { memberJCId, amount, memberTier });
+    
+    // 1. Get current monthly data from Supabase
+    let monthlyData = await this.getMonthlyDataFromSupabase(memberJCId);
+    
+    // If no data exists in Supabase, create initial structure
+    if (!monthlyData) {
+        console.log("🆕 Creating initial monthly data for member:", memberJCId);
+        monthlyData = {
+            streak: 0,
+            monthlySpending: 0,
+            currentMonth: new Date().getMonth(),
+            currentYear: new Date().getFullYear(),
+            lastMonthMet: false,
+            streakStartDate: new Date().toISOString(),
+            milestones: [],
+            lastMonthlyReset: new Date().toISOString()
+        };
+    }
     
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     
+    console.log("📅 Date check:", {
+        storedMonth: monthlyData.currentMonth,
+        storedYear: monthlyData.currentYear,
+        currentMonth,
+        currentYear,
+        isNewMonth: monthlyData.currentMonth !== currentMonth || monthlyData.currentYear !== currentYear
+    });
+    
     // 2. Check if it's a new month
     if (monthlyData.currentMonth !== currentMonth || monthlyData.currentYear !== currentYear) {
-        // Check if minimum was met last month
+        console.log("🔄 New month detected, checking streak...");
         const monthlyMin = this.monthlyMinimums[memberTier] || 0;
         
         if (monthlyData.monthlySpending >= monthlyMin) {
             monthlyData.streak += 1;
             monthlyData.lastMonthMet = true;
+            console.log("✅ Streak increased to:", monthlyData.streak);
             
             // Check for voucher milestones
-            this.checkVoucherMilestone(monthlyData.streak, monthlyData);
+            const milestone = this.checkVoucherMilestone(monthlyData.streak, monthlyData);
+            if (milestone) {
+                console.log("🎉 Milestone reached:", milestone);
+            }
         } else {
             monthlyData.streak = 0; // Reset streak if minimum not met
             monthlyData.lastMonthMet = false;
             monthlyData.streakStartDate = new Date().toISOString();
+            console.log("❌ Streak reset - minimum not met");
         }
         
         // Reset for new month
         monthlyData.currentMonth = currentMonth;
         monthlyData.currentYear = currentYear;
         monthlyData.monthlySpending = 0;
+        monthlyData.lastMonthlyReset = new Date().toISOString();
     }
     
     // 3. Add the new amount
     monthlyData.monthlySpending += amount;
+    console.log("💰 Updated monthly spending:", monthlyData.monthlySpending);
     
-    // 4. Save back to Supabase
-    await this.updateMonthlyDataInSupabase(memberJCId, monthlyData);
+    // 4. Save back to Supabase FIRST
+    const supabaseSaved = await this.updateMonthlyDataInSupabase(memberJCId, monthlyData);
+    console.log("💾 Supabase save result:", supabaseSaved ? "Success" : "Failed");
     
     // 5. Also keep localStorage for quick access
     localStorage.setItem('jeansClubMonthlyStreak_' + memberJCId, JSON.stringify(monthlyData));
+    console.log("💾 LocalStorage saved for member:", memberJCId);
     
     return monthlyData;
 }
@@ -5021,22 +5079,49 @@ async deleteMember(jcId) {
             
             // 🔥 FIXED: Save redemption to Supabase with snake_case column names
        // Add to SupabaseDB class (around line ~1000)
+
 async getMonthlyDataFromSupabase(memberJCId) {
     try {
+        console.log("📊 Fetching monthly data for:", memberJCId);
+        
         const { data, error } = await this.supabase
             .from('members')
-            .select('monthly_streak, current_monthly_spending, last_monthly_reset, monthly_milestones, total_monthly_cashback, current_month, current_year, streak_start_date, last_month_met')
+            .select('monthly_streak, monthly_spending, current_month, current_year, streak_start_date, last_month_met, milestones, last_monthly_reset')
             .eq('jc_id', memberJCId)
             .single();
+        
+        if (error) {
+            if (error.code === 'PGRST116') {
+                console.log("ℹ️ No monthly data found for member:", memberJCId);
+                return null;
+            }
+            console.error("❌ Error fetching monthly data:", error);
+            return null;
+        }
+        
+        if (data) {
+            // Format the data
+            const monthlyData = {
+                streak: data.monthly_streak || 0,
+                monthlySpending: data.monthly_spending || 0,
+                currentMonth: data.current_month || new Date().getMonth(),
+                currentYear: data.current_year || new Date().getFullYear(),
+                lastMonthMet: data.last_month_met || false,
+                streakStartDate: data.streak_start_date || new Date().toISOString(),
+                milestones: data.milestones || [],
+                lastMonthlyReset: data.last_monthly_reset || new Date().toISOString()
+            };
             
-        if (error) throw error;
-        return data;
+            console.log("✅ Retrieved monthly data:", monthlyData);
+            return monthlyData;
+        }
+        
+        return null;
     } catch (error) {
-        console.error('Error getting monthly data:', error);
+        console.error("❌ Failed to get monthly data from Supabase:", error);
         return null;
     }
 }
-
 async updateMonthlyDataInSupabase(memberJCId, monthlyData) {
     try {
         const { error } = await this.supabase
