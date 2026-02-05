@@ -4353,10 +4353,16 @@ async function handleQRCodeDetected(qrData) {
         let weeklyCount = 0;
         let monthlyCount = 0;
         
+         // Count vouchers by period (VALUE in UGX)
+    let dailyValue = 0;
+    let weeklyValue = 0;
+    let monthlyValue = 0;
+
         this.vouchers.forEach(voucher => {
             if (voucher.memberJCId === memberJCId && voucher.status !== 'expired') {
                 const createdDate = new Date(voucher.createdDate);
-                
+                 const voucherValue = voucher.pointsUsed * 50; // Convert points to UGX
+
                 if (createdDate >= today) {
                     dailyCount++;
                 }
@@ -4366,6 +4372,16 @@ async function handleQRCodeDetected(qrData) {
                 if (createdDate >= thirtyDaysAgo) {
                     monthlyCount++;
                 }
+                // VALUE of vouchers (YOUR FIX GOES HERE!)
+            if (createdDate >= today) {
+                dailyValue += voucherValue;
+            }
+            if (createdDate >= sevenDaysAgo) {
+                weeklyValue += voucherValue;
+            }
+            if (createdDate >= thirtyDaysAgo) {
+                monthlyValue += voucherValue;
+            }
             }
         });
         
@@ -4386,6 +4402,17 @@ async function handleQRCodeDetected(qrData) {
             }
         };
     }
+   // Add this AFTER the TIER_VOUCHER_LIMITS definition:
+TIER_VOUCHER_VALUE_LIMITS = {
+    PEARL:    { daily: 50000, weekly: 100000, monthly: 200000 },     // UGX
+    BRONZE:   { daily: 100000, weekly: 200000, monthly: 500000 },    // UGX
+    SILVER:   { daily: 200000, weekly: 500000, monthly: 1000000 },   // UGX
+    RUBY:     { daily: 400000, weekly: 1000000, monthly: 2000000 },  // UGX
+    GOLD:     { daily: 800000, weekly: 2000000, monthly: 4000000 },  // UGX
+    SAPPHIRE: { daily: 1500000, weekly: 4000000, monthly: 8000000 }, // UGX
+    PLATINUM: { daily: 3000000, weekly: 8000000, monthly: 15000000 } // UGX
+};
+  
     
     // NEW: Check if member can redeem points based on tier limits
     canRedeemPoints(memberTier, amountUGX, period = 'daily') {
