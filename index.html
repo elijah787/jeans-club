@@ -5210,7 +5210,6 @@ async deleteMember(jcId) {
             
             // 🔥 FIXED: Save redemption to Supabase with snake_case column names
        // Add to SupabaseDB class (around line ~1000)
-
 async getMonthlyDataFromSupabase(memberJCId) {
     try {
         console.log("📊 Fetching monthly data for:", memberJCId);
@@ -5236,12 +5235,29 @@ async getMonthlyDataFromSupabase(memberJCId) {
         }
         
         if (data) {
+            // Get current date info
+            const now = new Date();
+            const jsCurrentMonth = now.getMonth(); // JavaScript: 0-11
+            const jsCurrentYear = now.getFullYear();
+            
+            // Convert SQL month (1-12) to JavaScript month (0-11)
+            const sqlMonth = data.current_month || (jsCurrentMonth + 1);
+            const memberJsMonth = sqlMonth - 1; // Convert to JS format
+            
+            console.log("📅 Month conversion:", {
+                fromDB: data.current_month, // SQL: 1-12
+                toJS: memberJsMonth, // JS: 0-11
+                currentJS: jsCurrentMonth,
+                yearFromDB: data.current_year,
+                currentYear: jsCurrentYear
+            });
+            
             // Format the data
             const monthlyData = {
                 streak: data.monthly_streak || 0,
                 monthlySpending: data.monthly_spending || 0,
-                currentMonth: data.current_month || new Date().getMonth(),
-                currentYear: data.current_year || new Date().getFullYear(),
+                currentMonth: memberJsMonth, // Store as JS month
+                currentYear: data.current_year || jsCurrentYear,
                 lastMonthMet: data.last_month_met || false,
                 streakStartDate: data.streak_start_date || new Date().toISOString(),
                 milestones: data.milestones || [],
@@ -5260,24 +5276,38 @@ async getMonthlyDataFromSupabase(memberJCId) {
 }
 async updateMonthlyDataInSupabase(memberJCId, monthlyData) {
     try {
+        console.log("💾 Updating monthly data for:", memberJCId);
+        
+        // IMPORTANT: Convert JavaScript month (0-11) to SQL month (1-12)
+        const updateData = {
+            monthly_streak: monthlyData.streak,
+            monthly_spending: monthlyData.monthlySpending, // CORRECT column name
+            current_month: monthlyData.currentMonth + 1, // Convert JS to SQL
+            current_year: monthlyData.currentYear,
+            last_month_met: monthlyData.lastMonthMet,
+            streak_start_date: monthlyData.streakStartDate,
+            milestones: monthlyData.milestones || [], // CORRECT column name
+            last_monthly_reset: monthlyData.lastMonthlyReset || new Date().toISOString()
+        };
+        
+        console.log("📤 Saving to Supabase:", updateData);
+        
         const { error } = await this.supabase
             .from('members')
-            .update({
-                monthly_streak: monthlyData.streak,
-                current_monthly_spending: monthlyData.monthlySpending,
-                current_month: monthlyData.currentMonth,
-                current_year: monthlyData.currentYear,
-                last_month_met: monthlyData.lastMonthMet,
-                streak_start_date: monthlyData.streakStartDate,
-                monthly_milestones: monthlyData.milestones || [],
-                last_monthly_reset: new Date().toISOString() // Update reset time
-            })
+            .update(updateData)
             .eq('jc_id', memberJCId);
             
-        if (error) throw error;
+        if (error) {
+            console.error("❌ Supabase update error:", error);
+            console.error("Error details:", error.message);
+            throw error;
+        }
+        
+        console.log("✅ Monthly data updated successfully");
         return true;
+        
     } catch (error) {
-        console.error('Error updating monthly data:', error);
+        console.error('❌ Error updating monthly data:', error);
         return false;
     }
 }
