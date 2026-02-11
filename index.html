@@ -5667,6 +5667,7 @@ async getAllRedemptionsFromSupabase() {
                             subject: subject,
                             message: emailContent,
                             html: true
+                            
                         }
                     };
 
@@ -6398,63 +6399,79 @@ buildPasswordResetSuccessEmail(memberData) {
                 console.log('📨 Fallback email would send:', { email, subject });
                 return { success: true, message: 'Email queued for sending', fallback: true };
             }
-       async sendBulkNewsletter(emails, subject, message) {
-        try {
-            console.log(`📧 Sending bulk newsletter to ${emails.length} subscribers`);
-            
-            const payload = {
-                action: 'sendBulkNewsletter',
-                newsletterData: {
-                    emails: emails,
-                    subject: subject,
-                    message: message,
-                    html: true
-                }
-            };
-
-            console.log('📤 Using no-cors mode to bypass CORS');
-            
-            // Use no-cors mode to avoid CORS errors
+      // REPLACE YOUR CURRENT sendBulkNewsletter METHOD WITH THIS:
+async sendBulkNewsletter(emails, subject, message) {
+    try {
+        console.log(`📧 Sending newsletter to ${emails.length} subscribers`);
+        
+        // Track success/failure
+        let successCount = 0;
+        let failCount = 0;
+        const results = [];
+        
+        // Send to EACH email individually using your working sendEmailToGoogleScript
+        for (const email of emails) {
             try {
-                await fetch(this.scriptURL, {
-                    method: 'POST',
-                    mode: 'no-cors',  // This bypasses CORS
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                console.log('✅ Newsletter request sent successfully');
-                return { 
-                    success: true, 
-                    message: `Newsletter sent to ${emails.length} subscribers`,
-                    emailsCount: emails.length
+                // Create member data for the recipient
+                const memberData = {
+                    name: email.split('@')[0], // Fallback name
+                    email: email
                 };
-            } catch (fetchError) {
-                console.log('Fetch failed, using fallback method');
                 
-                // Fallback: Just return success for development
-                return { 
-                    success: true, 
-                    message: `Newsletter queued for ${emails.length} subscribers (fallback mode)`,
-                    fallback: true,
-                    emailsCount: emails.length
-                };
+                // Try to get actual member name from database
+                if (window.clubManager && window.clubManager.db) {
+                    const member = await window.clubManager.db.getMemberByEmail(email);
+                    if (member) {
+                        memberData.name = member.name;
+                        memberData.jcId = member.jcId;
+                    }
+                }
+                
+                // Send individual email using your WORKING method
+                const result = await this.sendEmailToGoogleScript(
+                    email,
+                    'newsletter',
+                    memberData,
+                    { subject, message }
+                );
+                
+                if (result.success) {
+                    successCount++;
+                    results.push({ email, success: true });
+                } else {
+                    failCount++;
+                    results.push({ email, success: false, error: result });
+                }
+                
+                // Small delay to prevent rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+            } catch (emailError) {
+                console.error(`❌ Failed to send to ${email}:`, emailError);
+                failCount++;
+                results.push({ email, success: false, error: emailError.message });
             }
-            
-        } catch (error) {
-            console.error('❌ Newsletter error:', error);
-            
-            // Even on error, return success in development
-            return { 
-                success: true, 
-                message: `Newsletter processing completed for ${emails.length} subscribers`,
-                simulated: true,
-                emailsCount: emails.length
-            };
         }
+        
+        console.log(`✅ Newsletter complete: ${successCount} sent, ${failCount} failed`);
+        
+        return {
+            success: successCount > 0,
+            message: `Newsletter sent: ${successCount} successful, ${failCount} failed`,
+            results: results,
+            successCount,
+            failCount
+        };
+        
+    } catch (error) {
+        console.error('❌ Newsletter error:', error);
+        return {
+            success: false,
+            message: `Failed to send newsletter: ${error.message}`,
+            error: error.toString()
+        };
     }
+}
 
        }
         // ===========================
