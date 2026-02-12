@@ -2889,7 +2889,7 @@
             <div class="nav-buttons">
                 <button class="btn secondary" onclick="logout()">Logout</button>
                 <button class="btn" onclick="refreshData()">Refresh Data</button>
-                <button class="btn secondary" onclick="showLimitsInfo()">📊 Monthly Rewards System</button>
+                
             </div>
             
             <h2 class="section-title">Member Dashboard</h2>
@@ -4296,65 +4296,104 @@
                     return false;
                 }
             }
+async getAllMembers() {
+    try {
+        console.log('🔄 Fetching all members from Supabase...');
+        
+        const { data: members, error } = await this.supabase
+            .from('members')
+            .select('*');
 
-            async getAllMembers() {
-                try {
-                    console.log('🔄 Fetching all members from Supabase...');
-                    
-                    const { data: members, error } = await this.supabase
-                        .from('members')
-                        .select('*');
+        if (error) {
+            console.error('❌ Supabase error:', error);
+            throw error;
+        }
 
-                    if (error) {
-                        console.error('❌ Supabase error:', error);
-                        throw error;
-                    }
-
-                    console.log(`✅ Loaded ${members?.length || 0} members from Supabase`);
-                    
-                    const transformedMembers = members ? members.map(member => ({
-                        ...member,
-                        jcId: member.jc_id,
-                        referralCode: member.referral_code,
-                        referredBy: member.referred_by,
-                        joinedDate: member.joined_date,
-                        totalSpent: member.total_spent,
-                        newsletterSubscribed: member.newsletter_subscribed,
-                        ip_address: member.ip_address,
-                        lastLogin: member.last_login,
-                        createdAt: member.created_at,
-                        tier_reward_available: member.tier_reward_available || false,
-                        tier_reward_generated: member.tier_reward_generated || false,
-                        tier_reward_qr_code: member.tier_reward_qr_code,
-                        tier_reward_qr_id: member.tier_reward_qr_id,
-                        tier_reward_percentage: member.tier_reward_percentage,
-                        tier_reward_max_discount: member.tier_reward_max_discount,
-                        tier_reward_issued_date: member.tier_reward_issued_date,
-                        tier_reward_expiry_date: member.tier_reward_expiry_date,
-                        tier_reward_used_date: member.tier_reward_used_date,
-                        tier_reward_used_by: member.tier_reward_used_by,
-                        last_reward_cycle: member.last_reward_cycle,
-                        reward_history: member.reward_history ? JSON.parse(member.reward_history) : [],
-                        
-                        purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
-                        activityLog: member.activitylog ? JSON.parse(member.activitylog) : [],
-                        challenges: member.challenges ? JSON.parse(member.challenges) : [],
-                        referrals: member.referrals ? JSON.parse(member.referrals) : []
-                    })) : [];
-
-                    this.setCache({
-                        members: transformedMembers,
-                        lastSync: Date.now()
-                    });
-
-                    return transformedMembers;
-
-                } catch (error) {
-                    console.error('❌ Failed to fetch from Supabase, using cache:', error);
-                    const cache = this.getCache();
-                    return cache?.members || [];
-                }
+        console.log(`✅ Loaded ${members?.length || 0} members from Supabase`);
+        
+        const transformedMembers = members ? members.map(member => {
+            // SAFELY parse JSON fields - check if they're strings first
+            let purchaseHistory = [];
+            let activityLog = [];
+            let referrals = [];
+            let reward_history = [];
+            
+            try {
+                purchaseHistory = typeof member.purchasehistory === 'string' 
+                    ? JSON.parse(member.purchasehistory) 
+                    : (member.purchasehistory || []);
+            } catch (e) {
+                purchaseHistory = [];
             }
+            
+            try {
+                activityLog = typeof member.activitylog === 'string' 
+                    ? JSON.parse(member.activitylog) 
+                    : (member.activitylog || []);
+            } catch (e) {
+                activityLog = [];
+            }
+            
+            try {
+                referrals = typeof member.referrals === 'string' 
+                    ? JSON.parse(member.referrals) 
+                    : (member.referrals || []);
+            } catch (e) {
+                referrals = [];
+            }
+            
+            try {
+                reward_history = typeof member.reward_history === 'string' 
+                    ? JSON.parse(member.reward_history) 
+                    : (member.reward_history || []);
+            } catch (e) {
+                reward_history = [];
+            }
+
+            return {
+                ...member,
+                jcId: member.jc_id,
+                referralCode: member.referral_code,
+                referredBy: member.referred_by,
+                joinedDate: member.joined_date,
+                totalSpent: member.total_spent || 0,
+                newsletterSubscribed: member.newsletter_subscribed !== false,
+                ip_address: member.ip_address,
+                lastLogin: member.last_login,
+                createdAt: member.created_at,
+                tier_reward_available: member.tier_reward_available || false,
+                tier_reward_generated: member.tier_reward_generated || false,
+                tier_reward_qr_code: member.tier_reward_qr_code,
+                tier_reward_qr_id: member.tier_reward_qr_id,
+                tier_reward_percentage: member.tier_reward_percentage,
+                tier_reward_max_discount: member.tier_reward_max_discount,
+                tier_reward_issued_date: member.tier_reward_issued_date,
+                tier_reward_expiry_date: member.tier_reward_expiry_date,
+                tier_reward_used_date: member.tier_reward_used_date,
+                tier_reward_used_by: member.tier_reward_used_by,
+                last_reward_cycle: member.last_reward_cycle,
+                reward_history: reward_history,
+                purchaseHistory: purchaseHistory,
+                activityLog: activityLog,
+                challenges: [],
+                referrals: referrals
+            };
+        }) : [];
+
+        // Update cache
+        this.setCache({
+            members: transformedMembers,
+            lastSync: Date.now()
+        });
+
+        return transformedMembers;
+
+    } catch (error) {
+        console.error('❌ Failed to fetch from Supabase, using cache:', error);
+        const cache = this.getCache();
+        return cache?.members || [];
+    }
+}
            
             async saveMember(member) {
                 try {
