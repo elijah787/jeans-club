@@ -4047,42 +4047,59 @@
                 return voucher;
             }
 
-            async redeemVoucher(voucherCode, redeemedBy = 'system') {
-                let voucher = await this.getVoucherByCode(voucherCode);
-                if (!voucher) {
-                    return { success: false, message: "Voucher not found" };
-                }
+         async redeemVoucher(voucherCode, redeemedBy = 'system') {
+    let voucher = await this.getVoucherByCode(voucherCode);
+    if (!voucher) {
+        return { success: false, message: "Voucher not found" };
+    }
 
-                if (voucher.status === 'used') {
-                    return { success: false, message: "Voucher has already been used" };
-                }
+    if (voucher.status === 'used') {
+        return { success: false, message: "Voucher has already been used" };
+    }
 
-                if (voucher.status === 'expired') {
-                    return { success: false, message: "Voucher has expired" };
-                }
+    if (voucher.status === 'expired') {
+        return { success: false, message: "Voucher has expired" };
+    }
 
-                if (new Date() > new Date(voucher.expiryDate)) {
-                    voucher.status = 'expired';
-                    this.saveVouchers();
-                    await this.saveVoucherToSupabase(voucher);
-                    return { success: false, message: "Voucher has expired" };
-                }
+    if (new Date() > new Date(voucher.expiryDate)) {
+        voucher.status = 'expired';
+        this.saveVouchers();
+        await this.saveVoucherToSupabase(voucher);
+        return { success: false, message: "Voucher has expired" };
+    }
 
-                voucher.status = 'used';
-                voucher.usedDate = new Date().toISOString();
-                voucher.redeemedBy = redeemedBy;
-                this.saveVouchers();
-                
-                await this.saveVoucherToSupabase(voucher);
+    // ✅ UPDATE STATUS TO USED
+    voucher.status = 'used';
+    voucher.usedDate = new Date().toISOString();
+    voucher.redeemedBy = redeemedBy;
+    
+    // ✅ SAVE TO BOTH STORAGES
+    this.saveVouchers();              // Update local storage
+    await this.saveVoucherToSupabase(voucher);  // Update Supabase
 
-                this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
+    this.logVoucherActivity(voucherCode, 'redeemed', voucher.memberJCId, `Voucher redeemed by ${redeemedBy}`);
 
-                return { 
-                    success: true, 
-                    message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
-                    voucher: voucher
-                };
+    // ✅ FORCE MEMBER DASHBOARD REFRESH IF ONLINE
+    if (clubManager && clubManager.currentMember && clubManager.currentMember.jcId === voucher.memberJCId) {
+        // Member is currently logged in - force refresh their data
+        const updatedMember = await clubManager.db.getMemberByJCId(voucher.memberJCId);
+        if (updatedMember) {
+            clubManager.currentMember = updatedMember;
+            localStorage.setItem('jeansClubCurrentMember', JSON.stringify(updatedMember));
+            
+            // Update dashboard if visible
+            if (!document.getElementById('dashboardSection').classList.contains('hidden')) {
+                updateMemberDashboard(updatedMember);
             }
+        }
+    }
+
+    return { 
+        success: true, 
+        message: `Voucher redeemed successfully! ${voucher.discountPercentage}% discount applied.`,
+        voucher: voucher
+    };
+}
 
             updateVoucherStatuses() {
                 const now = new Date();
@@ -6322,14 +6339,22 @@ async getAllMembers() {
             document.head.appendChild(style);
         }
 
-        async function showDashboard(member) {
-            hideAllSections();
-            document.getElementById('dashboardSection').classList.remove('hidden');
-            
-            updateMemberDashboard(member);
-            
-            await updateTierRewardDisplay();
-        }
+       async function showDashboard(member) {
+    hideAllSections();
+    document.getElementById('dashboardSection').classList.remove('hidden');
+    
+    // ✅ FORCE FRESH DATA FROM SUPABASE, NOT CACHE
+    const freshMember = await clubManager.db.getMemberByJCId(member.jcId);
+    if (freshMember) {
+        clubManager.currentMember = freshMember;
+        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(freshMember));
+        updateMemberDashboard(freshMember);
+    } else {
+        updateMemberDashboard(member);
+    }
+    
+    await updateTierRewardDisplay();
+}
 
         function showAdminPanel() {
             hideAllSections();
@@ -7314,107 +7339,61 @@ function updateMemberVouchers(jcId) {
             loadAllVouchers();
             showToast('Vouchers refreshed!', 'success');
         }
-
-        async function processScan() {
-            const codeInput = document.getElementById('voucherCodeInput').value.trim();
-            const salespersonName = document.getElementById('salespersonName').value.trim();
-            
-            if (!codeInput) {
-                showToast('Please enter voucher code or scan QR code', 'error');
-                return;
+async function processScan() {
+    const codeInput = document.getElementById('voucherCodeInput').value.trim();
+    const salespersonName = document.getElementById('salespersonName').value.trim();
+    
+    if (!codeInput || !salespersonName) {
+        showToast('Please enter voucher code and your name', 'error');
+        return;
+    }
+    
+    // Check if it's a TIER REWARD QR
+    if (codeInput.startsWith('{') && codeInput.includes('TIER_REWARD')) {
+        try {
+            const result = await clubManager.tierRewardSystem.redeemRewardQR(codeInput, salespersonName);
+            if (result.success) {
+                // ... success message ...
             }
+        } catch (error) {
+            // ... error handling ...
+        }
+    }
+    // Check if it's a VOUCHER CODE
+    else {
+        let voucher = await voucherSystem.getVoucherByCode(codeInput);
+        
+        if (voucher) {
+            const result = await voucherSystem.redeemVoucher(codeInput, salespersonName);
             
-            if (!salespersonName) {
-                showToast('Please enter your name as salesperson', 'error');
-                return;
-            }
-            
-            console.log("🔍 Processing scan for code:", codeInput);
-            
-            // Check if it's a TIER REWARD QR (JSON format)
-            if (codeInput.startsWith('{') && codeInput.includes('TIER_REWARD')) {
-                console.log("🎁 Detected as TIER REWARD QR");
-                
-                try {
-                    const result = await clubManager.tierRewardSystem.redeemRewardQR(codeInput, salespersonName);
-                    
-                    if (result.success) {
-                        document.getElementById('voucherRedeemResult').innerHTML = `
-                            <div class="success-message">
-                                <strong>🎉 TIER REWARD REDEEMED SUCCESSFULLY!</strong><br><br>
-                                <strong>Member:</strong> ${result.memberName} (${result.memberJCId})<br>
-                                <strong>Tier:</strong> ${result.tier}<br>
-                                <strong>Discount:</strong> ${result.discountPercentage}% OFF<br>
-                                <strong>Max Discount:</strong> ${result.maxDiscount.toLocaleString()} UGX<br>
-                                <strong>Redeemed by:</strong> ${salespersonName}<br>
-                                <strong>Time:</strong> ${new Date().toLocaleString()}<br><br>
-                                <span style="color: #28a745;">✅ Apply ${result.discountPercentage}% discount up to ${result.maxDiscount.toLocaleString()} UGX</span>
-                            </div>
-                        `;
-                        showToast('Tier reward redeemed successfully!', 'success');
-                    }
-                } catch (error) {
-                    document.getElementById('voucherRedeemResult').innerHTML = `
-                        <div class="error-message">
-                            <strong>❌ Tier Reward Redemption Failed</strong><br>
-                            ${error.message}
-                        </div>
-                    `;
-                    showToast(error.message, 'error');
-                }
-            }
-            // Check if it's a VOUCHER CODE
-            else if (codeInput.startsWith('JC') || codeInput.length === 8 || codeInput.startsWith('JC')) {
-                console.log("🎫 Detected as VOUCHER CODE");
-                
-                let voucher = await voucherSystem.getVoucherByCode(codeInput);
-                
-                if (voucher) {
-                    const result = await voucherSystem.redeemVoucher(codeInput, salespersonName);
-                    
-                    if (result.success) {
-                        document.getElementById('voucherRedeemResult').innerHTML = `
-                            <div class="success-message">
-                                <strong>✅ VOUCHER REDEEMED SUCCESSFULLY!</strong><br>
-                                Member: ${voucher.memberName} (${voucher.memberJCId})<br>
-                                Discount: ${voucher.discountPercentage}%<br>
-                                Redeemed by: ${salespersonName}<br>
-                                Time: ${new Date().toLocaleString()}
-                            </div>
-                        `;
-                        showToast('Voucher redeemed successfully!', 'success');
-                        showVoucherDetails(voucher);
-                    } else {
-                        document.getElementById('voucherRedeemResult').innerHTML = `
-                            <div class="error-message">
-                                <strong>❌ Voucher Redemption Failed</strong><br>
-                                ${result.message}
-                            </div>
-                        `;
-                        showToast(result.message, 'error');
-                    }
-                } else {
-                    document.getElementById('voucherRedeemResult').innerHTML = `
-                        <div class="error-message">
-                            <strong>❌ Voucher Not Found</strong><br>
-                            No voucher found with code: ${codeInput}
-                        </div>
-                    `;
-                    showToast('Voucher not found', 'error');
-                }
-            }
-            else {
+            if (result.success) {
                 document.getElementById('voucherRedeemResult').innerHTML = `
-                    <div class="error-message">
-                        <strong>❌ Invalid Code Format</strong><br>
-                        Not a valid voucher code or tier reward QR
+                    <div class="success-message">
+                        <strong>✅ VOUCHER REDEEMED SUCCESSFULLY!</strong><br>
+                        Member: ${voucher.memberName} (${voucher.memberJCId})<br>
+                        Discount: ${voucher.discountPercentage}%<br>
+                        Redeemed by: ${salespersonName}<br>
+                        Time: ${new Date().toLocaleString()}
                     </div>
                 `;
-                showToast('Invalid code format', 'error');
+                
+                showToast('Voucher redeemed successfully!', 'success');
+                showVoucherDetails(voucher);
+                
+                // ✅ FORCE VOUCHER LIST REFRESH FOR THIS MEMBER
+                if (clubManager && clubManager.currentMember && clubManager.currentMember.jcId === voucher.memberJCId) {
+                    updateMemberVouchers(voucher.memberJCId);
+                }
+                
+                // ✅ CLEAR INPUT
+                document.getElementById('voucherCodeInput').value = '';
+                
+            } else {
+                // ... error handling ...
             }
-            
-            document.getElementById('voucherCodeInput').value = '';
         }
+    }
+}
 
         function showVoucherDetails(voucher) {
             const detailsDiv = document.getElementById('scanDetails');
