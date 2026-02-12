@@ -6528,29 +6528,28 @@ async getAllMembers() {
                 .join('');
         }
 
-        function updateMemberVouchers(jcId) {
-            const vouchersList = document.getElementById('vouchersList');
-            
-            if (!voucherSystem) {
-                console.error('voucherSystem is not initialized');
-                vouchersList.innerHTML = '<div class="activity-item">System loading...</div>';
-                
-                if (window.clubManager && clubManager.voucherSystem) {
-                    voucherSystem = clubManager.voucherSystem;
-                    console.log('voucherSystem retrieved from clubManager');
-                } else {
-                    return;
-                }
-            }
-            
-            try {
-                const vouchers = voucherSystem.getMemberVouchers(jcId);
-                
-                if (vouchers.length === 0) {
-                    vouchersList.innerHTML = '<div class="activity-item">No vouchers yet</div>';
-                    return;
-                }
-                
+function updateMemberVouchers(jcId) {
+    const vouchersList = document.getElementById('vouchersList');
+    
+    // ✅ FIX: Use global voucherSystem or get from clubManager
+    const vs = window.voucherSystem || (clubManager?.voucherSystem);
+    
+    if (!vs) {
+        console.error('❌ Voucher system not available, retrying in 1 second...');
+        vouchersList.innerHTML = '<div class="activity-item">Loading vouchers...</div>';
+        
+        // Retry after 1 second
+        setTimeout(() => updateMemberVouchers(jcId), 1000);
+        return;
+    }
+    
+    try {
+        const vouchers = vs.getMemberVouchers(jcId);
+        
+        if (vouchers.length === 0) {
+            vouchersList.innerHTML = '<div class="activity-item">No vouchers yet</div>';
+            return;
+        }
                 vouchersList.innerHTML = vouchers.map(voucher => {
                     const statusClass = voucher.status === 'active' ? 'status-active' : 
                                        voucher.status === 'used' ? 'status-used' : 'status-expired';
