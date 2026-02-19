@@ -5644,7 +5644,7 @@ async getAllMembers() {
                     localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
                     localStorage.setItem('jeansClubIsAdmin', 'false');
                     
-                    await this.tierRewardSystem.checkAndIssueReward(member.jcId);
+                    
                     const updatedMember = await this.db.getMemberByJCId(member.jcId);
                     if (updatedMember) {
                         this.currentMember = updatedMember;
