@@ -2960,7 +2960,7 @@
             </div>
 
             <!-- TIER REWARD CARD - DYNAMICALLY INSERTED HERE BY JAVASCRIPT -->
-            <div id="tierRewardCard" class="tier-reward-card"></div>
+            
 
             <div class="info-card">
                 <h3>Points System</h3>
@@ -3189,362 +3189,16 @@
     </footer>
 
     <script>
-        // ===========================
-        // TIER REWARD CONFIGURATION
-        // ===========================
-
-        const TIER_REWARDS = {
-            PEARL: { enabled: false, percentage: 0, maxDiscount: 0, validityDays: 0, reason: "Reach Bronze to unlock bi-monthly tier rewards" },
-            BRONZE: { enabled: true, percentage: 10, maxDiscount: 100000, validityDays: 60 },
-            SILVER: { enabled: true, percentage: 15, maxDiscount: 200000, validityDays: 60 },
-            RUBY: { enabled: true, percentage: 20, maxDiscount: 400000, validityDays: 60 },
-            GOLD: { enabled: true, percentage: 25, maxDiscount: 800000, validityDays: 60 },
-            SAPPHIRE: { enabled: true, percentage: 30, maxDiscount: 1500000, validityDays: 60 },
-            PLATINUM: { enabled: true, percentage: 40, maxDiscount: 3000000, validityDays: 60 }
-        };
-
-        const REWARD_CYCLE_MONTHS = [1, 3, 5, 7, 9, 11]; // Jan, Mar, May, Jul, Sep, Nov
-
-        // ===========================
-        // TIER REWARD SYSTEM CLASS
-        // ===========================
-
-        class TierRewardSystem {
-            constructor() {
-                this.supabase = null;
-                this.rewards = TIER_REWARDS;
-                this.cycleMonths = REWARD_CYCLE_MONTHS;
-            }
-
-            async init() {
-                if (window.supabaseDbInstance) {
-                    this.supabase = window.supabaseDbInstance.supabase;
-                }
-            }
-
-            // CHECK if member is eligible for new reward (run on login)
-            async checkAndIssueReward(memberJCId) {
-                try {
-                    const member = await clubManager.db.getMemberByJCId(memberJCId);
-                    if (!member) return null;
-                    
-                    const tier = member.tier;
-                    const rewardConfig = this.rewards[tier];
-                    
-                    // Pearl gets no rewards
-                    if (!rewardConfig.enabled) return null;
-                    
-                    const now = new Date();
-                    const currentCycle = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-                    
-                    // Check if this is a reward month
-                    if (!this.cycleMonths.includes(now.getMonth() + 1)) return null;
-                    
-                    // Check if already received reward this cycle
-                    if (member.last_reward_cycle === currentCycle) return null;
-                    
-                    // Reward is issued on the 1st of the month
-                    if (now.getDate() > 1) return null;
-                    
-                    console.log(`🎁 Issuing tier reward for ${member.name} (${tier}) - Cycle: ${currentCycle}`);
-                    
-                    // ISSUE THE REWARD (available but not generated)
-                    const issuedDate = now.toISOString();
-                    const expiryDate = new Date(now);
-                    expiryDate.setDate(expiryDate.getDate() + rewardConfig.validityDays);
-                    
-                    const updateData = {
-                        tier_reward_available: true,
-                        tier_reward_generated: false,
-                        tier_reward_qr_code: null,
-                        tier_reward_qr_id: null,
-                        tier_reward_percentage: rewardConfig.percentage,
-                        tier_reward_max_discount: rewardConfig.maxDiscount,
-                        tier_reward_issued_date: issuedDate,
-                        tier_reward_expiry_date: expiryDate.toISOString(),
-                        tier_reward_used_date: null,
-                        tier_reward_used_by: null,
-                        last_reward_cycle: currentCycle
-                    };
-                    
-                    // Update member in database
-                    await this.supabase
-                        .from('members')
-                        .update(updateData)
-                        .eq('jc_id', memberJCId);
-                    
-                    // Also update local member if it's the current user
-                    if (clubManager.currentMember && clubManager.currentMember.jcId === memberJCId) {
-                        clubManager.currentMember = {
-                            ...clubManager.currentMember,
-                            ...updateData
-                        };
-                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(clubManager.currentMember));
-                    }
-                    
-                    // Add to reward history
-                    const historyEntry = {
-                        cycle: currentCycle,
-                        tier: tier,
-                        percentage: rewardConfig.percentage,
-                        maxDiscount: rewardConfig.maxDiscount,
-                        issued_date: issuedDate,
-                        expiry_date: expiryDate.toISOString(),
-                        generated: false,
-                        used: false
-                    };
-                    
-                    const history = member.reward_history || [];
-                    history.push(historyEntry);
-                    
-                    await this.supabase
-                        .from('members')
-                        .update({ reward_history: JSON.stringify(history) })
-                        .eq('jc_id', memberJCId);
-                    
-                    return updateData;
-                    
-                } catch (error) {
-                    console.error("Error issuing tier reward:", error);
-                    return null;
-                }
-            }
-
-            // GENERATE QR CODE - MEMBER MUST CLICK THIS (ONE TIME ONLY)
-            async generateRewardQR(memberJCId) {
-                try {
-                    const member = await clubManager.db.getMemberByJCId(memberJCId);
-                    if (!member) throw new Error("Member not found");
-                    
-                    // Check if reward is available
-                    if (!member.tier_reward_available) {
-                        throw new Error("No tier reward available. Next reward: " + this.getNextRewardDate());
-                    }
-                    
-                    // Check if already generated
-                    if (member.tier_reward_generated) {
-                        throw new Error("Reward QR already generated. Use your existing QR code.");
-                    }
-                    
-                    // Check if expired
-                    if (new Date() > new Date(member.tier_reward_expiry_date)) {
-                        // Auto-cleanup expired reward
-                        await this.supabase
-                            .from('members')
-                            .update({
-                                tier_reward_available: false,
-                                tier_reward_generated: false,
-                                tier_reward_qr_code: null,
-                                tier_reward_qr_id: null
-                            })
-                            .eq('jc_id', memberJCId);
-                        
-                        throw new Error("Your tier reward has expired. Wait for the next reward cycle.");
-                    }
-                    
-                    // GENERATE UNIQUE QR ID
-                    const qrId = `REWARD-${member.tier}-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-                    
-                    // QR CODE DATA - SIMPLE JSON FORMAT
-                    const qrData = JSON.stringify({
-                        type: 'TIER_REWARD',
-                        id: qrId,
-                        member: member.jcId,
-                        tier: member.tier,
-                        discount: member.tier_reward_percentage,
-                        max_discount: member.tier_reward_max_discount,
-                        expiry: member.tier_reward_expiry_date
-                    });
-                    
-                    // UPDATE DATABASE
-                    const updateData = {
-                        tier_reward_generated: true,
-                        tier_reward_qr_code: qrData,
-                        tier_reward_qr_id: qrId
-                    };
-                    
-                    await this.supabase
-                        .from('members')
-                        .update(updateData)
-                        .eq('jc_id', memberJCId);
-                    
-                    // Update local member
-                    if (clubManager.currentMember && clubManager.currentMember.jcId === memberJCId) {
-                        clubManager.currentMember = {
-                            ...clubManager.currentMember,
-                            ...updateData
-                        };
-                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(clubManager.currentMember));
-                    }
-                    
-                    // Update history
-                    const history = member.reward_history || [];
-                    const currentCycle = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-                    const historyEntry = history.find(h => h.cycle === currentCycle);
-                    if (historyEntry) {
-                        historyEntry.generated = true;
-                        historyEntry.generated_date = new Date().toISOString();
-                        historyEntry.qr_id = qrId;
-                        
-                        await this.supabase
-                            .from('members')
-                            .update({ reward_history: JSON.stringify(history) })
-                            .eq('jc_id', memberJCId);
-                    }
-                    
-                    return {
-                        success: true,
-                        qrData: qrData,
-                        qrId: qrId,
-                        percentage: member.tier_reward_percentage,
-                        maxDiscount: member.tier_reward_max_discount,
-                        expiryDate: member.tier_reward_expiry_date
-                    };
-                    
-                } catch (error) {
-                    console.error("Error generating reward QR:", error);
-                    throw error;
-                }
-            }
-
-            // REDEEM tier reward QR
-            async redeemRewardQR(qrData, redeemedBy) {
-                try {
-                    let parsedData;
-                    try {
-                        parsedData = JSON.parse(qrData);
-                    } catch (e) {
-                        throw new Error("Invalid QR code format");
-                    }
-                    
-                    if (parsedData.type !== 'TIER_REWARD') {
-                        throw new Error("Not a valid tier reward QR code");
-                    }
-                    
-                    const member = await clubManager.db.getMemberByJCId(parsedData.member);
-                    if (!member) throw new Error("Member not found");
-                    
-                    // Check if reward exists and is generated
-                    if (!member.tier_reward_generated || member.tier_reward_qr_id !== parsedData.id) {
-                        throw new Error("Invalid or expired reward QR code");
-                    }
-                    
-                    // Check if already used
-                    if (member.tier_reward_used_date) {
-                        throw new Error("This reward has already been used");
-                    }
-                    
-                    // Check if expired
-                    if (new Date() > new Date(member.tier_reward_expiry_date)) {
-                        throw new Error("This reward has expired");
-                    }
-                    
-                    // Mark as used
-                    await this.supabase
-                        .from('members')
-                        .update({
-                            tier_reward_available: false,
-                            tier_reward_generated: false,
-                            tier_reward_used_date: new Date().toISOString(),
-                            tier_reward_used_by: redeemedBy,
-                            tier_reward_qr_code: null
-                        })
-                        .eq('jc_id', member.jcId);
-                    
-                    // Update history
-                    const history = member.reward_history || [];
-                    const currentCycle = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-                    const historyEntry = history.find(h => h.cycle === currentCycle);
-                    if (historyEntry) {
-                        historyEntry.used = true;
-                        historyEntry.used_date = new Date().toISOString();
-                        historyEntry.used_by = redeemedBy;
-                        
-                        await this.supabase
-                            .from('members')
-                            .update({ reward_history: JSON.stringify(history) })
-                            .eq('jc_id', member.jcId);
-                    }
-                    
-                    return {
-                        success: true,
-                        memberJCId: member.jcId,
-                        memberName: member.name,
-                        tier: member.tier,
-                        discountPercentage: member.tier_reward_percentage,
-                        maxDiscount: member.tier_reward_max_discount,
-                        expiryDate: member.tier_reward_expiry_date
-                    };
-                    
-                } catch (error) {
-                    console.error("Error redeeming reward QR:", error);
-                    throw error;
-                }
-            }
-
-            // GET next reward date
-            getNextRewardDate() {
-                const now = new Date();
-                const currentMonth = now.getMonth() + 1;
-                const currentYear = now.getFullYear();
-                
-                for (const month of this.cycleMonths) {
-                    if (month > currentMonth) {
-                        return `${currentYear}-${String(month).padStart(2, '0')}-01`;
-                    }
-                }
-                
-                return `${currentYear + 1}-01-01`; // Next year January
-            }
-
-            // GET reward status for dashboard
-            async getRewardStatus(memberJCId) {
-                const member = await clubManager.db.getMemberByJCId(memberJCId);
-                if (!member) return null;
-                
-                const tier = member.tier;
-                const rewardConfig = this.rewards[tier];
-                
-                if (!rewardConfig.enabled) {
-                    return {
-                        eligible: false,
-                        reason: rewardConfig.reason,
-                        nextRewardDate: this.getNextRewardDate()
-                    };
-                }
-                
-                const now = new Date();
-                const currentCycle = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-                
-                // Check if this is a reward month
-                const isRewardMonth = this.cycleMonths.includes(now.getMonth() + 1);
-                
-                return {
-                    eligible: true,
-                    available: member.tier_reward_available || false,
-                    generated: member.tier_reward_generated || false,
-                    percentage: member.tier_reward_percentage || rewardConfig.percentage,
-                    maxDiscount: member.tier_reward_max_discount || rewardConfig.maxDiscount,
-                    issuedDate: member.tier_reward_issued_date,
-                    expiryDate: member.tier_reward_expiry_date,
-                    usedDate: member.tier_reward_used_date,
-                    qrCode: member.tier_reward_qr_code,
-                    qrId: member.tier_reward_qr_id,
-                    currentCycle: currentCycle,
-                    lastCycle: member.last_reward_cycle,
-                    isRewardMonth: isRewardMonth,
-                    nextRewardDate: this.getNextRewardDate(),
-                    history: member.reward_history || []
-                };
-            }
-        }
+      
+        
+       
 
         // ===========================
         // GLOBAL VARIABLE DECLARATIONS
         // ===========================
         
         let voucherSystem;
-        let tierRewardSystem;
+        
         let clubManager;
         
         // ===========================
@@ -4430,18 +4084,7 @@ async getAllMembers() {
                         joined_date: member.joinedDate || new Date().toISOString(),
                         total_spent: member.totalSpent || 0,
                         newsletter_subscribed: member.newsletterSubscribed !== false,
-                        tier_reward_available: member.tier_reward_available || false,
-                        tier_reward_generated: member.tier_reward_generated || false,
-                        tier_reward_qr_code: member.tier_reward_qr_code || null,
-                        tier_reward_qr_id: member.tier_reward_qr_id || null,
-                        tier_reward_percentage: member.tier_reward_percentage || null,
-                        tier_reward_max_discount: member.tier_reward_max_discount || null,
-                        tier_reward_issued_date: member.tier_reward_issued_date || null,
-                        tier_reward_expiry_date: member.tier_reward_expiry_date || null,
-                        tier_reward_used_date: member.tier_reward_used_date || null,
-                        tier_reward_used_by: member.tier_reward_used_by || null,
-                        last_reward_cycle: member.last_reward_cycle || null,
-                        reward_history: JSON.stringify(member.reward_history || []),
+                    
                         
                         purchasehistory: JSON.stringify(member.purchaseHistory || []),
                         activitylog: JSON.stringify(member.activityLog || []),
@@ -4553,18 +4196,7 @@ async getAllMembers() {
                             ip_address: member.ip_address,
                             lastLogin: member.last_login,
                             createdAt: member.created_at,
-                            tier_reward_available: member.tier_reward_available || false,
-                            tier_reward_generated: member.tier_reward_generated || false,
-                            tier_reward_qr_code: member.tier_reward_qr_code,
-                            tier_reward_qr_id: member.tier_reward_qr_id,
-                            tier_reward_percentage: member.tier_reward_percentage,
-                            tier_reward_max_discount: member.tier_reward_max_discount,
-                            tier_reward_issued_date: member.tier_reward_issued_date,
-                            tier_reward_expiry_date: member.tier_reward_expiry_date,
-                            tier_reward_used_date: member.tier_reward_used_date,
-                            tier_reward_used_by: member.tier_reward_used_by,
-                            last_reward_cycle: member.last_reward_cycle,
-                            reward_history: member.reward_history ? JSON.parse(member.reward_history) : [],
+                         
                             
                             purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
                             activityLog: member.activitylog ? JSON.parse(member.activitylog) : [],
@@ -4613,18 +4245,7 @@ async getAllMembers() {
                             ip_address: member.ip_address,
                             lastLogin: member.last_login,
                             createdAt: member.created_at,
-                            tier_reward_available: member.tier_reward_available || false,
-                            tier_reward_generated: member.tier_reward_generated || false,
-                            tier_reward_qr_code: member.tier_reward_qr_code,
-                            tier_reward_qr_id: member.tier_reward_qr_id,
-                            tier_reward_percentage: member.tier_reward_percentage,
-                            tier_reward_max_discount: member.tier_reward_max_discount,
-                            tier_reward_issued_date: member.tier_reward_issued_date,
-                            tier_reward_expiry_date: member.tier_reward_expiry_date,
-                            tier_reward_used_date: member.tier_reward_used_date,
-                            tier_reward_used_by: member.tier_reward_used_by,
-                            last_reward_cycle: member.last_reward_cycle,
-                            reward_history: member.reward_history ? JSON.parse(member.reward_history) : [],
+                        
                             
                             purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
                             activityLog: member.activitylog ? JSON.parse(member.activitylog) : [],
@@ -5586,21 +5207,21 @@ async getAllMembers() {
                 
                 // Initialize systems
                 this.voucherSystem = new VoucherSystem();
-                this.tierRewardSystem = new TierRewardSystem();
+                
                 
                 console.log('✅ ClubManager initialized with:');
                 console.log('- Voucher System:', !!this.voucherSystem);
-                console.log('- Tier Reward System:', !!this.tierRewardSystem);
+                
                 
                 // Set global references
                 window.voucherSystem = this.voucherSystem;
-                window.tierRewardSystem = this.tierRewardSystem;
+                
                 
                 this.init();
             }
 
             async init() {
-                await this.tierRewardSystem.init();
+                
                 
                 // Check if user is already logged in
                 const savedMember = localStorage.getItem('jeansClubCurrentMember');
@@ -5612,7 +5233,7 @@ async getAllMembers() {
                     
                     // Check for tier reward on login
                     if (this.currentMember && !this.isAdmin) {
-                        await this.tierRewardSystem.checkAndIssueReward(this.currentMember.jcId);
+                        
                         // Refresh member data
                         const updatedMember = await this.db.getMemberByJCId(this.currentMember.jcId);
                         if (updatedMember) {
@@ -6272,18 +5893,8 @@ async getAllMembers() {
                 }
             }
 
-            // TIER REWARD METHODS
-            async getTierRewardStatus() {
-                if (!this.currentMember) return null;
-                return await this.tierRewardSystem.getRewardStatus(this.currentMember.jcId);
-            }
-
-            async generateTierRewardQR() {
-                if (!this.currentMember) throw new Error("Not logged in");
-                return await this.tierRewardSystem.generateRewardQR(this.currentMember.jcId);
-            }
-        }
-
+         
+ }
         // ===========================
         // UTILITY FUNCTIONS
         // ===========================
