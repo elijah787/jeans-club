@@ -3148,8 +3148,8 @@
                 <h3>Jeans Club</h3>
                 <p>Premium Denim Loyalty Program with Tiered Privileges and Bi-Monthly Rewards for our valued members.</p>
                 <p><strong>Earn 1 point per 1,000 UGX | Redeem 1 point for 50 UGX discount</strong></p>
-                <p><strong>🎁 Bronze+ get FREE 10-40% OFF every 2 months!</strong></p>
-                <p>Raised on Denim, Elevated by Experience.</p>
+                
+                <p>Raised on Denim</p>
                 <div class="social-links">
                     <a href="https://www.tiktok.com/@jeansclubug?_r=1&_t=ZM-91wJ0p98EMG" target="_blank" class="social-link social-tiktok">
                         <span>🎵</span> TikTok
@@ -3184,7 +3184,7 @@
         </div>
         
         <div class="footer-bottom">
-            <p>&copy; 2026 Jeans Club. All rights reserved. | Premium Denim Benefits | Bi-Monthly Tier Rewards</p>
+            <p>&copy; 2026 Jeans Club. All rights reserved. | Premium Denim Benefits </p>
         </div>
     </footer>
 
@@ -3539,15 +3539,43 @@
                 this.cleanupInterval = null;
                 this.startAutoCleanup();
                 
-                // TIER LIMITS FOR VOUCHERS
-                this.TIER_VOUCHER_LIMITS = {
-                    PEARL: { daily: 1, weekly: 2, monthly: 5 },
-                    BRONZE: { daily: 2, weekly: 4, monthly: 10 },
-                    SILVER: { daily: 3, weekly: 8, monthly: 25 },
-                    RUBY: { daily: 5, weekly: 12, monthly: 40 },
-                    GOLD: { daily: 8, weekly: 20, monthly: 60 },
-                    SAPPHIRE: { daily: 12, weekly: 30, monthly: 90 },
-                    PLATINUM: { daily: 20, weekly: 50, monthly: 150 }
+                // MONEY LIMITS FOR VOUCHERS - REPLACED TIER VOUCHER LIMITS WITH THESE
+                this.TIER_MONEY_LIMITS = {
+                    PEARL: { 
+                        monthlyMaxDiscount: 100000,     // 100,000 UGX max discount per month
+                        perVoucherMax: 25000,            // 25,000 UGX max per single voucher
+                        minPoints: 4                      // Minimum 4 points to create voucher
+                    },
+                    BRONZE: { 
+                        monthlyMaxDiscount: 250000,      // 250,000 UGX max discount per month
+                        perVoucherMax: 50000,             // 50,000 UGX max per voucher
+                        minPoints: 4
+                    },
+                    SILVER: { 
+                        monthlyMaxDiscount: 500000,       // 500,000 UGX max discount per month
+                        perVoucherMax: 100000,             // 100,000 UGX max per voucher
+                        minPoints: 4
+                    },
+                    RUBY: { 
+                        monthlyMaxDiscount: 1000000,       // 1,000,000 UGX max discount per month
+                        perVoucherMax: 200000,              // 200,000 UGX max per voucher
+                        minPoints: 4
+                    },
+                    GOLD: { 
+                        monthlyMaxDiscount: 2000000,        // 2,000,000 UGX max discount per month
+                        perVoucherMax: 400000,               // 400,000 UGX max per voucher
+                        minPoints: 4
+                    },
+                    SAPPHIRE: { 
+                        monthlyMaxDiscount: 4000000,         // 4,000,000 UGX max discount per month
+                        perVoucherMax: 800000,                // 800,000 UGX max per voucher
+                        minPoints: 4
+                    },
+                    PLATINUM: { 
+                        monthlyMaxDiscount: 10000000,         // 10,000,000 UGX max discount per month
+                        perVoucherMax: 2000000,                // 2,000,000 UGX max per voucher
+                        minPoints: 4
+                    }
                 };
             }
 
@@ -3582,52 +3610,64 @@
                 }
             }
 
-            // Check if member can create more vouchers based on tier limits
-            canCreateVoucher(memberJCId, memberTier) {
-                const limits = this.TIER_VOUCHER_LIMITS[memberTier] || this.TIER_VOUCHER_LIMITS.PEARL;
+            // Check if member can create voucher based on money limits
+            canCreateVoucher(memberJCId, memberTier, discountValue) {
+                const limits = this.TIER_MONEY_LIMITS[memberTier] || this.TIER_MONEY_LIMITS.PEARL;
                 
-                // Get today's date
+                // Check minimum points
+                if (discountValue / 50 < limits.minPoints) {
+                    return {
+                        canCreate: false,
+                        reason: `Minimum ${limits.minPoints} points required`,
+                        limits: limits,
+                        discountValue: discountValue
+                    };
+                }
+                
+                // Check per-voucher maximum
+                if (discountValue > limits.perVoucherMax) {
+                    return {
+                        canCreate: false,
+                        reason: `Maximum discount per voucher for ${memberTier} tier is ${limits.perVoucherMax.toLocaleString()} UGX`,
+                        limits: limits,
+                        discountValue: discountValue
+                    };
+                }
+                
+                // Calculate monthly discount total
                 const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const sevenDaysAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
-                const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+                const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                let monthlyDiscountTotal = 0;
                 
-                // Count vouchers by period
-                let dailyCount = 0;
-                let weeklyCount = 0;
-                let monthlyCount = 0;
-
                 this.vouchers.forEach(voucher => {
                     if (voucher.memberJCId === memberJCId && voucher.status !== 'expired') {
                         const createdDate = new Date(voucher.createdDate);
-
-                        if (createdDate >= today) {
-                            dailyCount++;
-                        }
-                        if (createdDate >= sevenDaysAgo) {
-                            weeklyCount++;
-                        }
-                        if (createdDate >= thirtyDaysAgo) {
-                            monthlyCount++;
+                        if (createdDate >= firstDayOfMonth) {
+                            const voucherValue = voucher.pointsUsed * 50;
+                            monthlyDiscountTotal += voucherValue;
                         }
                     }
                 });
                 
+                // Check monthly maximum
+                if (monthlyDiscountTotal + discountValue > limits.monthlyMaxDiscount) {
+                    const remaining = Math.max(0, limits.monthlyMaxDiscount - monthlyDiscountTotal);
+                    return {
+                        canCreate: false,
+                        reason: `Monthly discount limit for ${memberTier} tier is ${limits.monthlyMaxDiscount.toLocaleString()} UGX.\nUsed: ${monthlyDiscountTotal.toLocaleString()} UGX\nRemaining: ${remaining.toLocaleString()} UGX`,
+                        limits: limits,
+                        monthlyUsed: monthlyDiscountTotal,
+                        monthlyRemaining: remaining,
+                        discountValue: discountValue
+                    };
+                }
+                
                 return {
-                    canCreate: dailyCount < limits.daily && 
-                              weeklyCount < limits.weekly && 
-                              monthlyCount < limits.monthly,
+                    canCreate: true,
                     limits: limits,
-                    current: {
-                        daily: dailyCount,
-                        weekly: weeklyCount,
-                        monthly: monthlyCount
-                    },
-                    remaining: {
-                        daily: limits.daily - dailyCount,
-                        weekly: limits.weekly - weeklyCount,
-                        monthly: limits.monthly - monthlyCount
-                    }
+                    monthlyUsed: monthlyDiscountTotal,
+                    monthlyRemaining: limits.monthlyMaxDiscount - monthlyDiscountTotal,
+                    discountValue: discountValue
                 };
             }
 
@@ -3919,7 +3959,7 @@
         class SupabaseDB {
             constructor() {
                 this.supabaseUrl = 'https://uoyzsyxjrfygrsfzhlao.supabase.co';
-                this.anonKey = 'sb_publishable__gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA';
+                this.anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVveXpzeXhqcmZ5Z3JzZnpobGFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE2ODQ3MTQsImV4cCI6MjA1NzI2MDcxNH0.gS2-Pd9S7I5dBlq4rmzMQ_K2QMwovA';
                 
                 this.supabase = createClient(this.supabaseUrl, this.anonKey, {
                     db: {
@@ -4618,49 +4658,140 @@ async getAllMembers() {
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>Welcome to Jeans Club!</title>
+                    <title>Welcome to Jeans Club - Raised on Denim</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%); color: white; padding: 40px 30px; text-align: center; border-bottom: 3px solid #00AFF0; }
+                        .logo { font-size: 32px; font-weight: 800; letter-spacing: 2px; margin: 0; }
+                        .logo-jeans { color: #00AFF0; }
+                        .logo-club { color: white; }
+                        .header h2 { color: #00AFF0; margin: 10px 0 0; font-weight: 400; letter-spacing: 1px; }
                         .content { padding: 40px 30px; }
-                        .card { background: #f8f9fa; padding: 25px; margin: 25px 0; border-radius: 8px; border-left: 4px solid #667eea; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
-                        .btn { display: inline-block; background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+                        .greeting { font-size: 24px; color: #333; margin-bottom: 20px; font-weight: 300; }
+                        .greeting strong { color: #00AFF0; font-weight: 600; }
+                        .card { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 10px; margin: 25px 0; border-left: 4px solid #00AFF0; position: relative; }
+                        .card::before { content: 'JC'; position: absolute; bottom: 10px; right: 15px; font-size: 48px; font-weight: 800; color: rgba(0,175,240,0.1); font-family: 'Courier New', monospace; }
+                        .card h3 { margin: 0 0 15px; color: #000; font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+                        .jc-id { font-family: 'Courier New', monospace; font-size: 22px; font-weight: bold; color: #00AFF0; letter-spacing: 3px; background: white; padding: 8px 15px; border-radius: 5px; display: inline-block; margin: 5px 0; }
+                        .points-badge { background: white; padding: 15px; border-radius: 50px; display: inline-block; margin: 15px 0; }
+                        .points-number { font-size: 32px; font-weight: 800; color: #00AFF0; }
+                        .tier-badge { display: inline-block; padding: 8px 20px; border-radius: 50px; font-weight: bold; text-transform: uppercase; background: white; color: #333; border: 2px solid; }
+                        .tier-badge.pearl { border-color: #FFF8DC; }
+                        .tier-badge.bronze { border-color: #B76E79; }
+                        .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 30px 0; text-align: center; }
+                        .feature-item { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+                        .feature-icon { font-size: 32px; margin-bottom: 10px; }
+                        .feature-title { font-weight: 600; color: #333; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+                        .reward-banner { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 25px; border-radius: 10px; margin: 30px 0; color: #333; border: 2px dashed white; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; color: #666; }
+                        .social-links { display: flex; justify-content: center; gap: 15px; margin: 15px 0; }
+                        .social-link { color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 18px; }
+                        .btn { display: inline-block; background: #00AFF0; color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: bold; margin: 15px 0; transition: transform 0.2s; }
+                        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,175,240,0.3); }
+                        hr { border: none; border-top: 1px solid #eee; margin: 30px 0; }
+                        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; background: white; padding: 20px; border-radius: 10px; }
+                        .stat-item { text-align: center; }
+                        .stat-value { font-size: 24px; font-weight: bold; color: #00AFF0; }
+                        .stat-label { font-size: 12px; color: #666; text-transform: uppercase; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">👖 Welcome to Jeans Club!</h1>
-                            <p style="margin:10px 0 0;">Your Premium Denim Experience Starts Here</p>
+                            <div class="logo"><span class="logo-jeans">JEANS</span><span class="logo-club">CLUB</span></div>
+                            <h2>RAISED ON DENIM</h2>
                         </div>
                         <div class="content">
-                            <h2>Hello ${memberData.name},</h2>
-                            <p>Welcome to the Jeans Club family! We're thrilled to have you as a member of our exclusive loyalty program.</p>
+                            <div class="greeting">
+                                Welcome, <strong>${memberData.name}</strong>!
+                            </div>
+                            
+                            <p style="font-size: 18px; color: #555;">You've just embarked on a premium denim journey. Your membership unlocks exclusive benefits, rewards, and a world of style.</p>
+                            
                             <div class="card">
-                                <h3 style="margin-top:0;">🎉 Your Membership Details</h3>
-                                <p><strong>JC ID:</strong> ${memberData.jcId}</p>
-                                <p><strong>Tier:</strong> ${memberData.tier}</p>
-                                <p><strong>Starting Points:</strong> ${memberData.points} points</p>
-                                <p><strong>Referral Code:</strong> <code style="background:#f4f4f4; padding:8px 12px; border-radius:4px;">${memberData.referralCode}</code></p>
+                                <h3>💳 YOUR MEMBERSHIP CARD</h3>
+                                <p style="font-size: 14px; color: #666; margin-bottom: 20px;">Present this at checkout to identify yourself</p>
+                                <div style="text-align: center;">
+                                    <div class="jc-id">${memberData.jcId}</div>
+                                    <div style="margin: 15px 0;">
+                                        <span class="tier-badge ${memberData.tier.toLowerCase()}">${memberData.tier}</span>
+                                    </div>
+                                    <div class="points-badge">
+                                        <span class="points-number">${memberData.points}</span> <span style="font-size: 18px; color: #666;">points</span>
+                                    </div>
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                                    <p style="margin: 0; color: #666;">🎫 Your referral code: <strong style="color: #00AFF0; font-size: 18px; letter-spacing: 1px;">${memberData.referralCode}</strong></p>
+                                </div>
                             </div>
-                            <div style="background: #e7f3ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                <h3 style="margin-top:0;">💰 New Points System</h3>
-                                <p><strong>Earn:</strong> 1 point for every 1,000 UGX spent</p>
-                                <p><strong>Redeem:</strong> 1 point = 50 UGX discount</p>
+                            
+                            <div class="features">
+                                <div class="feature-item">
+                                    <div class="feature-icon">💰</div>
+                                    <div class="feature-title">EARN POINTS</div>
+                                    <div style="font-size: 12px; color: #00AFF0;">1pt / 1,000 UGX</div>
+                                </div>
+                                <div class="feature-item">
+                                    <div class="feature-icon">💸</div>
+                                    <div class="feature-title">REDEEM</div>
+                                    <div style="font-size: 12px; color: #00AFF0;">1pt = 50 UGX</div>
+                                </div>
+                                <div class="feature-item">
+                                    <div class="feature-icon">👥</div>
+                                    <div class="feature-title">REFER</div>
+                                    <div style="font-size: 12px; color: #00AFF0;">100 points</div>
+                                </div>
                             </div>
-                            <div style="background: #fff3cd; padding: 25px; border-radius: 8px; text-align: center; margin: 25px 0; border: 2px dashed #ffc107;">
-                                <h3 style="margin-top:0;">🎁 Bronze+ Get Bi-Monthly Rewards!</h3>
-                                <p>Reach 7,500 points to unlock Bronze and receive FREE 10-40% discount QR codes every 2 months!</p>
+                            
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-value">${memberData.points}</div>
+                                    <div class="stat-label">Starting Points</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value">${memberData.tier}</div>
+                                    <div class="stat-label">Tier</div>
+                                </div>
                             </div>
+                            
+                            <div class="reward-banner">
+                                <h3 style="margin: 0 0 10px; color: #333;">🎁 BRONZE+ MEMBERS</h3>
+                                <p style="margin: 0; color: #333; font-size: 16px;">Earn 7,500 points to unlock Bronze and receive FREE bi-monthly discount QR codes!</p>
+                            </div>
+                            
                             <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" class="btn">Visit Your Dashboard</a>
+                                <a href="https://elijah787.github.io/jeans-club" class="btn">🔓 VISIT YOUR DASHBOARD</a>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div style="font-size: 14px; color: #666; line-height: 1.8;">
+                                <h4 style="color: #333;">📋 QUICK START GUIDE</h4>
+                                <ol style="padding-left: 20px;">
+                                    <li>Present your JC ID (${memberData.jcId}) at checkout</li>
+                                    <li>Earn 1 point for every 1,000 UGX spent</li>
+                                    <li>Convert points to discount vouchers</li>
+                                    <li>Share your referral code to earn bonus points</li>
+                                    <li>Check your dashboard for bi-monthly tier rewards</li>
+                                </ol>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div style="text-align: center;">
+                                <p style="color: #00AFF0; font-weight: bold;">Follow us for style inspiration & exclusive offers</p>
+                                <div class="social-links">
+                                    <a href="https://www.instagram.com/jeans_club_ug" class="social-link" style="background: #E4405F;">📸</a>
+                                    <a href="https://www.tiktok.com/@jeansclubug" class="social-link" style="background: #000000;">🎵</a>
+                                    <a href="https://x.com/jeansclub_ug" class="social-link" style="background: #000000;">𝕏</a>
+                                </div>
                             </div>
                         </div>
                         <div class="footer">
-                            <p>Thank you for choosing Jeans Club!</p>
-                            <p style="margin:5px 0; color:#666;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
+                            <p style="margin: 0;">📍 Visit us: https://elijah787.github.io/jeans-club</p>
+                            <p style="margin: 10px 0 0;">Kampala, Uganda | +256 772558913</p>
+                            <p style="margin: 10px 0 0; font-size: 12px;">&copy; 2026 Jeans Club. All rights reserved. Raised on Denim.</p>
                         </div>
                     </div>
                 </body>
@@ -4678,54 +4809,96 @@ async getAllMembers() {
                     <meta charset="utf-8">
                     <title>🎁 Your Tier Reward QR Code | Jeans Club</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #333; padding: 40px 30px; text-align: center; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #333; padding: 40px 30px; text-align: center; border-bottom: 3px solid white; }
+                        .header h1 { margin: 0; font-size: 32px; font-weight: 800; }
+                        .header p { margin: 10px 0 0; font-size: 18px; opacity: 0.9; }
                         .content { padding: 40px 30px; }
-                        .qr-container { background: white; padding: 30px; border-radius: 10px; text-align: center; border: 2px solid #ddd; margin: 25px 0; }
-                        .qr-code { width: 200px; height: 200px; margin: 0 auto; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
-                        .warning { background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0; }
+                        .qr-container { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 30px; border-radius: 15px; text-align: center; margin: 25px 0; border: 2px solid #FFD700; }
+                        .qr-code { width: 200px; height: 200px; margin: 0 auto; border: 3px solid white; border-radius: 10px; }
+                        .reward-details { background: white; padding: 25px; border-radius: 10px; margin: 25px 0; border-left: 4px solid #FFD700; }
+                        .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+                        .detail-row:last-child { border-bottom: none; }
+                        .detail-label { font-weight: 600; color: #666; }
+                        .detail-value { font-weight: 700; color: #333; }
+                        .warning-box { background: #fff3cd; padding: 20px; border-radius: 8px; border: 2px dashed #ffc107; margin: 25px 0; }
+                        .btn { display: inline-block; background: #FFD700; color: #333; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: bold; margin: 15px 5px; transition: transform 0.2s; }
+                        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255,215,0,0.3); }
+                        .btn.secondary { background: #00AFF0; color: white; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; color: #666; }
+                        .tier-badge { display: inline-block; padding: 8px 20px; border-radius: 50px; font-weight: bold; text-transform: uppercase; background: white; color: #333; border: 2px solid #FFD700; margin-bottom: 15px; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">🎁 Your Tier Reward QR Code</h1>
-                            <p style="margin:10px 0 0;">${memberData.tier} Tier • ${extraData?.percentage}% OFF</p>
+                            <h1>🎁 YOUR TIER REWARD</h1>
+                            <p>${memberData.tier} Tier • ${extraData?.percentage}% OFF</p>
                         </div>
                         <div class="content">
-                            <h2>Hello ${memberData.name},</h2>
-                            <p>Your bi-monthly tier reward QR code is ready! Save this email or screenshot the QR code.</p>
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <span class="tier-badge">${memberData.tier}</span>
+                            </div>
+                            
+                            <p style="font-size: 18px; color: #555;">Dear <strong>${memberData.name}</strong>, your bi-monthly tier reward is ready!</p>
                             
                             <div class="qr-container">
-                                <h3 style="margin-top:0;">Scan at Checkout</h3>
+                                <h3 style="margin-top: 0; color: #333;">📱 SCAN AT CHECKOUT</h3>
                                 <img src="${qrCodeUrl}" alt="Tier Reward QR Code" class="qr-code">
-                                <p style="margin:15px 0 0; font-family: monospace; font-size: 14px;">
-                                    <strong>Reward ID:</strong> ${extraData?.qrId}
+                                <p style="margin: 15px 0 0; font-family: monospace; font-size: 14px; color: #666;">
+                                    Reward ID: ${extraData?.qrId}
                                 </p>
                             </div>
                             
-                            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                <h3 style="margin-top:0;">📋 Reward Details</h3>
-                                <p><strong>Discount:</strong> ${extraData?.percentage}% OFF</p>
-                                <p><strong>Maximum Discount:</strong> ${extraData?.maxDiscount?.toLocaleString()} UGX</p>
-                                <p><strong>Valid Until:</strong> ${new Date(extraData?.expiryDate).toLocaleDateString()}</p>
-                                <p><strong>Tier:</strong> ${memberData.tier}</p>
+                            <div class="reward-details">
+                                <h3 style="margin-top: 0;">📋 REWARD DETAILS</h3>
+                                <div class="detail-row">
+                                    <span class="detail-label">Discount:</span>
+                                    <span class="detail-value">${extraData?.percentage}% OFF</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Maximum Discount:</span>
+                                    <span class="detail-value">${extraData?.maxDiscount?.toLocaleString()} UGX</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Valid Until:</span>
+                                    <span class="detail-value">${new Date(extraData?.expiryDate).toLocaleDateString()}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Issued:</span>
+                                    <span class="detail-value">${new Date().toLocaleDateString()}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Next Reward:</span>
+                                    <span class="detail-value">${extraData?.nextRewardDate}</span>
+                                </div>
                             </div>
                             
-                            <div class="warning">
-                                <h4 style="margin-top:0; color:#856404;">⚠️ IMPORTANT</h4>
-                                <p style="margin-bottom:0;">This QR code can only be generated <strong>ONCE</strong>. Screenshot and save it immediately. If lost, it cannot be regenerated.</p>
+                            <div class="warning-box">
+                                <h4 style="margin-top: 0; color: #856404;">⚠️ IMPORTANT</h4>
+                                <p style="margin-bottom: 0; color: #856404;">This QR code can only be generated <strong>ONCE</strong>. Please screenshot and save it immediately. If lost, it cannot be regenerated.</p>
                             </div>
                             
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" class="btn" style="background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block;">Go to Dashboard</a>
+                            <div style="text-align: center;">
+                                <button onclick="window.print()" class="btn">🖨️ Print QR</button>
+                                <a href="https://elijah787.github.io/jeans-club" class="btn secondary">🔓 GO TO DASHBOARD</a>
+                            </div>
+                            
+                            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                                <h4 style="margin-top: 0;">💡 HOW TO USE</h4>
+                                <ol style="color: #666; padding-left: 20px;">
+                                    <li style="margin-bottom: 10px;">Save this email or screenshot the QR code</li>
+                                    <li style="margin-bottom: 10px;">Present the QR code at checkout</li>
+                                    <li style="margin-bottom: 10px;">Cashier scans the code</li>
+                                    <li style="margin-bottom: 10px;">Receive ${extraData?.percentage}% off instantly</li>
+                                    <li>Maximum discount: ${extraData?.maxDiscount?.toLocaleString()} UGX</li>
+                                </ol>
                             </div>
                         </div>
                         <div class="footer">
                             <p>Thank you for being a Jeans Club ${memberData.tier} member!</p>
-                            <p style="margin:5px 0;">Next reward: ${extraData?.nextRewardDate || 'Next reward cycle'}</p>
+                            <p style="margin: 10px 0 0;">📍 https://elijah787.github.io/jeans-club</p>
                         </div>
                     </div>
                 </body>
@@ -4743,46 +4916,72 @@ async getAllMembers() {
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>🛍️ Purchase Recorded | Jeans Club</title>
+                    <title>🛍️ Purchase Confirmed | Jeans Club</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%); color: white; padding: 30px; text-align: center; border-bottom: 3px solid #00AFF0; }
+                        .header h1 { margin: 0; font-size: 28px; }
                         .content { padding: 40px 30px; }
-                        .card { background: #f8f9fa; padding: 25px; margin: 25px 0; border-radius: 8px; border-left: 4px solid #28a745; }
-                        .points-earned { background: #e7f3ff; padding: 25px; border-radius: 8px; text-align: center; margin: 25px 0; border: 2px solid #2196F3; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
+                        .receipt { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 25px; border-radius: 10px; margin: 25px 0; }
+                        .receipt-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed #ddd; }
+                        .receipt-row:last-child { border-bottom: none; }
+                        .points-badge { background: white; padding: 20px; border-radius: 10px; text-align: center; margin: 25px 0; border: 2px solid #00AFF0; }
+                        .points-number { font-size: 48px; font-weight: 800; color: #00AFF0; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; color: #666; }
+                        .btn { display: inline-block; background: #00AFF0; color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">🛍️ Purchase Recorded!</h1>
-                            <p style="margin:10px 0 0;">You've Earned Points</p>
+                            <h1>🛍️ PURCHASE CONFIRMED</h1>
                         </div>
                         <div class="content">
-                            <h2>Hello ${memberData.name},</h2>
-                            <p>Thank you for your purchase at Jeans Club!</p>
+                            <p style="font-size: 18px;">Dear <strong>${memberData.name}</strong>,</p>
+                            <p>Thank you for your purchase at Jeans Club! Points have been added to your account.</p>
                             
-                            <div class="card">
-                                <h3 style="margin-top:0;">📋 Purchase Details</h3>
-                                <p><strong>Description:</strong> ${description}</p>
-                                <p><strong>Amount:</strong> ${amount.toLocaleString()} UGX</p>
-                                <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                            <div class="receipt">
+                                <h3 style="margin-top: 0;">📋 RECEIPT</h3>
+                                <div class="receipt-row">
+                                    <span>Item:</span>
+                                    <span><strong>${description}</strong></span>
+                                </div>
+                                <div class="receipt-row">
+                                    <span>Amount:</span>
+                                    <span><strong>${amount.toLocaleString()} UGX</strong></span>
+                                </div>
+                                <div class="receipt-row">
+                                    <span>Date:</span>
+                                    <span>${new Date().toLocaleDateString()}</span>
+                                </div>
+                                <div class="receipt-row">
+                                    <span>Time:</span>
+                                    <span>${new Date().toLocaleTimeString()}</span>
+                                </div>
+                                <div class="receipt-row">
+                                    <span>Payment Method:</span>
+                                    <span>Store Purchase</span>
+                                </div>
                             </div>
                             
-                            <div class="points-earned">
-                                <h3 style="margin-top:0;">⭐ Points Earned</h3>
-                                <div style="font-size: 36px; font-weight: bold; color: #2196F3; margin: 10px 0;">+${pointsEarned} points</div>
-                                <p>Your new balance: ${newBalance.toLocaleString()} points</p>
+                            <div class="points-badge">
+                                <div style="font-size: 14px; color: #666; margin-bottom: 5px;">POINTS EARNED</div>
+                                <div class="points-number">+${pointsEarned}</div>
+                                <div style="font-size: 16px; color: #333; margin-top: 10px;">New Balance: <strong>${newBalance.toLocaleString()}</strong> points</div>
                             </div>
                             
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" style="background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block;">View Dashboard</a>
+                            <div style="background: #e7f3ff; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                                <h4 style="margin-top: 0;">💰 EARNING RATE</h4>
+                                <p style="margin: 0;">You earned 1 point for every 1,000 UGX spent. Keep shopping to reach your next tier!</p>
+                            </div>
+                            
+                            <div style="text-align: center;">
+                                <a href="https://elijah787.github.io/jeans-club" class="btn">VIEW DASHBOARD</a>
                             </div>
                         </div>
                         <div class="footer">
-                            <p>Thank you for shopping with Jeans Club!</p>
+                            <p>Jeans Club - Raised on Denim</p>
                         </div>
                     </div>
                 </body>
@@ -4793,44 +4992,90 @@ async getAllMembers() {
                 const voucherCode = extraData?.voucherCode || 'N/A';
                 const discountPercentage = extraData?.discountPercentage || 0;
                 const expiryDate = extraData?.expiryDate ? new Date(extraData.expiryDate).toLocaleDateString() : 'N/A';
+                const qrCodeUrl = extraData?.qrCodeUrl || '';
+                const pointsUsed = extraData?.pointsUsed || 0;
+                const discountValue = pointsUsed * 50;
                 
                 return `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>🎫 Discount Voucher Created | Jeans Club</title>
+                    <title>🎫 Your Discount Voucher | Jeans Club</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
-                        .voucher-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin: 25px 0; text-align: center; }
-                        .voucher-code { font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; font-family: 'Courier New', monospace; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+                        .voucher-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin: 25px 0; text-align: center; border: 2px dashed white; }
+                        .voucher-code { font-size: 28px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; font-family: 'Courier New', monospace; background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; }
+                        .qr-container { background: white; padding: 20px; border-radius: 10px; display: inline-block; margin: 20px 0; }
+                        .detail-box { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 25px 0; }
+                        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">🎫 Discount Voucher Created!</h1>
+                            <h1 style="margin: 0;">🎫 DISCOUNT VOUCHER</h1>
                         </div>
-                        <div class="content">
-                            <h2>Hello ${memberData.name},</h2>
-                            <p>Your discount voucher is ready to use!</p>
+                        <div class="content" style="padding: 30px;">
+                            <p style="font-size: 18px;">Dear <strong>${memberData.name}</strong>,</p>
+                            <p>Your discount voucher has been created successfully!</p>
                             
                             <div class="voucher-card">
-                                <h3 style="color:white; margin-top:0;">YOUR VOUCHER</h3>
-                                <div style="background: white; color: #667eea; padding: 10px 25px; border-radius: 30px; font-size: 24px; font-weight: bold; display: inline-block; margin: 15px 0;">${discountPercentage}% OFF</div>
+                                <h3 style="color: white; margin-top: 0;">SAVE ${discountPercentage}%</h3>
+                                <div class="qr-container">
+                                    <img src="${qrCodeUrl}" alt="QR Code" style="width: 150px; height: 150px;">
+                                </div>
                                 <div class="voucher-code">${voucherCode}</div>
-                                <p style="color: rgba(255,255,255,0.9);">Valid until: ${expiryDate}</p>
+                                <p style="color: rgba(255,255,255,0.9); margin: 10px 0;">Valid until: ${expiryDate}</p>
                             </div>
                             
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" style="background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block;">Create More Vouchers</a>
+                            <div class="detail-box">
+                                <h4 style="margin-top: 0;">📋 VOUCHER DETAILS</h4>
+                                <div class="detail-row">
+                                    <span>Code:</span>
+                                    <span><strong>${voucherCode}</strong></span>
+                                </div>
+                                <div class="detail-row">
+                                    <span>Discount:</span>
+                                    <span><strong>${discountPercentage}% OFF</strong></span>
+                                </div>
+                                <div class="detail-row">
+                                    <span>Points Used:</span>
+                                    <span>${pointsUsed} points</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span>Value:</span>
+                                    <span>${discountValue.toLocaleString()} UGX</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span>Expires:</span>
+                                    <span>${expiryDate}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span>Status:</span>
+                                    <span style="color: #28a745;">Active</span>
+                                </div>
+                            </div>
+                            
+                            <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 25px 0;">
+                                <h4 style="margin-top: 0; color: #155724;">📱 HOW TO USE</h4>
+                                <ol style="color: #155724; margin: 0; padding-left: 20px;">
+                                    <li>Show the QR code at checkout</li>
+                                    <li>Or enter the voucher code manually</li>
+                                    <li>Cashier scans/enters the code</li>
+                                    <li>Instant discount applied!</li>
+                                </ol>
+                            </div>
+                            
+                            <div style="text-align: center;">
+                                <a href="https://elijah787.github.io/jeans-club" class="btn" style="background: #667eea; color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px;">CREATE MORE VOUCHERS</a>
                             </div>
                         </div>
                         <div class="footer">
-                            <p>Enjoy your discount at Jeans Club!</p>
+                            <p>Jeans Club - Raised on Denim</p>
                         </div>
                     </div>
                 </body>
@@ -4840,37 +5085,47 @@ async getAllMembers() {
             buildReferralEmail(memberData, extraData) {
                 const referredName = extraData?.referredName || 'New Member';
                 const pointsEarned = extraData?.pointsEarned || 100;
+                const referralCode = memberData.referralCode;
                 
                 return `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>🎊 Referral Successful! | Jeans Club</title>
+                    <title>🎊 Referral Success! | Jeans Club</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #333; padding: 40px 30px; text-align: center; }
-                        .celebration { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 30px; border-radius: 10px; margin: 25px 0; text-align: center; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #333; padding: 40px; text-align: center; }
+                        .celebration { background: #fff3cd; padding: 30px; border-radius: 10px; margin: 25px 0; text-align: center; border: 2px dashed #ffc107; }
+                        .points-bonus { font-size: 48px; font-weight: 800; color: #333; margin: 15px 0; }
+                        .share-box { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">🎊 Referral Successful!</h1>
+                            <h1 style="margin: 0;">🎊 REFERRAL SUCCESS!</h1>
                         </div>
-                        <div class="content">
-                            <h2>Congratulations ${memberData.name}!</h2>
-                            <p>Your friend <strong>${referredName}</strong> has made their first purchase. You've earned bonus points!</p>
+                        <div class="content" style="padding: 30px;">
+                            <p style="font-size: 18px;">Congratulations <strong>${memberData.name}</strong>!</p>
                             
                             <div class="celebration">
-                                <h3 style="color:#333; margin-top:0;">🎁 BONUS POINTS AWARDED</h3>
-                                <div style="font-size: 48px; font-weight: bold; color: #333; margin: 15px 0;">+${pointsEarned} points</div>
+                                <h3 style="margin-top: 0;">🎁 BONUS POINTS EARNED</h3>
+                                <div class="points-bonus">+${pointsEarned}</div>
+                                <p style="margin: 0;">for referring <strong>${referredName}</strong></p>
                             </div>
                             
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" style="background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block;">Share More & Earn More</a>
+                            <div class="share-box">
+                                <h4 style="margin-top: 0;">📤 YOUR REFERRAL CODE</h4>
+                                <div style="font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #667eea;">${referralCode}</div>
+                                <p style="margin: 15px 0 0;">Share with friends and earn 100 points each!</p>
+                                <button onclick="navigator.clipboard.writeText('${referralCode}')" style="background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 50px; margin-top: 15px;">Copy Code</button>
+                            </div>
+                            
+                            <div style="text-align: center;">
+                                <a href="https://elijah787.github.io/jeans-club" class="btn" style="background: #667eea; color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px;">SHARE MORE & EARN MORE</a>
                             </div>
                         </div>
                         <div class="footer">
@@ -4889,38 +5144,40 @@ async getAllMembers() {
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>🔒 Password Reset Request | Jeans Club</title>
+                    <title>🔒 Password Reset | Jeans Club</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
-                        .reset-code { background: #fff3cd; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; border: 2px dashed #ffc107; }
-                        .code-display { font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #333; font-family: 'Courier New', monospace; margin: 15px 0; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+                        .reset-box { background: #fff3cd; padding: 30px; border-radius: 10px; margin: 25px 0; text-align: center; border: 2px dashed #ffc107; }
+                        .reset-code { font-size: 48px; font-weight: bold; letter-spacing: 8px; color: #333; font-family: 'Courier New', monospace; margin: 20px 0; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; }
+                        .btn { display: inline-block; background: #667eea; color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">🔒 Password Reset Request</h1>
+                            <h1>🔒 PASSWORD RESET</h1>
                         </div>
-                        <div class="content">
-                            <h2>Hello ${memberData.name},</h2>
+                        <div class="content" style="padding: 30px;">
+                            <p>Dear <strong>${memberData.name}</strong>,</p>
                             <p>We received a request to reset your password. Use the code below:</p>
                             
-                            <div class="reset-code">
-                                <div class="code-display">${token}</div>
-                                <p style="color:#856404;">This code expires in 1 hour</p>
+                            <div class="reset-box">
+                                <h3 style="margin-top: 0;">YOUR RESET CODE</h3>
+                                <div class="reset-code">${token}</div>
+                                <p style="color: #856404; margin: 10px 0 0;">⏰ Expires in 1 hour</p>
                             </div>
                             
                             <p>If you didn't request this, please ignore this email.</p>
                             
                             <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" style="background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block;">Go to Password Reset</a>
+                                <a href="https://elijah787.github.io/jeans-club" class="btn">GO TO RESET PAGE</a>
                             </div>
                         </div>
                         <div class="footer">
-                            <p>Stay secure with Jeans Club!</p>
+                            <p>Jeans Club - Account Security</p>
                         </div>
                     </div>
                 </body>
@@ -4935,28 +5192,29 @@ async getAllMembers() {
                     <meta charset="utf-8">
                     <title>✅ Password Reset Successful | Jeans Club</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 40px 30px; text-align: center; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 30px; text-align: center; }
+                        .success-box { background: #d4edda; padding: 30px; border-radius: 10px; margin: 25px 0; text-align: center; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; }
+                        .btn { display: inline-block; background: #28a745; color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">✅ Password Reset Successful!</h1>
+                            <h1>✅ PASSWORD RESET SUCCESSFUL</h1>
                         </div>
-                        <div class="content">
-                            <h2>Hello ${memberData.name},</h2>
-                            <p>Your Jeans Club account password has been successfully reset. You can now login with your new password.</p>
+                        <div class="content" style="padding: 30px;">
+                            <p>Dear <strong>${memberData.name}</strong>,</p>
                             
-                            <div style="background: #d4edda; padding: 25px; border-radius: 8px; margin: 25px 0; text-align: center;">
-                                <div style="font-size: 48px; margin-bottom: 15px;">🔐</div>
-                                <h3 style="color: #155724; margin-top: 0;">Password Reset Complete!</h3>
+                            <div class="success-box">
+                                <h3 style="margin-top: 0;">Your password has been successfully reset</h3>
+                                <p style="margin: 15px 0 0;">You can now login with your new password.</p>
                             </div>
                             
-                            <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" style="background: #28a745; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block;">Login to Your Account</a>
+                            <div style="text-align: center;">
+                                <a href="https://elijah787.github.io/jeans-club" class="btn">LOGIN NOW</a>
                             </div>
                         </div>
                         <div class="footer">
@@ -4968,37 +5226,39 @@ async getAllMembers() {
             }
 
             buildNewsletterWelcomeEmail(memberData, extraData) {
-                const subject = extraData?.subject || "📬 Welcome to Jeans Club Newsletter!";
-                const message = extraData?.message || "We're thrilled to welcome you to our exclusive newsletter community!";
+                const subject = extraData?.subject || "Welcome to Jeans Club Newsletter!";
+                const message = extraData?.message || "Thank you for subscribing!";
                 
                 return `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>${subject}</title>
+                    <title>📬 ${subject}</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%); color: white; padding: 30px; text-align: center; border-bottom: 3px solid #00AFF0; }
+                        .content { padding: 30px; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; }
+                        .btn { display: inline-block; background: #00AFF0; color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">📬 Welcome to Jeans Club Newsletter!</h1>
+                            <h1>📬 WELCOME TO OUR NEWSLETTER</h1>
                         </div>
                         <div class="content">
-                            <h2>Hello ${memberData?.name || 'Valued Member'},</h2>
+                            <p>Dear <strong>${memberData?.name || 'Valued Member'}</strong>,</p>
                             <p>${message}</p>
-                            <p>As a newsletter subscriber, you'll receive exclusive offers, new arrivals, and style tips!</p>
+                            <p>You'll now receive exclusive offers, new arrivals, and style tips directly in your inbox!</p>
                             <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" style="background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block;">Visit Jeans Club</a>
+                                <a href="https://elijah787.github.io/jeans-club" class="btn">VISIT JEANS CLUB</a>
                             </div>
                         </div>
                         <div class="footer">
-                            <p>Thank you for subscribing to Jeans Club Newsletter!</p>
+                            <p>Jeans Club - Raised on Denim</p>
                         </div>
                     </div>
                 </body>
@@ -5006,39 +5266,43 @@ async getAllMembers() {
             }
 
             buildNewsletterEmail(memberData, extraData) {
-                const subject = extraData?.subject || "📰 Jeans Club Newsletter";
-                const message = extraData?.message || "Here are your latest updates from Jeans Club!";
+                const subject = extraData?.subject || "Jeans Club Newsletter";
+                const message = extraData?.message || "Here are your latest updates!";
                 
                 return `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="utf-8">
-                    <title>${subject}</title>
+                    <title>📰 ${subject}</title>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f9f9f9; margin: 0; padding: 0; }
-                        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-                        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
-                        .content { padding: 40px 30px; }
-                        .footer { text-align: center; padding: 25px; color: #666; font-size: 14px; border-top: 1px solid #eee; background: #f8f9fa; }
+                        body { font-family: 'Helvetica Neue', 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+                        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+                        .header { background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%); color: white; padding: 30px; text-align: center; border-bottom: 3px solid #00AFF0; }
+                        .content { padding: 30px; line-height: 1.8; }
+                        .footer { text-align: center; padding: 25px; background: #f8f9fa; border-top: 1px solid #eee; }
+                        .btn { display: inline-block; background: #00AFF0; color: white; padding: 12px 25px; text-decoration: none; border-radius: 50px; }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <div class="header">
-                            <h1 style="margin:0;">${subject}</h1>
+                            <h1>📰 ${subject}</h1>
                         </div>
                         <div class="content">
-                            <h2>Hello ${memberData?.name || 'Valued Member'},</h2>
-                            <div style="line-height: 1.8; color: #555;">
+                            <p>Dear <strong>${memberData?.name || 'Valued Member'}</strong>,</p>
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
                                 ${message}
                             </div>
                             <div style="text-align: center; margin: 30px 0;">
-                                <a href="https://elijah787.github.io/jeans-club" style="background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block;">Visit Jeans Club</a>
+                                <a href="https://elijah787.github.io/jeans-club" class="btn">VISIT JEANS CLUB</a>
                             </div>
+                            <p style="font-size: 12px; color: #999; text-align: center;">
+                                You're receiving this because you're subscribed to Jeans Club newsletter.
+                            </p>
                         </div>
                         <div class="footer">
-                            <p>Thank you for being a Jeans Club member!</p>
+                            <p>Jeans Club - Raised on Denim</p>
                         </div>
                     </div>
                 </body>
@@ -5048,11 +5312,11 @@ async getAllMembers() {
             getSubject(type, memberData, extraData) {
                 switch(type) {
                     case 'welcome': return '👖 Welcome to Jeans Club! Your Premium Denim Journey Starts Here';
-                    case 'purchase': return '🛍️ Purchase Recorded - ' + (extraData?.description || '') + ' | Points Earned!';
-                    case 'discount': return '🎫 ' + (extraData?.discountPercentage || 0) + '% Discount Voucher | Jeans Club Rewards';
-                    case 'referral': return '🎊 Referral Success! +100 Points | Keep Sharing the Love';
+                    case 'purchase': return '🛍️ Purchase Confirmed - ' + (extraData?.description || '') + ' | Points Added!';
+                    case 'discount': return '🎫 ' + (extraData?.discountPercentage || 0) + '% Discount Voucher | Jeans Club';
+                    case 'referral': return '🎊 Referral Success! +100 Points | Thank You for Sharing';
                     case 'password_reset': return '🔒 Password Reset Request | Jeans Club Account Security';
-                    case 'password_reset_success': return '✅ Password Reset Successful | Jeans Club Account Secured';
+                    case 'password_reset_success': return '✅ Password Reset Successful | Your Account is Secure';
                     case 'newsletter_welcome': return "📬 Welcome to Jeans Club Newsletter!";
                     case 'newsletter': return extraData?.subject || "📰 Jeans Club Newsletter";
                     case 'tier_reward': return `🎁 Your ${memberData.tier} Tier Reward QR Code is Ready!`;
@@ -5100,10 +5364,7 @@ async getAllMembers() {
                 return this.sendEmailToGoogleScript(email, 'newsletter', memberData, newsletterData);
             }
 
-            async sendTierRewardEmail(email, memberData, rewardData) {
-                console.log('Attempting to send tier reward email to:', email);
-                return this.sendEmailToGoogleScript(email, 'tier_reward', memberData, rewardData);
-            }
+            
 
             fallbackEmail(email, memberData, type, extraData = null) {
                 console.log('📧 Using fallback email system for:', type);
@@ -6794,7 +7055,35 @@ function updateMemberVouchers(jcId) {
             
             const discountValue = points * 50;
             const discountPercentage = Math.min(Math.round((discountValue / 10000) * 100), 100);
-            
+               
+    // ✅ CHECK MONEY LIMITS BEFORE CREATING VOUCHER
+    const limitCheck = voucherSystem.canCreateVoucher(
+        clubManager.currentMember.jcId,
+        clubManager.currentMember.tier,
+        discountValue
+    );
+    
+    if (!limitCheck.canCreate) {
+        // Show detailed limit message
+        let errorMessage = limitCheck.reason;
+        
+        if (limitCheck.monthlyRemaining !== undefined) {
+            errorMessage += `\n\nMonthly discount remaining: ${limitCheck.monthlyRemaining.toLocaleString()} UGX`;
+        }
+        
+        // Show in a styled div
+        document.getElementById('discountResult').innerHTML = `
+            <div class="discount-error">
+                <strong>${errorMessage.replace(/\n/g, '<br>')}</strong>
+                <p style="margin-top: 10px; color: #856404;">
+                    💰 Discount limits reset monthly.
+                </p>
+            </div>
+        `;
+        
+        showToast('Discount exceeds your tier limits', 'error');
+        return;
+    }
             try {
                 const voucher = await voucherSystem.createVoucher(
                     clubManager.currentMember.jcId,
@@ -6878,7 +7167,9 @@ function updateMemberVouchers(jcId) {
                         voucherCode: voucher.code,
                         discountPercentage: discountPercentage,
                         expiryDate: voucher.expiryDate,
-                        qrCodeUrl: qrCodeUrl
+                        qrCodeUrl: qrCodeUrl,
+                        pointsUsed: points,
+                        discountValue: discountValue
                     }
                 );
                 
@@ -6983,6 +7274,7 @@ async function processScan() {
                         <strong>✅ VOUCHER REDEEMED SUCCESSFULLY!</strong><br>
                         Member: ${voucher.memberName} (${voucher.memberJCId})<br>
                         Discount: ${voucher.discountPercentage}%<br>
+                        Value: ${voucher.pointsUsed * 50} UGX<br>
                         Redeemed by: ${salespersonName}<br>
                         Time: ${new Date().toLocaleString()}
                     </div>
@@ -7000,8 +7292,22 @@ async function processScan() {
                 document.getElementById('voucherCodeInput').value = '';
                 
             } else {
-                // ... error handling ...
+                document.getElementById('voucherRedeemResult').innerHTML = `
+                    <div class="error-message">
+                        <strong>❌ REDEMPTION FAILED</strong><br>
+                        ${result.message}
+                    </div>
+                `;
+                showToast(result.message, 'error');
             }
+        } else {
+            document.getElementById('voucherRedeemResult').innerHTML = `
+                <div class="error-message">
+                    <strong>❌ VOUCHER NOT FOUND</strong><br>
+                    Code: ${codeInput}
+                </div>
+            `;
+            showToast('Voucher not found', 'error');
         }
     }
 }
@@ -7028,6 +7334,10 @@ async function processScan() {
                     <div class="detail-item">
                         <strong>Points Used</strong>
                         <div>${voucher.pointsUsed}</div>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Value</strong>
+                        <div>${voucher.pointsUsed * 50} UGX</div>
                     </div>
                     <div class="detail-item">
                         <strong>Created</strong>
@@ -7139,7 +7449,7 @@ async function processScan() {
                         resultsHTML += '<div style="color: #667eea; padding: 10px 15px; font-weight: bold;">Vouchers</div>';
                         resultsHTML += voucherResults.slice(0, 5).map(voucher => `
                             <div class="search-result-item" onclick="showVoucherDetailsInSearch('${voucher.code}')">
-                                <strong>${voucher.code}</strong> - ${voucher.discountPercentage}% OFF<br>
+                                <strong>${voucher.code}</strong> - ${voucher.discountPercentage}% OFF (${voucher.pointsUsed * 50} UGX)<br>
                                 <small>Member: ${voucher.memberName} | Status: ${voucher.status}</small>
                             </div>
                         `).join('');
