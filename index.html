@@ -29,20 +29,9 @@
             gap: 20px;
         }
 
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #ffffff;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-
-        .logo-jeans {
-            color: #00AFF0;
-        }
-
-        .logo-club {
-            color: #ffffff;
+        .header-logo {
+            height: 50px;
+            width: auto;
         }
 
         .header-actions {
@@ -1382,7 +1371,7 @@
         }
 
         .card-logo-img {
-            height: 30px;
+            height: 40px;
             width: auto;
         }
 
@@ -2492,7 +2481,7 @@
     <header class="mercedes-header">
         <div class="header-top">
             <div class="brand-logo">
-                <div class="logo"><span class="logo-jeans">JEANS</span><span class="logo-club">CLUB</span></div>
+                <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" class="header-logo">
             </div>
             
             <div class="header-actions">
@@ -3159,7 +3148,7 @@
             <div class="nav-buttons">
                 <button class="btn secondary" onclick="logout()">Logout</button>
                 <button class="btn" onclick="refreshData()">Refresh Data</button>
-                <button class="btn" onclick="showTransactionScreen()" id="startTransactionBtn">🛍️ Start Shopping</button>
+                <button class="btn" onclick="showTransactionQR()" id="startTransactionBtn">🛍️ Start Shopping</button>
             </div>
             
             <h2 class="section-title">Member Dashboard</h2>
@@ -3169,7 +3158,7 @@
                 <div id="memberCard" class="member-card">
                     <div class="card-background-pattern"></div>
                     <div class="card-logo">
-                        <span class="card-logo-img">JC</span>
+                        <img src="https://i.ibb.co.com/zTqxQvwv/jeans-club.jpg" alt="JC" class="card-logo-img">
                     </div>
                     <div class="card-chip"></div>
                     <div class="card-hologram"></div>
@@ -3785,16 +3774,66 @@
         // 🔥 NEW: TRANSACTION SYSTEM
         // ===========================
 
+        // Show transaction QR for member to scan
+        function showTransactionQR() {
+            if (!clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+            
+            const memberQRData = JSON.stringify({
+                jcId: clubManager.currentMember.jcId,
+                name: clubManager.currentMember.name,
+                timestamp: Date.now()
+            });
+            
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(memberQRData)}`;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 90%;">
+                    <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 50px; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0;">Show this QR to the salesperson</h3>
+                    <img src="${qrCodeUrl}" alt="Member QR Code" 
+                         style="width: 250px; height: 250px; border: 2px solid #ddd; border-radius: 10px; padding: 10px; margin: 20px 0;">
+                    <p style="color: #666; margin-bottom: 10px;"><strong>${clubManager.currentMember.name}</strong></p>
+                    <p style="color: #666; margin-bottom: 20px;">JC ID: ${clubManager.currentMember.jcId}</p>
+                    <p style="color: #28a745; margin-bottom: 20px;">⏳ Waiting for salesperson to scan...</p>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            class="btn" style="padding: 10px 20px;">
+                        Close
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
         // Start transaction with scanned member QR
         async function startTransactionWithMember(qrData) {
             try {
                 showToast("Starting transaction...", "info");
                 
-                // Parse QR data (should be JC ID or JSON)
+                // Parse QR data
                 let memberJCId = qrData;
+                let memberName = "";
                 try {
                     const parsed = JSON.parse(qrData);
                     if (parsed.jcId) memberJCId = parsed.jcId;
+                    if (parsed.name) memberName = parsed.name;
                 } catch (e) {
                     // Not JSON, treat as JC ID
                 }
@@ -3858,17 +3897,7 @@
                 // Show salesperson transaction screen
                 showSalespersonTransactionScreen(transaction);
                 
-                // Generate member QR code for them to scan
-                const memberQRData = JSON.stringify({
-                    action: "join_transaction",
-                    sessionId: sessionId,
-                    transactionId: transactionId,
-                    memberJcId: member.jcId,
-                    expiresIn: 300
-                });
-                
-                // Show QR for member to scan (if they're on mobile)
-                showMemberJoinQR(memberQRData, member);
+                showToast(`Transaction started for ${member.name}`, "success");
                 
             } catch (error) {
                 console.error("Error starting transaction:", error);
@@ -3997,6 +4026,9 @@
                 .on('broadcast', { event: 'voucher_applied' }, (payload) => {
                     handleTransactionUpdate(payload);
                 })
+                .on('broadcast', { event: 'voucher_removed' }, (payload) => {
+                    handleTransactionUpdate(payload);
+                })
                 .on('broadcast', { event: 'member_confirmed' }, (payload) => {
                     handleMemberConfirmed(payload);
                 })
@@ -4061,114 +4093,6 @@
             }
         }
 
-        // Show member join QR
-        function showMemberJoinQR(qrData, member) {
-            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
-            
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.8);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
-            `;
-            
-            modal.innerHTML = `
-                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 90%;">
-                    <h3 style="margin-top: 0;">Member Join QR Code</h3>
-                    <p>Ask ${member.name} to scan this QR code with their phone</p>
-                    <img src="${qrCodeUrl}" alt="Join QR Code" 
-                         style="width: 250px; height: 250px; border: 2px solid #ddd; border-radius: 10px; padding: 10px; margin: 20px 0;">
-                    <p style="color: #666; margin-bottom: 20px;">Once they scan, they'll see the transaction</p>
-                    <button onclick="this.parentElement.parentElement.remove()" 
-                            class="btn" style="padding: 10px 20px;">
-                        Close
-                    </button>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-        }
-
-        // Member joins transaction (from their phone)
-        async function memberJoinTransaction(sessionId, transactionId, memberJcId) {
-            try {
-                // Verify session
-                if (!window.supabaseDbInstance) return false;
-                
-                const { supabase } = window.supabaseDbInstance;
-                
-                const { data: session, error } = await supabase
-                    .from('transaction_sessions')
-                    .select('*')
-                    .eq('session_id', sessionId)
-                    .eq('transaction_id', transactionId)
-                    .eq('member_jc_id', memberJcId)
-                    .single();
-                
-                if (error || !session) {
-                    showToast("Invalid session", "error");
-                    return false;
-                }
-                
-                // Get transaction
-                const { data: transaction, error: txnError } = await supabase
-                    .from('transactions')
-                    .select('*')
-                    .eq('id', transactionId)
-                    .single();
-                
-                if (txnError || !transaction) {
-                    showToast("Transaction not found", "error");
-                    return false;
-                }
-                
-                // Parse transaction
-                currentTransaction = {
-                    id: transaction.id,
-                    sessionId: transaction.session_id,
-                    memberJcId: transaction.member_jc_id,
-                    memberName: transaction.member_name,
-                    memberTier: transaction.member_tier,
-                    salespersonName: transaction.salesperson_name,
-                    status: transaction.status,
-                    items: JSON.parse(transaction.items || '[]'),
-                    subtotal: transaction.subtotal || 0,
-                    tierDiscount: transaction.tier_discount || 0,
-                    tierDiscountPercentage: transaction.tier_discount_percentage || 0,
-                    appliedVoucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
-                    finalTotal: transaction.final_total || 0,
-                    memberConfirmed: transaction.member_confirmed || false,
-                    memberDeviceId: 'member_' + Date.now()
-                };
-                
-                // Update session with member device
-                await supabase
-                    .from('transaction_sessions')
-                    .update({ member_last_ping: new Date().toISOString() })
-                    .eq('session_id', sessionId);
-                
-                // Subscribe to updates
-                subscribeToTransaction(transactionId);
-                
-                // Show member transaction screen
-                showMemberTransactionScreen(currentTransaction);
-                
-                return true;
-                
-            } catch (error) {
-                console.error("Error joining transaction:", error);
-                showToast("Failed to join transaction", "error");
-                return false;
-            }
-        }
-
         // Show member transaction screen
         function showMemberTransactionScreen(transaction) {
             hideAllSections();
@@ -4209,6 +4133,7 @@
             
             container.innerHTML = `
                 <div class="transaction-header">
+                    <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 40px; margin-bottom: 10px;">
                     <h2>🛍️ Your Shopping Cart</h2>
                     <div class="store-info">Jeans Club - Kampala</div>
                     <div class="salesperson-badge">Serving you: ${transaction.salespersonName}</div>
@@ -4283,6 +4208,9 @@
             `).join('');
             
             container.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 40px;">
+                </div>
                 <h2>🧾 Processing Sale</h2>
                 
                 <div class="member-info-bar">
@@ -4658,6 +4586,7 @@
             modal.innerHTML = `
                 <div class="receipt-container">
                     <div class="receipt-header">
+                        <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 30px; margin-bottom: 10px;">
                         <h2>JEANS CLUB</h2>
                         <div class="receipt-store">Raised on Denim</div>
                         <div>${receipt.date}</div>
@@ -4763,54 +4692,6 @@
             }
             
             showToast("Transaction cancelled", "info");
-        }
-
-        // Show transaction screen for member
-        function showTransactionScreen() {
-            // This would be called when member clicks "Start Shopping"
-            // They would show their QR code for salesperson to scan
-            if (!clubManager.currentMember) {
-                showToast("Please login first", "error");
-                return;
-            }
-            
-            const memberQRData = JSON.stringify({
-                jcId: clubManager.currentMember.jcId,
-                name: clubManager.currentMember.name,
-                timestamp: Date.now()
-            });
-            
-            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(memberQRData)}`;
-            
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.8);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
-            `;
-            
-            modal.innerHTML = `
-                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 90%;">
-                    <h3 style="margin-top: 0;">Show this QR to the salesperson</h3>
-                    <img src="${qrCodeUrl}" alt="Member QR Code" 
-                         style="width: 250px; height: 250px; border: 2px solid #ddd; border-radius: 10px; padding: 10px; margin: 20px 0;">
-                    <p style="color: #666; margin-bottom: 10px;">${clubManager.currentMember.name}</p>
-                    <p style="color: #666; margin-bottom: 20px;">JC ID: ${clubManager.currentMember.jcId}</p>
-                    <button onclick="this.parentElement.parentElement.remove()" 
-                            class="btn" style="padding: 10px 20px;">
-                        Close
-                    </button>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
         }
 
         // ===========================
@@ -8106,19 +7987,6 @@
             return re.test(String(email).toLowerCase());
         }
 
-        // Check for member join from QR
-        function checkForMemberJoin() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const action = urlParams.get('action');
-            const sessionId = urlParams.get('session');
-            const transactionId = urlParams.get('txn');
-            const memberJcId = urlParams.get('member');
-            
-            if (action === 'join' && sessionId && transactionId && memberJcId) {
-                memberJoinTransaction(sessionId, transactionId, memberJcId);
-            }
-        }
-
         window.onload = function() {
             console.log('=== PAGE LOAD START ===');
             
@@ -8140,8 +8008,6 @@
                 } else if (action === 'admin') {
                     showAdminLogin();
                 }
-                
-                checkForMemberJoin();
                 
                 console.log('=== PAGE LOAD COMPLETE ===');
             }, 1000);
