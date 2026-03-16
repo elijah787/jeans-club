@@ -3118,7 +3118,7 @@
                 <button class="btn secondary" onclick="logout()">Logout</button>
                 <button class="btn" onclick="refreshData()">Refresh Data</button>
                 <button class="btn" onclick="showTransactionQR()" id="startTransactionBtn">🛍️ Start Shopping</button>
-                <!-- 🔥 NEW: Member QR Scanner Button -->
+                <!-- Member QR Scanner Button -->
                 <button class="btn" onclick="openMemberScanner()" id="memberScannerBtn">📷 Scan QR</button>
             </div>
             
@@ -3237,7 +3237,7 @@
             </div>
         </div>
 
-        <!-- 🔥 NEW: MEMBER TRANSACTION SCREEN (Beautiful Receipt Page) -->
+        <!-- MEMBER TRANSACTION SCREEN (Beautiful Receipt Page) -->
         <div id="memberTransactionScreen" class="card hidden">
             <div class="nav-buttons">
                 <button class="btn secondary" onclick="cancelTransaction()">← Back to Dashboard</button>
@@ -3248,7 +3248,7 @@
             </div>
         </div>
 
-        <!-- 🔥 NEW: SALESPERSON TRANSACTION SCREEN -->
+        <!-- SALESPERSON TRANSACTION SCREEN -->
         <div id="salespersonTransactionScreen" class="card hidden">
             <div class="nav-buttons">
                 <button class="btn secondary" onclick="showAdminPanel()">← Back to Admin</button>
@@ -3271,7 +3271,7 @@
 
             <h2 class="section-title">Staff Admin Panel</h2>
             
-            <!-- 🔥 NEW: Start Transaction Button -->
+            <!-- Start Transaction Button -->
             <div class="info-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
                 <h3 style="color: white;">🛍️ Start New Transaction</h3>
                 <p>Scan member QR code to begin a new purchase</p>
@@ -3457,7 +3457,7 @@
         let scannerFacingMode = 'environment';
         let scannerCameras = [];
         let scannerCanvasContext = null;
-        let scannerMode = 'member'; // 'member', 'voucher', or 'member_join'
+        let scannerMode = 'member'; // 'member', 'voucher', 'member_join', or 'confirm_sale'
 
         // Open camera scanner for member QR (Salesperson)
         function openCameraScanner() {
@@ -3471,14 +3471,13 @@
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
             
-            // Update header text
             document.getElementById('scannerModalTitle').textContent = 'Scan Member QR Code';
             document.getElementById('scannerModalSubtitle').textContent = 'Scan member QR to start transaction';
             
             initScanner();
         }
 
-        // 🔥 NEW: Open camera scanner for member (to join transaction)
+        // Open camera scanner for member (to join transaction)
         function openMemberScanner() {
             if (!clubManager.currentMember) {
                 showToast("Please login first", "error");
@@ -3490,7 +3489,6 @@
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
             
-            // Update header text
             document.getElementById('scannerModalTitle').textContent = 'Scan Join QR Code';
             document.getElementById('scannerModalSubtitle').textContent = 'Scan the QR code shown by salesperson';
             
@@ -3509,9 +3507,26 @@
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
             
-            // Update header text
             document.getElementById('scannerModalTitle').textContent = 'Scan Voucher QR Code';
             document.getElementById('scannerModalSubtitle').textContent = 'Scan voucher QR to redeem';
+            
+            initScanner();
+        }
+
+        // Open camera scanner for salesperson to scan confirmation
+        function openConfirmScanner() {
+            if (!clubManager.isAdmin) {
+                showToast("Please login as staff first", "error");
+                return;
+            }
+
+            scannerMode = 'confirm_sale';
+            const modal = document.getElementById('cameraScannerModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            document.getElementById('scannerModalTitle').textContent = 'Scan Confirmation QR';
+            document.getElementById('scannerModalSubtitle').textContent = 'Scan the QR shown by member after confirmation';
             
             initScanner();
         }
@@ -3692,7 +3707,7 @@
             }
         }
 
-        // Handle detected QR code - FIXED with beautiful page routing
+        // Handle detected QR code
         async function handleQRCodeDetected(qrData) {
             console.log("QR Code detected:", qrData);
             
@@ -3711,7 +3726,6 @@
                 closeCameraScanner();
                 
                 try {
-                    // Try to decode if URL encoded
                     let decodedData = qrData;
                     try {
                         if (qrData.includes('%')) {
@@ -3719,14 +3733,16 @@
                         }
                     } catch (e) {}
                     
-                    // Try to parse as JSON
                     const parsed = JSON.parse(decodedData);
                     
-                    // Check what type of QR this is
                     if (parsed.action === 'join_transaction') {
-                        // Member is joining a transaction - show beautiful receipt page
+                        // Member is joining a transaction
                         memberJoinTransaction(decodedData);
                     } 
+                    else if (parsed.action === 'confirm_sale') {
+                        // Salesperson is scanning confirmation QR
+                        processConfirmedSale(decodedData);
+                    }
                     else if (parsed.type === 'MEMBER_LOGIN' || parsed.jcId) {
                         // Salesperson is starting transaction
                         if (clubManager.isAdmin) {
@@ -3789,7 +3805,7 @@
         }
 
         // ===========================
-        // 🔥 NEW: TRANSACTION SYSTEM
+        // TRANSACTION SYSTEM
         // ===========================
 
         // Show transaction QR for member to scan
@@ -3888,7 +3904,6 @@
             
             document.body.appendChild(modal);
             
-            // Start listening for member to join
             waitForMemberToJoin(transaction.id);
         }
 
@@ -3935,7 +3950,7 @@
             }, 300000);
         }
 
-        // 🔥 NEW: Member joins transaction from their phone - SHOWS BEAUTIFUL RECEIPT PAGE
+        // Member joins transaction from their phone
         async function memberJoinTransaction(joinData) {
             try {
                 let decodedData = joinData;
@@ -3948,13 +3963,11 @@
                 const parsed = JSON.parse(decodedData);
                 const { transactionId, sessionId, memberJcId } = parsed;
                 
-                // Verify this is the correct member
                 if (!clubManager.currentMember || clubManager.currentMember.jcId !== memberJcId) {
                     showToast("Please login as the correct member first", "error");
                     return;
                 }
                 
-                // Get transaction from database
                 if (!window.supabaseDbInstance) return;
                 
                 const { supabase } = window.supabaseDbInstance;
@@ -3970,7 +3983,6 @@
                     return;
                 }
                 
-                // Parse transaction
                 currentTransaction = {
                     id: transaction.id,
                     sessionId: transaction.session_id,
@@ -3981,14 +3993,11 @@
                     status: transaction.status,
                     items: JSON.parse(transaction.items || '[]'),
                     subtotal: transaction.subtotal || 0,
-                    tierDiscount: transaction.tier_discount || 0,
-                    tierDiscountPercentage: transaction.tier_discount_percentage || 0,
                     appliedVoucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
                     finalTotal: transaction.final_total || 0,
                     memberConfirmed: transaction.member_confirmed || false
                 };
                 
-                // Broadcast to salesperson that member joined
                 await supabase
                     .channel('transaction_join_' + transactionId)
                     .send({
@@ -4000,10 +4009,8 @@
                         }
                     });
                 
-                // Subscribe to real-time updates
                 subscribeToTransaction(transactionId);
                 
-                // Show member transaction screen with beautiful receipt
                 showMemberTransactionScreen(currentTransaction);
                 
                 showToast("Successfully joined transaction!", "success");
@@ -4054,8 +4061,6 @@
                     status: "pending_items",
                     items: [],
                     subtotal: 0,
-                    tierDiscount: 0,
-                    tierDiscountPercentage: getTierDiscountPercentage(member.tier),
                     appliedVoucher: null,
                     finalTotal: 0,
                     pointsEarned: 0,
@@ -4097,26 +4102,6 @@
             }
         }
 
-        // Get tier discount percentage
-        function getTierDiscountPercentage(tier) {
-            const discounts = {
-                'PEARL': 0,
-                'BRONZE': 5,
-                'SILVER': 10,
-                'RUBY': 15,
-                'GOLD': 20,
-                'SAPPHIRE': 25,
-                'PLATINUM': 30
-            };
-            return discounts[tier] || 0;
-        }
-
-        // Calculate tier discount amount
-        function calculateTierDiscount(subtotal, tier) {
-            const percentage = getTierDiscountPercentage(tier);
-            return Math.floor(subtotal * percentage / 100);
-        }
-
         // Generate session token
         function generateSessionToken() {
             return 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -4142,8 +4127,6 @@
                         status: transaction.status,
                         items: JSON.stringify(transaction.items),
                         subtotal: transaction.subtotal,
-                        tier_discount: transaction.tierDiscount,
-                        tier_discount_percentage: transaction.tierDiscountPercentage,
                         applied_voucher: transaction.appliedVoucher ? JSON.stringify(transaction.appliedVoucher) : null,
                         final_total: transaction.finalTotal,
                         points_earned: transaction.pointsEarned,
@@ -4236,7 +4219,6 @@
             
             if (payload.items) currentTransaction.items = payload.items;
             if (payload.subtotal !== undefined) currentTransaction.subtotal = payload.subtotal;
-            if (payload.tierDiscount !== undefined) currentTransaction.tierDiscount = payload.tierDiscount;
             if (payload.appliedVoucher) currentTransaction.appliedVoucher = payload.appliedVoucher;
             if (payload.finalTotal !== undefined) currentTransaction.finalTotal = payload.finalTotal;
             
@@ -4249,16 +4231,15 @@
             }
         }
 
-        // Handle member confirmed
+        // Handle member confirmed - show QR for salesperson to scan
         function handleMemberConfirmed(payload) {
             if (currentTransaction) {
                 currentTransaction.memberConfirmed = true;
                 
-                if (!document.getElementById('salespersonTransactionScreen').classList.contains('hidden')) {
-                    showSalespersonTransactionScreen(currentTransaction);
-                }
-                
                 showToast("Member confirmed the payment!", "success");
+                
+                // Show confirmation QR for salesperson to scan
+                showConfirmationQR(currentTransaction);
             }
         }
 
@@ -4279,7 +4260,7 @@
             }
         }
 
-        // 🔥 NEW: Show member transaction screen (BEAUTIFUL RECEIPT PAGE)
+        // Show member transaction screen (NO AUTO DISCOUNT)
         function showMemberTransactionScreen(transaction) {
             hideAllSections();
             document.getElementById('memberTransactionScreen').classList.remove('hidden');
@@ -4301,10 +4282,8 @@
                 const canApply = !transaction.appliedVoucher;
                 const isApplied = transaction.appliedVoucher && transaction.appliedVoucher.code === voucher.code;
                 
-                // Calculate potential discount if applied
-                const amountAfterTier = transaction.subtotal - transaction.tierDiscount;
                 const potentialDiscount = Math.min(
-                    Math.floor(amountAfterTier * voucher.discountPercentage / 100),
+                    Math.floor(transaction.subtotal * voucher.discountPercentage / 100),
                     voucher.pointsUsed * 50
                 );
                 
@@ -4343,10 +4322,6 @@
                         <span>Subtotal:</span>
                         <span>${transaction.subtotal.toLocaleString()} UGX</span>
                     </div>
-                    <div class="total-row discount">
-                        <span>✨ ${transaction.memberTier} Tier (${transaction.tierDiscountPercentage}%):</span>
-                        <span>-${transaction.tierDiscount.toLocaleString()} UGX</span>
-                    </div>
                     ${transaction.appliedVoucher ? `
                         <div class="total-row discount">
                             <span>🎫 Voucher (${transaction.appliedVoucher.percentage}%):</span>
@@ -4355,7 +4330,7 @@
                     ` : ''}
                     <div class="total-row final">
                         <span><strong>YOU PAY:</strong></span>
-                        <span class="final-price"><strong>${transaction.finalTotal.toLocaleString()} UGX</strong></span>
+                        <span class="final-price"><strong>${(transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal).toLocaleString()} UGX</strong></span>
                     </div>
                 </div>
                 
@@ -4373,13 +4348,24 @@
                     </button>
                 ` : `
                     <div class="status-message status-success">
-                        ✅ You confirmed payment of ${transaction.finalTotal.toLocaleString()} UGX
-                        <br>Waiting for salesperson to complete...
+                        ✅ You confirmed payment of ${(transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal).toLocaleString()} UGX
+                        <br>Show this QR to the salesperson to complete:
+                    </div>
+                    <div style="text-align: center; margin: 20px 0;" id="confirmationQRContainer">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(JSON.stringify({
+                            action: 'confirm_sale',
+                            transactionId: transaction.id,
+                            memberJcId: transaction.memberJcId,
+                            finalTotal: transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal,
+                            appliedVoucher: transaction.appliedVoucher,
+                            timestamp: Date.now()
+                        }))}" 
+                        style="width: 200px; height: 200px; border: 2px solid #28a745; border-radius: 10px; padding: 5px;">
                     </div>
                 `}
                 
                 <div class="status-message status-waiting" style="margin-top: 20px;">
-                    ⏳ Status: ${transaction.status === 'pending_items' ? 'Salesperson adding items...' : 'Awaiting your confirmation'}
+                    ⏳ Status: ${transaction.status === 'pending_items' ? 'Salesperson adding items...' : (transaction.memberConfirmed ? 'Waiting for salesperson to complete...' : 'Awaiting your confirmation')}
                 </div>
             `;
         }
@@ -4443,10 +4429,6 @@
                         <span>Subtotal:</span>
                         <span>${transaction.subtotal.toLocaleString()} UGX</span>
                     </div>
-                    <div class="total-row discount">
-                        <span>✨ ${transaction.memberTier} Tier (${transaction.tierDiscountPercentage}%):</span>
-                        <span>-${transaction.tierDiscount.toLocaleString()} UGX</span>
-                    </div>
                     ${transaction.appliedVoucher ? `
                         <div class="total-row discount">
                             <span>🎫 Voucher Applied:</span>
@@ -4456,7 +4438,7 @@
                     ` : ''}
                     <div class="total-row final">
                         <span><strong>Member Pays:</strong></span>
-                        <span class="final-price"><strong>${transaction.finalTotal.toLocaleString()} UGX</strong></span>
+                        <span class="final-price"><strong>${(transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal).toLocaleString()} UGX</strong></span>
                     </div>
                 </div>
                 
@@ -4480,9 +4462,9 @@
                             ${transaction.items.length === 0 || transaction.memberConfirmed ? 'disabled' : ''}>
                         📱 Send to Member
                     </button>
-                    <button class="btn btn-success" style="flex: 1; background: #28a745;" onclick="completeSale()" 
+                    <button class="btn btn-success" style="flex: 1; background: #28a745;" onclick="openConfirmScanner()" 
                             ${!transaction.memberConfirmed ? 'disabled' : ''}>
-                        💵 Complete Sale
+                        💵 Scan Member Confirmation
                     </button>
                 </div>
                 
@@ -4505,11 +4487,11 @@
             
             currentTransaction.items.push(item);
             currentTransaction.subtotal += price;
-            currentTransaction.tierDiscount = calculateTierDiscount(currentTransaction.subtotal, currentTransaction.memberTier);
             
-            let finalTotal = currentTransaction.subtotal - currentTransaction.tierDiscount;
+            let finalTotal = currentTransaction.subtotal;
             if (currentTransaction.appliedVoucher) {
-                finalTotal -= currentTransaction.appliedVoucher.discount;
+                const amountAfterVoucher = currentTransaction.subtotal - currentTransaction.appliedVoucher.discount;
+                finalTotal = amountAfterVoucher;
             }
             currentTransaction.finalTotal = finalTotal;
             
@@ -4519,7 +4501,7 @@
                 type: 'items_updated',
                 items: currentTransaction.items,
                 subtotal: currentTransaction.subtotal,
-                tierDiscount: currentTransaction.tierDiscount,
+                appliedVoucher: currentTransaction.appliedVoucher,
                 finalTotal: currentTransaction.finalTotal
             });
             
@@ -4549,16 +4531,15 @@
             const removedItem = currentTransaction.items[index];
             currentTransaction.items.splice(index, 1);
             currentTransaction.subtotal -= removedItem.price;
-            currentTransaction.tierDiscount = calculateTierDiscount(currentTransaction.subtotal, currentTransaction.memberTier);
             
-            let finalTotal = currentTransaction.subtotal - currentTransaction.tierDiscount;
+            let finalTotal = currentTransaction.subtotal;
             if (currentTransaction.appliedVoucher) {
                 const voucherDiscount = calculateVoucherDiscountAmount(
                     currentTransaction.appliedVoucher,
-                    currentTransaction.subtotal - currentTransaction.tierDiscount
+                    currentTransaction.subtotal
                 );
                 currentTransaction.appliedVoucher.discount = voucherDiscount;
-                finalTotal -= voucherDiscount;
+                finalTotal = currentTransaction.subtotal - voucherDiscount;
             }
             currentTransaction.finalTotal = finalTotal;
             
@@ -4568,7 +4549,7 @@
                 type: 'items_updated',
                 items: currentTransaction.items,
                 subtotal: currentTransaction.subtotal,
-                tierDiscount: currentTransaction.tierDiscount,
+                appliedVoucher: currentTransaction.appliedVoucher,
                 finalTotal: currentTransaction.finalTotal
             });
             
@@ -4585,8 +4566,7 @@
                 return;
             }
             
-            const amountAfterTier = currentTransaction.subtotal - currentTransaction.tierDiscount;
-            const discountAmount = calculateVoucherDiscountAmount(voucher, amountAfterTier);
+            const discountAmount = calculateVoucherDiscountAmount(voucher, currentTransaction.subtotal);
             
             currentTransaction.appliedVoucher = {
                 code: voucher.code,
@@ -4595,7 +4575,7 @@
                 pointsUsed: voucher.pointsUsed
             };
             
-            currentTransaction.finalTotal = amountAfterTier - discountAmount;
+            currentTransaction.finalTotal = currentTransaction.subtotal - discountAmount;
             
             await saveTransaction(currentTransaction);
             
@@ -4622,7 +4602,7 @@
             if (!currentTransaction || !currentTransaction.appliedVoucher) return;
             
             currentTransaction.appliedVoucher = null;
-            currentTransaction.finalTotal = currentTransaction.subtotal - currentTransaction.tierDiscount;
+            currentTransaction.finalTotal = currentTransaction.subtotal;
             
             await saveTransaction(currentTransaction);
             
@@ -4636,7 +4616,7 @@
             showToast("Voucher removed", "info");
         }
 
-        // Member confirms payment
+        // Member confirms payment - shows QR for salesperson
         async function memberConfirmPayment() {
             if (!currentTransaction) return;
             
@@ -4645,15 +4625,9 @@
             
             await saveTransaction(currentTransaction);
             
-            broadcastToSalesperson({
-                type: 'member_confirmed',
-                finalTotal: currentTransaction.finalTotal,
-                timestamp: new Date().toISOString()
-            });
-            
             showMemberTransactionScreen(currentTransaction);
             
-            showToast("Payment confirmed! Waiting for salesperson...", "success");
+            showToast("Payment confirmed! Show QR to salesperson.", "success");
         }
 
         // Send to member for confirmation (salesperson)
@@ -4667,32 +4641,121 @@
                 type: 'ready_for_confirmation',
                 items: currentTransaction.items,
                 subtotal: currentTransaction.subtotal,
-                tierDiscount: currentTransaction.tierDiscount,
+                appliedVoucher: currentTransaction.appliedVoucher,
                 finalTotal: currentTransaction.finalTotal
             });
             
             showToast("Sent to member for confirmation", "success");
         }
 
-        // Complete sale (salesperson) - updates member info
-        async function completeSale() {
-            if (!currentTransaction || !currentTransaction.memberConfirmed) return;
+        // Show confirmation QR for salesperson to scan
+        function showConfirmationQR(transaction) {
+            const confirmData = JSON.stringify({
+                action: 'confirm_sale',
+                transactionId: transaction.id,
+                memberJcId: transaction.memberJcId,
+                finalTotal: transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal,
+                appliedVoucher: transaction.appliedVoucher,
+                timestamp: Date.now()
+            });
             
+            const encodedData = encodeURIComponent(confirmData);
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}`;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 90%;">
+                    <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 50px; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0; color: #333;">Show this QR to the salesperson</h3>
+                    <p style="color: #28a745; margin-bottom: 20px;">✅ Payment confirmed!</p>
+                    <img src="${qrCodeUrl}" alt="Confirmation QR Code" 
+                         style="width: 250px; height: 250px; border: 2px solid #28a745; border-radius: 10px; padding: 10px; margin: 20px 0;">
+                    <p style="color: #333; margin-bottom: 10px;"><strong>Total: ${(transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal).toLocaleString()} UGX</strong></p>
+                    <p style="color: #666; margin-bottom: 20px;">Salesperson will scan this to complete the sale</p>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            class="btn" style="padding: 10px 20px;">
+                        Close
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        // Process confirmed sale (salesperson scans confirmation QR)
+        async function processConfirmedSale(confirmData) {
             try {
+                let decodedData = confirmData;
+                try {
+                    if (confirmData.includes('%')) {
+                        decodedData = decodeURIComponent(confirmData);
+                    }
+                } catch (e) {}
+                
+                const parsed = JSON.parse(decodedData);
+                const { transactionId, memberJcId, finalTotal, appliedVoucher } = parsed;
+                
+                if (!currentTransaction || currentTransaction.id !== transactionId) {
+                    // Get transaction from database
+                    if (!window.supabaseDbInstance) return;
+                    
+                    const { supabase } = window.supabaseDbInstance;
+                    
+                    const { data: transaction, error } = await supabase
+                        .from('transactions')
+                        .select('*')
+                        .eq('id', transactionId)
+                        .single();
+                    
+                    if (error || !transaction) {
+                        showToast("Transaction not found", "error");
+                        return;
+                    }
+                    
+                    currentTransaction = {
+                        id: transaction.id,
+                        sessionId: transaction.session_id,
+                        memberJcId: transaction.member_jc_id,
+                        memberName: transaction.member_name,
+                        memberTier: transaction.member_tier,
+                        salespersonName: transaction.salesperson_name,
+                        status: transaction.status,
+                        items: JSON.parse(transaction.items || '[]'),
+                        subtotal: transaction.subtotal || 0,
+                        appliedVoucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
+                        finalTotal: transaction.final_total || 0,
+                        memberConfirmed: transaction.member_confirmed || false
+                    };
+                }
+                
+                // Complete the sale
                 await clubManager.addPurchase(
                     currentTransaction.memberJcId,
-                    currentTransaction.finalTotal,
+                    finalTotal,
                     `Store purchase: ${currentTransaction.items.map(i => i.name).join(', ')}`
                 );
                 
-                if (currentTransaction.appliedVoucher) {
+                if (appliedVoucher) {
                     await voucherSystem.redeemVoucher(
-                        currentTransaction.appliedVoucher.code,
-                        currentTransaction.salespersonName
+                        appliedVoucher.code,
+                        clubManager.currentSalesperson || "Salesperson"
                     );
                 }
                 
-                const pointsEarned = Math.floor(currentTransaction.finalTotal / 1000);
+                const pointsEarned = Math.floor(finalTotal / 1000);
                 
                 const receipt = {
                     transactionId: currentTransaction.id,
@@ -4704,10 +4767,8 @@
                     memberTier: currentTransaction.memberTier,
                     items: currentTransaction.items,
                     subtotal: currentTransaction.subtotal,
-                    tierDiscount: currentTransaction.tierDiscount,
-                    tierPercentage: currentTransaction.tierDiscountPercentage,
-                    voucher: currentTransaction.appliedVoucher,
-                    finalTotal: currentTransaction.finalTotal,
+                    voucher: appliedVoucher,
+                    finalTotal: finalTotal,
                     pointsEarned: pointsEarned,
                     paymentMethod: "Cash"
                 };
@@ -4728,8 +4789,10 @@
                 
                 currentTransaction = null;
                 
+                showToast("Sale completed successfully!", "success");
+                
             } catch (error) {
-                console.error("Error completing sale:", error);
+                console.error("Error processing confirmed sale:", error);
                 showToast("Failed to complete sale", "error");
             }
         }
@@ -4776,10 +4839,6 @@
                     <div class="receipt-item">
                         <span>Subtotal:</span>
                         <span>${receipt.subtotal.toLocaleString()} UGX</span>
-                    </div>
-                    <div class="receipt-item">
-                        <span>${receipt.memberTier} Tier (${receipt.tierPercentage}%):</span>
-                        <span>-${receipt.tierDiscount.toLocaleString()} UGX</span>
                     </div>
                     ${receipt.voucher ? `
                         <div class="receipt-item">
