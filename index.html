@@ -3720,14 +3720,33 @@
             setTimeout(() => {
                 closeCameraScanner();
                 
-                if (scannerMode === 'member') {
-                    // Start transaction with this member
-                    startTransactionWithMember(qrData);
-                } else {
-                    // Redeem voucher
-                    document.getElementById('voucherCodeInput').value = qrData;
-                    document.getElementById('salespersonName').focus();
-                    showToast("Voucher code scanned! Please enter your name and click 'Redeem Voucher'", "info");
+                try {
+                    // Try to parse as JSON
+                    const parsed = JSON.parse(qrData);
+                    
+                    // Check if it's a join transaction QR
+                    if (parsed.action === 'join_transaction') {
+                        // Member is joining a transaction
+                        memberJoinTransaction(qrData);
+                    } 
+                    // Check if it's a member QR to start transaction
+                    else if (parsed.jcId) {
+                        // Salesperson is starting transaction
+                        if (clubManager.isAdmin) {
+                            startTransactionWithMember(qrData);
+                        } else {
+                            showToast("Only staff can start transactions", "error");
+                        }
+                    }
+                } catch (e) {
+                    // Not JSON, check if it's a voucher code
+                    if (scannerMode === 'voucher') {
+                        document.getElementById('voucherCodeInput').value = qrData;
+                        document.getElementById('salespersonName').focus();
+                        showToast("Voucher code scanned!", "info");
+                    } else {
+                        showToast("Invalid QR code", "error");
+                    }
                 }
             }, 1000);
         }
@@ -3822,6 +3841,175 @@
             document.body.appendChild(modal);
         }
 
+        // 🔥 NEW: Show member join QR after salesperson scans
+        function showMemberJoinQR(transaction, member) {
+            const joinData = JSON.stringify({
+                action: "join_transaction",
+                transactionId: transaction.id,
+                sessionId: transaction.sessionId,
+                memberJcId: member.jcId,
+                timestamp: Date.now()
+            });
+            
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(joinData)}`;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 90%;">
+                    <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 50px; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0; color: #333;">Ask Member to Scan</h3>
+                    <p style="color: #666; margin-bottom: 20px;">Member must scan this QR code with their phone to join the transaction</p>
+                    <img src="${qrCodeUrl}" alt="Join QR Code" 
+                         style="width: 250px; height: 250px; border: 2px solid #ddd; border-radius: 10px; padding: 10px; margin: 20px 0;">
+                    <p style="color: #28a745; font-weight: bold; margin-bottom: 10px;" id="joinStatus">⏳ Waiting for member to join...</p>
+                    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Transaction ID: ${transaction.id}</p>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            class="btn" style="padding: 10px 20px;">
+                        Close (Transaction will continue)
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Start listening for member to join
+            waitForMemberToJoin(transaction.id);
+        }
+
+        // 🔥 NEW: Wait for member to join
+        function waitForMemberToJoin(transactionId) {
+            if (!window.supabaseDbInstance) return;
+            
+            const { supabase } = window.supabaseDbInstance;
+            
+            // Subscribe to transaction updates
+            const joinChannel = supabase
+                .channel('transaction_join_' + transactionId)
+                .on('broadcast', { event: 'member_joined' }, (payload) => {
+                    console.log("✅ Member joined!", payload);
+                    
+                    // Update status text
+                    const statusEl = document.getElementById('joinStatus');
+                    if (statusEl) {
+                        statusEl.innerHTML = '✅ Member joined! You can now add items.';
+                        statusEl.style.color = '#28a745';
+                    }
+                    
+                    // Close modal after 2 seconds
+                    setTimeout(() => {
+                        const modal = document.querySelector('div[style*="position: fixed"]');
+                        if (modal) modal.remove();
+                    }, 2000);
+                    
+                    // Update transaction with member device ID
+                    if (currentTransaction) {
+                        currentTransaction.memberDeviceId = payload.deviceId;
+                    }
+                    
+                    showToast(`${payload.memberName || 'Member'} joined the transaction!`, "success");
+                    
+                    // Unsubscribe
+                    joinChannel.unsubscribe();
+                })
+                .subscribe();
+            
+            // Timeout after 5 minutes
+            setTimeout(() => {
+                joinChannel.unsubscribe();
+                const statusEl = document.getElementById('joinStatus');
+                if (statusEl) {
+                    statusEl.innerHTML = '⏰ Timeout - please scan again';
+                    statusEl.style.color = '#dc3545';
+                }
+                showToast("Member join timeout - please scan again", "warning");
+            }, 300000);
+        }
+
+        // 🔥 NEW: Member joins transaction from their phone
+        async function memberJoinTransaction(joinData) {
+            try {
+                const parsed = JSON.parse(joinData);
+                const { transactionId, sessionId, memberJcId } = parsed;
+                
+                // Verify this is the correct member
+                if (!clubManager.currentMember || clubManager.currentMember.jcId !== memberJcId) {
+                    showToast("Please login as the correct member first", "error");
+                    return;
+                }
+                
+                // Get transaction from database
+                if (!window.supabaseDbInstance) return;
+                
+                const { supabase } = window.supabaseDbInstance;
+                
+                const { data: transaction, error } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('id', transactionId)
+                    .single();
+                
+                if (error || !transaction) {
+                    showToast("Transaction not found", "error");
+                    return;
+                }
+                
+                // Parse transaction
+                currentTransaction = {
+                    id: transaction.id,
+                    sessionId: transaction.session_id,
+                    memberJcId: transaction.member_jc_id,
+                    memberName: transaction.member_name,
+                    memberTier: transaction.member_tier,
+                    salespersonName: transaction.salesperson_name,
+                    status: transaction.status,
+                    items: JSON.parse(transaction.items || '[]'),
+                    subtotal: transaction.subtotal || 0,
+                    tierDiscount: transaction.tier_discount || 0,
+                    tierDiscountPercentage: transaction.tier_discount_percentage || 0,
+                    appliedVoucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
+                    finalTotal: transaction.final_total || 0,
+                    memberConfirmed: transaction.member_confirmed || false
+                };
+                
+                // Broadcast to salesperson that member joined
+                await supabase
+                    .channel('transaction_join_' + transactionId)
+                    .send({
+                        type: 'broadcast',
+                        event: 'member_joined',
+                        payload: { 
+                            deviceId: 'member_' + Date.now(),
+                            memberName: clubManager.currentMember.name
+                        }
+                    });
+                
+                // Subscribe to real-time updates
+                subscribeToTransaction(transactionId);
+                
+                // Show member transaction screen
+                showMemberTransactionScreen(currentTransaction);
+                
+                showToast("Successfully joined transaction!", "success");
+                
+            } catch (error) {
+                console.error("Error joining transaction:", error);
+                showToast("Failed to join transaction", "error");
+            }
+        }
+
         // Start transaction with scanned member QR
         async function startTransactionWithMember(qrData) {
             try {
@@ -3890,6 +4078,9 @@
                 await saveTransactionSession(session);
                 
                 currentTransaction = transaction;
+                
+                // 🔥 NEW: Show QR for member to join
+                showMemberJoinQR(transaction, member);
                 
                 // Subscribe to real-time updates
                 subscribeToTransaction(transactionId);
