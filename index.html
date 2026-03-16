@@ -6,7 +6,6 @@
     <title>Jeans Club - Raised on Denim</title>
     <style>
         /* All your existing CSS remains exactly the same */
-        /* MERCEDES-BENZ INSPIRED HEADER & NAVIGATION */
         .mercedes-header {
             background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
             color: white;
@@ -50,7 +49,6 @@
             color: #00AFF0;
         }
 
-        /* Search Modal */
         .search-modal {
             display: none;
             position: fixed;
@@ -126,7 +124,6 @@
             justify-content: center;
         }
 
-        /* Main Navigation */
         .main-navigation {
             display: flex;
             justify-content: center;
@@ -177,7 +174,6 @@
             width: 100%;
         }
 
-        /* Mobile Menu Toggle */
         .menu-toggle {
             display: none;
             flex-direction: column;
@@ -192,7 +188,6 @@
             transition: 0.3s;
         }
 
-        /* Full Page Background */
         body {
             background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
                         url('https://images.unsplash.com/photo-1542272604-787c3835535d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
@@ -200,7 +195,6 @@
             min-height: 100vh;
         }
 
-        /* Hero Section */
         .hero-section {
             color: white;
             padding: 100px 20px;
@@ -226,7 +220,6 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
 
-        /* Information Pages */
         .info-page {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
@@ -314,7 +307,6 @@
             margin-bottom: 15px;
         }
 
-        /* Enhanced Voucher/QR Details Display */
         .voucher-details-display, .qr-details-display {
             background: white;
             border-radius: 10px;
@@ -342,7 +334,6 @@
             margin-bottom: 5px;
         }
 
-        /* Social Media Links */
         .social-links {
             display: flex;
             gap: 15px;
@@ -368,7 +359,6 @@
         .social-instagram { background: #E4405F; }
         .social-x { background: #000000; }
 
-        /* NEW BONUS SYSTEM STYLES */
         .bonus-section {
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             border-radius: 10px;
@@ -509,7 +499,6 @@
             100% { transform: scale(1); }
         }
 
-        /* NEW BONUS DETAILS STYLES */
         .bonus-details-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -536,7 +525,6 @@
             border-left: 4px solid #2196F3;
         }
 
-        /* UPDATED TIER CARD STYLES FOR MONTHLY MINIMUMS */
         .tier-minimums-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -583,8 +571,6 @@
             color: #333;
         }
 
-        /* ===== NEW TRANSACTION INTERFACE STYLES ===== */
-        
         /* Member Transaction Screen */
         .member-transaction-screen {
             background: white;
@@ -629,6 +615,8 @@
             border-radius: 15px;
             padding: 15px;
             margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
         }
 
         .items-list h3 {
@@ -987,7 +975,6 @@
             to { transform: translateY(0); opacity: 1; }
         }
 
-        /* REST OF YOUR EXISTING CSS STYLES */
         * {
             margin: 0;
             padding: 0;
@@ -1029,7 +1016,6 @@
             text-shadow: 1px 1px 1px rgba(0, 0, 0, .004);
         }
 
-        /* TYPOGRAPHY SYSTEM */
         h1, h2, h3, h4, h5, h6 {
             font-weight: 700;
             font-family: Emirates-Bold, Helvetica, Arial, Lucida Grande, sans-serif;
@@ -1067,7 +1053,6 @@
             }
         }
 
-        /* YOUR EXISTING COMPONENT STYLES */
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -1290,7 +1275,6 @@
             font-weight: normal;
         }
 
-        /* IMPROVED MEMBER CARD STYLES */
         .member-card-container {
             display: flex;
             justify-content: center;
@@ -1316,7 +1300,6 @@
             transform: translateY(-5px) rotateX(5deg);
         }
 
-        /* UPDATED TIER COLORS */
         .member-card.pearl {
             background: linear-gradient(135deg, #FFF8DC 0%, #F5DEB3 100%);
             color: #333;
@@ -1347,7 +1330,6 @@
             background: linear-gradient(135deg, #2F4F4F 0%, #000000 100%);
         }
 
-        /* Card design elements */
         .card-background-pattern {
             position: absolute;
             top: 0;
@@ -1453,7 +1435,6 @@
             letter-spacing: 1px;
         }
 
-        /* Special number styling */
         .card-number span {
             display: inline-block;
             background: rgba(0,0,0,0.2);
@@ -1464,7 +1445,6 @@
             text-align: center;
         }
 
-        /* SIM card holographic effect */
         .card-hologram {
             position: absolute;
             top: 20px;
@@ -1491,7 +1471,6 @@
             box-shadow: 0 0 5px rgba(255,255,255,0.3);
         }
 
-        /* NEW VOUCHER MANAGEMENT STYLES */
         .voucher-management-section {
             margin-top: 30px;
         }
@@ -1560,7 +1539,6 @@
             border-left: 4px solid #2196F3;
         }
 
-        /* QR Redemption Styles */
         .redemption-option {
             background: #f8f9fa;
             padding: 15px;
@@ -1636,7 +1614,6 @@
             margin: 10px 0;
         }
 
-        /* QR Code Container */
         .qr-code-container {
             text-align: center;
             padding: 20px;
@@ -1649,7 +1626,6 @@
             display: block !important;
         }
 
-        /* Redemption Item */
         .redemption-item {
             background: #f8f9fa;
             padding: 15px;
@@ -1676,7 +1652,6 @@
             margin: 5px 0;
         }
 
-        /* NEW IMPROVED CAMERA SCANNER STYLES */
         .camera-scanner-modal {
             display: none;
             position: fixed;
@@ -1908,7 +1883,6 @@
             z-index: 9999;
         }
 
-        /* Quick Scan Button */
         .quick-scan-btn {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
@@ -1934,7 +1908,6 @@
             font-size: 20px;
         }
 
-        /* Scan Results Display */
         .scan-results {
             background: white;
             border-radius: 10px;
@@ -1952,7 +1925,6 @@
             border-left: 5px solid #dc3545;
         }
 
-        /* Receipt Styles */
         .receipt-container {
             background: white;
             border-radius: 15px;
@@ -2010,7 +1982,6 @@
             border-top: 2px dashed #333;
         }
 
-        /* Responsive Styles */
         @media (max-width: 1024px) {
             .nav-links {
                 gap: 20px;
@@ -2235,7 +2206,6 @@
             }
         }
 
-        /* Footer */
         .footer {
             background: rgba(0, 0, 0, 0.9);
             color: white;
@@ -2274,7 +2244,6 @@
             font-size: 14px;
         }
 
-        /* ===== SCANNER RESULTS FIXES ===== */
         .scanner-results {
             display: block !important;
             visibility: visible !important;
@@ -2433,8 +2402,8 @@
     <div class="camera-scanner-modal" id="cameraScannerModal">
         <div class="camera-container">
             <div class="scanner-header">
-                <h2>QR Code Scanner</h2>
-                <p>Scan member QR to start transaction</p>
+                <h2 id="scannerModalTitle">QR Code Scanner</h2>
+                <p id="scannerModalSubtitle">Scan QR code to continue</p>
             </div>
             
             <div class="scanner-viewport">
@@ -3149,6 +3118,8 @@
                 <button class="btn secondary" onclick="logout()">Logout</button>
                 <button class="btn" onclick="refreshData()">Refresh Data</button>
                 <button class="btn" onclick="showTransactionQR()" id="startTransactionBtn">🛍️ Start Shopping</button>
+                <!-- 🔥 NEW: Member QR Scanner Button -->
+                <button class="btn" onclick="openMemberScanner()" id="memberScannerBtn">📷 Scan QR</button>
             </div>
             
             <h2 class="section-title">Member Dashboard</h2>
@@ -3266,14 +3237,14 @@
             </div>
         </div>
 
-        <!-- 🔥 NEW: MEMBER TRANSACTION SCREEN -->
+        <!-- 🔥 NEW: MEMBER TRANSACTION SCREEN (Beautiful Receipt Page) -->
         <div id="memberTransactionScreen" class="card hidden">
             <div class="nav-buttons">
                 <button class="btn secondary" onclick="cancelTransaction()">← Back to Dashboard</button>
             </div>
             
             <div class="member-transaction-screen" id="memberTransactionContainer">
-                <!-- Dynamically populated by JavaScript -->
+                <!-- Dynamically populated by JavaScript with beautiful receipt -->
             </div>
         </div>
 
@@ -3486,9 +3457,9 @@
         let scannerFacingMode = 'environment';
         let scannerCameras = [];
         let scannerCanvasContext = null;
-        let scannerMode = 'member'; // 'member' or 'voucher'
+        let scannerMode = 'member'; // 'member', 'voucher', or 'member_join'
 
-        // Open camera scanner for member QR
+        // Open camera scanner for member QR (Salesperson)
         function openCameraScanner() {
             if (!clubManager.isAdmin) {
                 showToast("Please login as staff first", "error");
@@ -3501,8 +3472,27 @@
             document.body.style.overflow = 'hidden';
             
             // Update header text
-            document.querySelector('.scanner-header h2').textContent = 'Scan Member QR Code';
-            document.querySelector('.scanner-header p').textContent = 'Scan member QR to start transaction';
+            document.getElementById('scannerModalTitle').textContent = 'Scan Member QR Code';
+            document.getElementById('scannerModalSubtitle').textContent = 'Scan member QR to start transaction';
+            
+            initScanner();
+        }
+
+        // 🔥 NEW: Open camera scanner for member (to join transaction)
+        function openMemberScanner() {
+            if (!clubManager.currentMember) {
+                showToast("Please login first", "error");
+                return;
+            }
+
+            scannerMode = 'member_join';
+            const modal = document.getElementById('cameraScannerModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // Update header text
+            document.getElementById('scannerModalTitle').textContent = 'Scan Join QR Code';
+            document.getElementById('scannerModalSubtitle').textContent = 'Scan the QR code shown by salesperson';
             
             initScanner();
         }
@@ -3520,8 +3510,8 @@
             document.body.style.overflow = 'hidden';
             
             // Update header text
-            document.querySelector('.scanner-header h2').textContent = 'Scan Voucher QR Code';
-            document.querySelector('.scanner-header p').textContent = 'Scan voucher QR to redeem';
+            document.getElementById('scannerModalTitle').textContent = 'Scan Voucher QR Code';
+            document.getElementById('scannerModalSubtitle').textContent = 'Scan voucher QR to redeem';
             
             initScanner();
         }
@@ -3702,7 +3692,7 @@
             }
         }
 
-        // Handle detected QR code - FIXED to handle phone number detection
+        // Handle detected QR code - FIXED with beautiful page routing
         async function handleQRCodeDetected(qrData) {
             console.log("QR Code detected:", qrData);
             
@@ -3721,27 +3711,23 @@
                 closeCameraScanner();
                 
                 try {
-                    // Try to parse as JSON - but first check if it's a URL-encoded string
+                    // Try to decode if URL encoded
                     let decodedData = qrData;
                     try {
-                        // Try to decode if it's URL encoded
                         if (qrData.includes('%')) {
                             decodedData = decodeURIComponent(qrData);
                         }
-                    } catch (e) {
-                        decodedData = qrData;
-                    }
+                    } catch (e) {}
                     
                     // Try to parse as JSON
                     const parsed = JSON.parse(decodedData);
                     
-                    // Check if it's a join transaction QR
+                    // Check what type of QR this is
                     if (parsed.action === 'join_transaction') {
-                        // Member is joining a transaction
+                        // Member is joining a transaction - show beautiful receipt page
                         memberJoinTransaction(decodedData);
                     } 
-                    // Check if it's a member QR to start transaction
-                    else if (parsed.jcId || parsed.type === 'MEMBER_LOGIN') {
+                    else if (parsed.type === 'MEMBER_LOGIN' || parsed.jcId) {
                         // Salesperson is starting transaction
                         if (clubManager.isAdmin) {
                             startTransactionWithMember(decodedData);
@@ -3752,7 +3738,6 @@
                         showToast("Invalid QR code format", "error");
                     }
                 } catch (e) {
-                    console.log("Not JSON, checking if voucher code:", e);
                     // Not JSON, check if it's a voucher code
                     if (scannerMode === 'voucher') {
                         document.getElementById('voucherCodeInput').value = qrData;
@@ -3807,14 +3792,13 @@
         // 🔥 NEW: TRANSACTION SYSTEM
         // ===========================
 
-        // Show transaction QR for member to scan - FIXED to avoid phone number detection
+        // Show transaction QR for member to scan
         function showTransactionQR() {
             if (!clubManager.currentMember) {
                 showToast("Please login first", "error");
                 return;
             }
             
-            // Create a clear JSON structure with a type field to avoid phone detection
             const memberQRData = JSON.stringify({
                 type: "MEMBER_LOGIN",
                 jcId: clubManager.currentMember.jcId,
@@ -3822,7 +3806,6 @@
                 timestamp: Date.now()
             });
             
-            // URL encode to be extra safe
             const encodedData = encodeURIComponent(memberQRData);
             const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}`;
             
@@ -3860,7 +3843,7 @@
             document.body.appendChild(modal);
         }
 
-        // Show member join QR after salesperson scans - FIXED to avoid phone detection
+        // Show member join QR after salesperson scans
         function showMemberJoinQR(transaction, member) {
             const joinData = JSON.stringify({
                 action: "join_transaction",
@@ -3870,7 +3853,6 @@
                 timestamp: Date.now()
             });
             
-            // URL encode to be extra safe
             const encodedData = encodeURIComponent(joinData);
             const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}`;
             
@@ -3916,38 +3898,32 @@
             
             const { supabase } = window.supabaseDbInstance;
             
-            // Subscribe to transaction updates
             const joinChannel = supabase
                 .channel('transaction_join_' + transactionId)
                 .on('broadcast', { event: 'member_joined' }, (payload) => {
                     console.log("✅ Member joined!", payload);
                     
-                    // Update status text
                     const statusEl = document.getElementById('joinStatus');
                     if (statusEl) {
                         statusEl.innerHTML = '✅ Member joined! You can now add items.';
                         statusEl.style.color = '#28a745';
                     }
                     
-                    // Close modal after 2 seconds
                     setTimeout(() => {
                         const modal = document.querySelector('div[style*="position: fixed"]');
                         if (modal) modal.remove();
                     }, 2000);
                     
-                    // Update transaction with member device ID
                     if (currentTransaction) {
                         currentTransaction.memberDeviceId = payload.deviceId;
                     }
                     
                     showToast(`${payload.memberName || 'Member'} joined the transaction!`, "success");
                     
-                    // Unsubscribe
                     joinChannel.unsubscribe();
                 })
                 .subscribe();
             
-            // Timeout after 5 minutes
             setTimeout(() => {
                 joinChannel.unsubscribe();
                 const statusEl = document.getElementById('joinStatus');
@@ -3959,10 +3935,9 @@
             }, 300000);
         }
 
-        // Member joins transaction from their phone
+        // 🔥 NEW: Member joins transaction from their phone - SHOWS BEAUTIFUL RECEIPT PAGE
         async function memberJoinTransaction(joinData) {
             try {
-                // Decode if needed
                 let decodedData = joinData;
                 try {
                     if (joinData.includes('%')) {
@@ -4028,7 +4003,7 @@
                 // Subscribe to real-time updates
                 subscribeToTransaction(transactionId);
                 
-                // Show member transaction screen
+                // Show member transaction screen with beautiful receipt
                 showMemberTransactionScreen(currentTransaction);
                 
                 showToast("Successfully joined transaction!", "success");
@@ -4044,7 +4019,6 @@
             try {
                 showToast("Starting transaction...", "info");
                 
-                // Decode if needed
                 let decodedData = qrData;
                 try {
                     if (qrData.includes('%')) {
@@ -4052,25 +4026,20 @@
                     }
                 } catch (e) {}
                 
-                // Parse QR data
                 let memberJCId = qrData;
                 let memberName = "";
                 try {
                     const parsed = JSON.parse(decodedData);
                     if (parsed.jcId) memberJCId = parsed.jcId;
                     if (parsed.name) memberName = parsed.name;
-                } catch (e) {
-                    // Not JSON, treat as JC ID
-                }
+                } catch (e) {}
                 
-                // Get member from database
                 const member = await clubManager.db.getMemberByJCId(memberJCId);
                 if (!member) {
                     showToast("Member not found", "error");
                     return;
                 }
                 
-                // Create transaction session
                 const sessionId = "sess_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
                 const transactionId = "txn_" + Date.now();
                 
@@ -4097,10 +4066,8 @@
                     updatedAt: new Date().toISOString()
                 };
                 
-                // Save to Supabase
                 await saveTransaction(transaction);
                 
-                // Create session record
                 const session = {
                     sessionId: sessionId,
                     transactionId: transactionId,
@@ -4116,13 +4083,10 @@
                 
                 currentTransaction = transaction;
                 
-                // Show QR for member to join
                 showMemberJoinQR(transaction, member);
                 
-                // Subscribe to real-time updates
                 subscribeToTransaction(transactionId);
                 
-                // Show salesperson transaction screen
                 showSalespersonTransactionScreen(transaction);
                 
                 showToast(`Transaction started for ${member.name}`, "success");
@@ -4270,14 +4234,12 @@
         function handleTransactionUpdate(payload) {
             if (!currentTransaction) return;
             
-            // Update current transaction
             if (payload.items) currentTransaction.items = payload.items;
             if (payload.subtotal !== undefined) currentTransaction.subtotal = payload.subtotal;
             if (payload.tierDiscount !== undefined) currentTransaction.tierDiscount = payload.tierDiscount;
             if (payload.appliedVoucher) currentTransaction.appliedVoucher = payload.appliedVoucher;
             if (payload.finalTotal !== undefined) currentTransaction.finalTotal = payload.finalTotal;
             
-            // Update UI based on current screen
             if (!document.getElementById('memberTransactionScreen').classList.contains('hidden')) {
                 showMemberTransactionScreen(currentTransaction);
             }
@@ -4292,7 +4254,6 @@
             if (currentTransaction) {
                 currentTransaction.memberConfirmed = true;
                 
-                // Update salesperson screen
                 if (!document.getElementById('salespersonTransactionScreen').classList.contains('hidden')) {
                     showSalespersonTransactionScreen(currentTransaction);
                 }
@@ -4305,15 +4266,12 @@
         function handleSaleCompleted(payload) {
             showToast("Sale completed successfully!", "success");
             
-            // Show receipt
             if (payload.receipt) {
                 showReceipt(payload.receipt);
             }
             
-            // Clear current transaction
             currentTransaction = null;
             
-            // Go back to appropriate screen
             if (clubManager.isAdmin) {
                 showAdminPanel();
             } else {
@@ -4321,7 +4279,7 @@
             }
         }
 
-        // Show member transaction screen
+        // 🔥 NEW: Show member transaction screen (BEAUTIFUL RECEIPT PAGE)
         function showMemberTransactionScreen(transaction) {
             hideAllSections();
             document.getElementById('memberTransactionScreen').classList.remove('hidden');
@@ -4343,11 +4301,19 @@
                 const canApply = !transaction.appliedVoucher;
                 const isApplied = transaction.appliedVoucher && transaction.appliedVoucher.code === voucher.code;
                 
+                // Calculate potential discount if applied
+                const amountAfterTier = transaction.subtotal - transaction.tierDiscount;
+                const potentialDiscount = Math.min(
+                    Math.floor(amountAfterTier * voucher.discountPercentage / 100),
+                    voucher.pointsUsed * 50
+                );
+                
                 return `
                     <div class="voucher-item ${isApplied ? 'active' : ''}" style="border-left-color: ${isApplied ? '#28a745' : '#667eea'}">
                         <div class="voucher-code">${voucher.code}</div>
                         <div class="voucher-details">
                             ${voucher.discountPercentage}% OFF • Max ${(voucher.pointsUsed * 50).toLocaleString()} UGX
+                            ${!isApplied && canApply ? `<br><small style="color: #28a745;">Would save: ${potentialDiscount.toLocaleString()} UGX</small>` : ''}
                         </div>
                         ${isApplied ? 
                             '<button class="remove-voucher-btn" onclick="removeVoucher()">Remove Voucher</button>' : 
@@ -4541,17 +4507,14 @@
             currentTransaction.subtotal += price;
             currentTransaction.tierDiscount = calculateTierDiscount(currentTransaction.subtotal, currentTransaction.memberTier);
             
-            // Calculate final total
             let finalTotal = currentTransaction.subtotal - currentTransaction.tierDiscount;
             if (currentTransaction.appliedVoucher) {
                 finalTotal -= currentTransaction.appliedVoucher.discount;
             }
             currentTransaction.finalTotal = finalTotal;
             
-            // Save to database
             await saveTransaction(currentTransaction);
             
-            // Broadcast to member
             broadcastToMember({
                 type: 'items_updated',
                 items: currentTransaction.items,
@@ -4560,7 +4523,6 @@
                 finalTotal: currentTransaction.finalTotal
             });
             
-            // Update UI
             showSalespersonTransactionScreen(currentTransaction);
         }
 
@@ -4589,10 +4551,8 @@
             currentTransaction.subtotal -= removedItem.price;
             currentTransaction.tierDiscount = calculateTierDiscount(currentTransaction.subtotal, currentTransaction.memberTier);
             
-            // Recalculate final total
             let finalTotal = currentTransaction.subtotal - currentTransaction.tierDiscount;
             if (currentTransaction.appliedVoucher) {
-                // Recalculate voucher discount based on new subtotal
                 const voucherDiscount = calculateVoucherDiscountAmount(
                     currentTransaction.appliedVoucher,
                     currentTransaction.subtotal - currentTransaction.tierDiscount
@@ -4619,18 +4579,15 @@
         async function applyVoucher(voucherCode) {
             if (!currentTransaction) return;
             
-            // Get voucher
             const voucher = await voucherSystem.getVoucherByCode(voucherCode);
             if (!voucher || voucher.status !== 'active') {
                 showToast("Voucher not available", "error");
                 return;
             }
             
-            // Calculate discount
             const amountAfterTier = currentTransaction.subtotal - currentTransaction.tierDiscount;
             const discountAmount = calculateVoucherDiscountAmount(voucher, amountAfterTier);
             
-            // Apply to transaction
             currentTransaction.appliedVoucher = {
                 code: voucher.code,
                 percentage: voucher.discountPercentage,
@@ -4640,17 +4597,14 @@
             
             currentTransaction.finalTotal = amountAfterTier - discountAmount;
             
-            // Save to database
             await saveTransaction(currentTransaction);
             
-            // Broadcast to salesperson
             broadcastToSalesperson({
                 type: 'voucher_applied',
                 appliedVoucher: currentTransaction.appliedVoucher,
                 finalTotal: currentTransaction.finalTotal
             });
             
-            // Update UI
             showMemberTransactionScreen(currentTransaction);
             
             showToast("Voucher applied successfully!", "success");
@@ -4720,19 +4674,17 @@
             showToast("Sent to member for confirmation", "success");
         }
 
-        // Complete sale (salesperson)
+        // Complete sale (salesperson) - updates member info
         async function completeSale() {
             if (!currentTransaction || !currentTransaction.memberConfirmed) return;
             
             try {
-                // 1. Add purchase to member's account (only final amount)
                 await clubManager.addPurchase(
                     currentTransaction.memberJcId,
                     currentTransaction.finalTotal,
                     `Store purchase: ${currentTransaction.items.map(i => i.name).join(', ')}`
                 );
                 
-                // 2. Mark voucher as used if applied
                 if (currentTransaction.appliedVoucher) {
                     await voucherSystem.redeemVoucher(
                         currentTransaction.appliedVoucher.code,
@@ -4740,10 +4692,8 @@
                     );
                 }
                 
-                // 3. Calculate points earned
                 const pointsEarned = Math.floor(currentTransaction.finalTotal / 1000);
                 
-                // 4. Generate receipt
                 const receipt = {
                     transactionId: currentTransaction.id,
                     store: "Jeans Club - Kampala",
@@ -4759,10 +4709,9 @@
                     voucher: currentTransaction.appliedVoucher,
                     finalTotal: currentTransaction.finalTotal,
                     pointsEarned: pointsEarned,
-                    paymentMethod: "Cash" // Can be changed
+                    paymentMethod: "Cash"
                 };
                 
-                // 5. Update transaction
                 currentTransaction.status = "completed";
                 currentTransaction.salespersonCompleted = true;
                 currentTransaction.completedAt = new Date().toISOString();
@@ -4770,16 +4719,13 @@
                 
                 await saveTransaction(currentTransaction);
                 
-                // 6. Broadcast to member
                 broadcastToMember({
                     type: 'sale_completed',
                     receipt: receipt
                 });
                 
-                // 7. Show receipt
                 showReceipt(receipt);
                 
-                // 8. Clear current transaction
                 currentTransaction = null;
                 
             } catch (error) {
@@ -4933,7 +4879,6 @@
                 this.cleanupInterval = null;
                 this.startAutoCleanup();
                 
-                // MONEY LIMITS FOR VOUCHERS
                 this.TIER_MONEY_LIMITS = {
                     PEARL: { 
                         monthlyMaxDiscount: 100000,
