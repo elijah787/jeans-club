@@ -3707,7 +3707,7 @@
             }
         }
 
-        // Handle detected QR code
+        // Handle detected QR code - FIXED to handle all QR types properly
         async function handleQRCodeDetected(qrData) {
             console.log("QR Code detected:", qrData);
             
@@ -3726,6 +3726,7 @@
                 closeCameraScanner();
                 
                 try {
+                    // Try to decode if URL encoded
                     let decodedData = qrData;
                     try {
                         if (qrData.includes('%')) {
@@ -3733,27 +3734,35 @@
                         }
                     } catch (e) {}
                     
+                    // Try to parse as JSON
                     const parsed = JSON.parse(decodedData);
                     
-                    if (parsed.action === 'view_receipt') {
-                        // Member is viewing receipt from salesperson's send
-                        viewReceiptFromQR(decodedData);
-                    } 
-                    else if (parsed.action === 'confirm_sale') {
-                        // Salesperson is scanning confirmation QR
-                        processConfirmedSale(decodedData);
-                    }
-                    else if (parsed.type === 'MEMBER_LOGIN' || parsed.jcId) {
-                        // Salesperson is starting transaction
+                    // Check what type of QR this is
+                    if (parsed.type === 'MEMBER_LOGIN' && parsed.jcId) {
+                        // Member login QR - Salesperson starting transaction
                         if (clubManager.isAdmin) {
-                            startTransactionWithMember(decodedData);
+                            startTransactionWithMember(parsed);
                         } else {
                             showToast("Only staff can start transactions", "error");
                         }
-                    } else {
+                    }
+                    else if (parsed.action === 'join_transaction') {
+                        // Member joining transaction - shows receipt page
+                        memberJoinTransaction(parsed);
+                    }
+                    else if (parsed.action === 'view_receipt') {
+                        // Member viewing receipt from Send to Member
+                        viewReceiptFromQR(parsed);
+                    }
+                    else if (parsed.action === 'confirm_sale') {
+                        // Salesperson confirming sale
+                        processConfirmedSale(parsed);
+                    }
+                    else {
                         showToast("Invalid QR code format", "error");
                     }
                 } catch (e) {
+                    console.log("Error parsing QR:", e);
                     // Not JSON, check if it's a voucher code
                     if (scannerMode === 'voucher') {
                         document.getElementById('voucherCodeInput').value = qrData;
@@ -3815,14 +3824,15 @@
                 return;
             }
             
-            const memberQRData = JSON.stringify({
+            const memberQRData = {
                 type: "MEMBER_LOGIN",
                 jcId: clubManager.currentMember.jcId,
                 name: clubManager.currentMember.name,
                 timestamp: Date.now()
-            });
+            };
             
-            const encodedData = encodeURIComponent(memberQRData);
+            const jsonString = JSON.stringify(memberQRData);
+            const encodedData = encodeURIComponent(jsonString);
             const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}`;
             
             const modal = document.createElement('div');
@@ -3859,16 +3869,17 @@
             document.body.appendChild(modal);
         }
 
-        // 🔥 NEW: Show receipt QR for member to scan (after Send to Member)
+        // Show receipt QR for member to scan (after Send to Member)
         function showReceiptQR(transaction) {
-            const receiptData = JSON.stringify({
+            const receiptData = {
                 action: "view_receipt",
                 transactionId: transaction.id,
                 memberJcId: transaction.memberJcId,
                 timestamp: Date.now()
-            });
+            };
             
-            const encodedData = encodeURIComponent(receiptData);
+            const jsonString = JSON.stringify(receiptData);
+            const encodedData = encodeURIComponent(jsonString);
             const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}`;
             
             const modal = document.createElement('div');
@@ -3903,7 +3914,6 @@
             
             document.body.appendChild(modal);
             
-            // Wait for member to view receipt (they will join via database)
             waitForMemberToViewReceipt(transaction.id);
         }
 
@@ -3944,17 +3954,9 @@
         }
 
         // Member views receipt from QR
-        async function viewReceiptFromQR(receiptData) {
+        async function viewReceiptFromQR(parsedData) {
             try {
-                let decodedData = receiptData;
-                try {
-                    if (receiptData.includes('%')) {
-                        decodedData = decodeURIComponent(receiptData);
-                    }
-                } catch (e) {}
-                
-                const parsed = JSON.parse(decodedData);
-                const { transactionId, memberJcId } = parsed;
+                const { transactionId, memberJcId } = parsedData;
                 
                 if (!clubManager.currentMember || clubManager.currentMember.jcId !== memberJcId) {
                     showToast("Please login as the correct member first", "error");
@@ -4015,15 +4017,16 @@
 
         // Show member join QR after salesperson scans
         function showMemberJoinQR(transaction, member) {
-            const joinData = JSON.stringify({
+            const joinData = {
                 action: "join_transaction",
                 transactionId: transaction.id,
                 sessionId: transaction.sessionId,
                 memberJcId: member.jcId,
                 timestamp: Date.now()
-            });
+            };
             
-            const encodedData = encodeURIComponent(joinData);
+            const jsonString = JSON.stringify(joinData);
+            const encodedData = encodeURIComponent(jsonString);
             const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}`;
             
             const modal = document.createElement('div');
@@ -4105,17 +4108,9 @@
         }
 
         // Member joins transaction from their phone
-        async function memberJoinTransaction(joinData) {
+        async function memberJoinTransaction(parsedData) {
             try {
-                let decodedData = joinData;
-                try {
-                    if (joinData.includes('%')) {
-                        decodedData = decodeURIComponent(joinData);
-                    }
-                } catch (e) {}
-                
-                const parsed = JSON.parse(decodedData);
-                const { transactionId, sessionId, memberJcId } = parsed;
+                const { transactionId, sessionId, memberJcId } = parsedData;
                 
                 if (!clubManager.currentMember || clubManager.currentMember.jcId !== memberJcId) {
                     showToast("Please login as the correct member first", "error");
@@ -4176,26 +4171,13 @@
         }
 
         // Start transaction with scanned member QR
-        async function startTransactionWithMember(qrData) {
+        async function startTransactionWithMember(parsedData) {
             try {
                 showToast("Starting transaction...", "info");
                 
-                let decodedData = qrData;
-                try {
-                    if (qrData.includes('%')) {
-                        decodedData = decodeURIComponent(qrData);
-                    }
-                } catch (e) {}
+                const { jcId, name } = parsedData;
                 
-                let memberJCId = qrData;
-                let memberName = "";
-                try {
-                    const parsed = JSON.parse(decodedData);
-                    if (parsed.jcId) memberJCId = parsed.jcId;
-                    if (parsed.name) memberName = parsed.name;
-                } catch (e) {}
-                
-                const member = await clubManager.db.getMemberByJCId(memberJCId);
+                const member = await clubManager.db.getMemberByJCId(jcId);
                 if (!member) {
                     showToast("Member not found", "error");
                     return;
@@ -4392,7 +4374,6 @@
                 
                 showToast("Member confirmed the payment!", "success");
                 
-                // Show confirmation QR for salesperson to scan
                 showConfirmationQR(currentTransaction);
             }
         }
@@ -4790,7 +4771,6 @@
             currentTransaction.status = "awaiting_confirmation";
             await saveTransaction(currentTransaction);
             
-            // Show QR code for member to scan
             showReceiptQR(currentTransaction);
             
             showToast("QR code shown - ask member to scan", "success");
@@ -4798,16 +4778,17 @@
 
         // Show confirmation QR for salesperson to scan
         function showConfirmationQR(transaction) {
-            const confirmData = JSON.stringify({
+            const confirmData = {
                 action: 'confirm_sale',
                 transactionId: transaction.id,
                 memberJcId: transaction.memberJcId,
                 finalTotal: transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal,
                 appliedVoucher: transaction.appliedVoucher,
                 timestamp: Date.now()
-            });
+            };
             
-            const encodedData = encodeURIComponent(confirmData);
+            const jsonString = JSON.stringify(confirmData);
+            const encodedData = encodeURIComponent(jsonString);
             const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}`;
             
             const modal = document.createElement('div');
@@ -4844,17 +4825,9 @@
         }
 
         // Process confirmed sale (salesperson scans confirmation QR)
-        async function processConfirmedSale(confirmData) {
+        async function processConfirmedSale(parsedData) {
             try {
-                let decodedData = confirmData;
-                try {
-                    if (confirmData.includes('%')) {
-                        decodedData = decodeURIComponent(confirmData);
-                    }
-                } catch (e) {}
-                
-                const parsed = JSON.parse(decodedData);
-                const { transactionId, memberJcId, finalTotal, appliedVoucher } = parsed;
+                const { transactionId, memberJcId, finalTotal, appliedVoucher } = parsedData;
                 
                 if (!currentTransaction || currentTransaction.id !== transactionId) {
                     if (!window.supabaseDbInstance) return;
@@ -4888,14 +4861,12 @@
                     };
                 }
                 
-                // Add purchase to member's account
                 await clubManager.addPurchase(
                     currentTransaction.memberJcId,
                     finalTotal,
                     `Store purchase: ${currentTransaction.items.map(i => i.name).join(', ')}`
                 );
                 
-                // Mark voucher as used if applied
                 if (appliedVoucher) {
                     await voucherSystem.redeemVoucher(
                         appliedVoucher.code,
