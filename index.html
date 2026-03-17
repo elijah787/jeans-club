@@ -3953,7 +3953,7 @@
             }, 300000);
         }
 
-        // Member views receipt from QR
+        // 🔥 FIXED: Member views receipt from QR - Now properly shows items
         async function viewReceiptFromQR(parsedData) {
             try {
                 const { transactionId, memberJcId } = parsedData;
@@ -3967,6 +3967,7 @@
                 
                 const { supabase } = window.supabaseDbInstance;
                 
+                // Fetch the latest transaction data from Supabase
                 const { data: transaction, error } = await supabase
                     .from('transactions')
                     .select('*')
@@ -3974,10 +3975,26 @@
                     .single();
                 
                 if (error || !transaction) {
+                    console.error("Transaction fetch error:", error);
                     showToast("Transaction not found", "error");
                     return;
                 }
                 
+                console.log("Transaction data from Supabase:", transaction);
+                
+                // Parse items - they're stored as JSON string in the database
+                let items = [];
+                try {
+                    items = JSON.parse(transaction.items || '[]');
+                } catch (e) {
+                    console.error("Error parsing items:", e);
+                    items = [];
+                }
+                
+                // Calculate subtotal from items
+                const subtotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+                
+                // Create currentTransaction object with all the data
                 currentTransaction = {
                     id: transaction.id,
                     sessionId: transaction.session_id,
@@ -3986,13 +4003,16 @@
                     memberTier: transaction.member_tier,
                     salespersonName: transaction.salesperson_name,
                     status: transaction.status,
-                    items: JSON.parse(transaction.items || '[]'),
-                    subtotal: transaction.subtotal || 0,
+                    items: items,
+                    subtotal: subtotal,
                     appliedVoucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
-                    finalTotal: transaction.final_total || 0,
+                    finalTotal: transaction.final_total || subtotal,
                     memberConfirmed: transaction.member_confirmed || false
                 };
                 
+                console.log("Current transaction set:", currentTransaction);
+                
+                // Notify salesperson that receipt was viewed
                 await supabase
                     .channel('receipt_view_' + transactionId)
                     .send({
@@ -4003,8 +4023,10 @@
                         }
                     });
                 
+                // Subscribe to real-time updates
                 subscribeToTransaction(transactionId);
                 
+                // Show the member transaction screen with all items
                 showMemberTransactionScreen(currentTransaction);
                 
                 showToast("Receipt loaded successfully!", "success");
@@ -4132,6 +4154,16 @@
                     return;
                 }
                 
+                // Parse items
+                let items = [];
+                try {
+                    items = JSON.parse(transaction.items || '[]');
+                } catch (e) {
+                    items = [];
+                }
+                
+                const subtotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+                
                 currentTransaction = {
                     id: transaction.id,
                     sessionId: transaction.session_id,
@@ -4140,10 +4172,10 @@
                     memberTier: transaction.member_tier,
                     salespersonName: transaction.salesperson_name,
                     status: transaction.status,
-                    items: JSON.parse(transaction.items || '[]'),
-                    subtotal: transaction.subtotal || 0,
+                    items: items,
+                    subtotal: subtotal,
                     appliedVoucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
-                    finalTotal: transaction.final_total || 0,
+                    finalTotal: transaction.final_total || subtotal,
                     memberConfirmed: transaction.member_confirmed || false
                 };
                 
@@ -4845,6 +4877,16 @@
                         return;
                     }
                     
+                    // Parse items
+                    let items = [];
+                    try {
+                        items = JSON.parse(transaction.items || '[]');
+                    } catch (e) {
+                        items = [];
+                    }
+                    
+                    const subtotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+                    
                     currentTransaction = {
                         id: transaction.id,
                         sessionId: transaction.session_id,
@@ -4853,10 +4895,10 @@
                         memberTier: transaction.member_tier,
                         salespersonName: transaction.salesperson_name,
                         status: transaction.status,
-                        items: JSON.parse(transaction.items || '[]'),
-                        subtotal: transaction.subtotal || 0,
+                        items: items,
+                        subtotal: subtotal,
                         appliedVoucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
-                        finalTotal: transaction.final_total || 0,
+                        finalTotal: transaction.final_total || subtotal,
                         memberConfirmed: transaction.member_confirmed || false
                     };
                 }
