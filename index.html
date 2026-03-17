@@ -7038,12 +7038,28 @@
                     { name: 'PLATINUM', min: 1000000, max: Infinity }
                 ];
                 
+                // Ensure member never downgrades by finding highest tier they qualify for
+                let highestTier = 'PEARL';
                 for (const tier of tiers) {
-                    if (points >= tier.min && points <= tier.max) {
-                        return tier.name;
+                    if (points >= tier.min) {
+                        highestTier = tier.name;
                     }
                 }
-                return 'PEARL';
+                
+                // If current member exists and has a higher tier already, keep that tier
+                if (this.currentMember && this.currentMember.tier) {
+                    const currentTierIndex = tiers.findIndex(t => t.name === this.currentMember.tier);
+                    const newTierIndex = tiers.findIndex(t => t.name === highestTier);
+                    
+                    // Only upgrade, never downgrade
+                    if (newTierIndex > currentTierIndex) {
+                        return highestTier;
+                    } else {
+                        return this.currentMember.tier;
+                    }
+                }
+                
+                return highestTier;
             }
 
             async signUpWithEmail(name, email, password, referralCode = null) {
@@ -7244,7 +7260,29 @@
                     
                     member.points += pointsEarned;
                     member.totalSpent += amount;
-                    member.tier = this.calculateTier(member.points);
+                    
+                    // Calculate new tier based on total points
+                    const newTier = this.calculateTierForPoints(member.points);
+                    
+                    // Ensure member never downgrades by comparing with current tier
+                    const tiers = [
+                        { name: 'PEARL', min: 0, max: 7499 },
+                        { name: 'BRONZE', min: 7500, max: 24999 },
+                        { name: 'SILVER', min: 25000, max: 99999 },
+                        { name: 'RUBY', min: 100000, max: 249999 },
+                        { name: 'GOLD', min: 250000, max: 499999 },
+                        { name: 'SAPPHIRE', min: 500000, max: 999999 },
+                        { name: 'PLATINUM', min: 1000000, max: Infinity }
+                    ];
+                    
+                    const currentTierIndex = tiers.findIndex(t => t.name === member.tier);
+                    const newTierIndex = tiers.findIndex(t => t.name === newTier);
+                    
+                    // Only upgrade, never downgrade
+                    if (newTierIndex > currentTierIndex) {
+                        member.tier = newTier;
+                    }
+                    // If new tier is lower, keep current tier (no downgrade)
                     
                     member.purchaseHistory.unshift({
                         timestamp: new Date().toISOString(),
@@ -7305,6 +7343,27 @@
                     console.error('Add purchase error:', error);
                     return { success: false, message: 'Failed to record purchase' };
                 }
+            }
+
+            // Helper method to calculate tier based on points only
+            calculateTierForPoints(points) {
+                const tiers = [
+                    { name: 'PEARL', min: 0, max: 7499 },
+                    { name: 'BRONZE', min: 7500, max: 24999 },
+                    { name: 'SILVER', min: 25000, max: 99999 },
+                    { name: 'RUBY', min: 100000, max: 249999 },
+                    { name: 'GOLD', min: 250000, max: 499999 },
+                    { name: 'SAPPHIRE', min: 500000, max: 999999 },
+                    { name: 'PLATINUM', min: 1000000, max: Infinity }
+                ];
+                
+                let highestTier = 'PEARL';
+                for (const tier of tiers) {
+                    if (points >= tier.min) {
+                        highestTier = tier.name;
+                    }
+                }
+                return highestTier;
             }
 
             logout() {
@@ -7660,17 +7719,20 @@
                 { name: 'PLATINUM', min: 1000000, max: Infinity }
             ];
             
-            const currentTier = tiers.find(t => t.name === member.tier);
-            const nextTier = tiers[tiers.findIndex(t => t.name === member.tier) + 1];
+            // Find current tier index
+            const currentTierIndex = tiers.findIndex(t => t.name === member.tier);
             
-            if (nextTier) {
-                const progress = ((member.points - currentTier.min) / (nextTier.min - currentTier.min)) * 100;
+            // If not max tier, show progress to next tier
+            if (currentTierIndex < tiers.length - 1) {
+                const nextTier = tiers[currentTierIndex + 1];
+                const progress = ((member.points - tiers[currentTierIndex].min) / (nextTier.min - tiers[currentTierIndex].min)) * 100;
                 document.getElementById('progressFill').style.width = `${Math.min(progress, 100)}%`;
                 document.getElementById('tierProgressText').textContent = 
                     `${member.points.toLocaleString()} / ${nextTier.min.toLocaleString()} points to ${nextTier.name}`;
             } else {
+                // Max tier reached - show 100% progress
                 document.getElementById('progressFill').style.width = '100%';
-                document.getElementById('tierProgressText').textContent = 'Maximum tier reached!';
+                document.getElementById('tierProgressText').textContent = 'Maximum tier reached - PLATINUM!';
             }
             
             const newsletterToggle = document.getElementById('newsletterToggle');
