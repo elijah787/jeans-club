@@ -3112,7 +3112,7 @@
             </div>
         </div>
 
-        <!-- Dashboard Section -->
+        <!-- Dashboard Section - WITH RESUME TRANSACTION BUTTON -->
         <div id="dashboardSection" class="card hidden">
             <div class="nav-buttons">
                 <button class="btn secondary" onclick="logout()">Logout</button>
@@ -3120,6 +3120,20 @@
                 <button class="btn" onclick="showTransactionQR()" id="startTransactionBtn">🛍️ Start Shopping</button>
                 <!-- Member QR Scanner Button -->
                 <button class="btn" onclick="openMemberScanner()" id="memberScannerBtn">📷 Scan QR</button>
+            </div>
+            
+            <!-- 🔥 NEW: Resume Transaction Button (appears when there's a pending transaction) -->
+            <div id="resumeTransactionSection" class="hidden" style="margin-top: 10px; margin-bottom: 20px;">
+                <div class="info-card" style="border-left-color: #28a745; background: #e8f5e8;">
+                    <h3 style="color: #28a745; margin-top: 0;">⏳ Pending Transaction</h3>
+                    <p>You have an ongoing transaction that hasn't been completed.</p>
+                    <button class="btn" onclick="resumeTransaction()" style="background: #28a745; width: auto; padding: 10px 20px;">
+                        🔄 Resume Transaction
+                    </button>
+                    <button class="btn secondary" onclick="explicitCancelTransaction()" style="width: auto; padding: 10px 20px; margin-left: 10px;">
+                        ✖ Cancel Transaction
+                    </button>
+                </div>
             </div>
             
             <h2 class="section-title">Member Dashboard</h2>
@@ -3240,7 +3254,9 @@
         <!-- MEMBER TRANSACTION SCREEN (Beautiful Receipt Page) -->
         <div id="memberTransactionScreen" class="card hidden">
             <div class="nav-buttons">
-                <button class="btn secondary" onclick="cancelTransaction()">← Back to Dashboard</button>
+                <!-- 🔥 FIXED: Use goBackFromTransaction instead of cancelTransaction -->
+                <button class="btn secondary" onclick="goBackFromTransaction()">← Back to Dashboard</button>
+                <button class="btn" onclick="explicitCancelTransaction()" style="background: #dc3545;">✖ Cancel Transaction</button>
             </div>
             
             <div class="member-transaction-screen" id="memberTransactionContainer">
@@ -3448,6 +3464,10 @@
         let currentTransaction = null;
         let transactionSubscription = null;
         
+        // 🔥 NEW: Navigation flags to prevent transaction cancellation
+        let isNavigatingToScanner = false;
+        let isInTransactionFlow = false;
+        
         // ===========================
         // CAMERA SCANNER FUNCTIONALITY
         // ===========================
@@ -3477,12 +3497,16 @@
             initScanner();
         }
 
-        // Open camera scanner for member (to join transaction)
+        // 🔥 FIXED: Open camera scanner for member with navigation flag
         function openMemberScanner() {
             if (!clubManager.currentMember) {
                 showToast("Please login first", "error");
                 return;
             }
+
+            // Set flag to prevent cancellation during navigation
+            isNavigatingToScanner = true;
+            isInTransactionFlow = true;
 
             scannerMode = 'member_join';
             const modal = document.getElementById('cameraScannerModal');
@@ -3707,7 +3731,7 @@
             }
         }
 
-        // Handle detected QR code - FIXED to handle all QR types properly
+        // Handle detected QR code
         async function handleQRCodeDetected(qrData) {
             console.log("QR Code detected:", qrData);
             
@@ -3804,13 +3828,18 @@
             statusElement.className = 'scan-status' + (active ? ' active' : '');
         }
 
-        // Close camera scanner
+        // 🔥 FIXED: Close camera scanner and reset navigation flag
         function closeCameraScanner() {
             const modal = document.getElementById('cameraScannerModal');
             modal.classList.remove('active');
             document.body.style.overflow = 'auto';
             
             stopScanner();
+            
+            // Reset navigation flag
+            isNavigatingToScanner = false;
+            
+            // Don't reset isInTransactionFlow yet - we might go back to receipt
         }
 
         // ===========================
@@ -3953,7 +3982,7 @@
             }, 300000);
         }
 
-        // 🔥 FIXED: Member views receipt from QR - Now properly shows items
+        // Member views receipt from QR
         async function viewReceiptFromQR(parsedData) {
             try {
                 const { transactionId, memberJcId } = parsedData;
@@ -4011,6 +4040,9 @@
                 };
                 
                 console.log("Current transaction set:", currentTransaction);
+                
+                // Set transaction flow flag
+                isInTransactionFlow = true;
                 
                 // Notify salesperson that receipt was viewed
                 await supabase
@@ -4131,18 +4163,25 @@
 
         // Member joins transaction from their phone
         async function memberJoinTransaction(parsedData) {
+            console.log("🔵 memberJoinTransaction called with:", parsedData);
+            
             try {
                 const { transactionId, sessionId, memberJcId } = parsedData;
                 
                 if (!clubManager.currentMember || clubManager.currentMember.jcId !== memberJcId) {
+                    console.error("❌ Member mismatch:", clubManager.currentMember?.jcId, "vs", memberJcId);
                     showToast("Please login as the correct member first", "error");
                     return;
                 }
                 
-                if (!window.supabaseDbInstance) return;
+                if (!window.supabaseDbInstance) {
+                    console.error("❌ Supabase not initialized");
+                    return;
+                }
                 
                 const { supabase } = window.supabaseDbInstance;
                 
+                console.log("📡 Fetching transaction:", transactionId);
                 const { data: transaction, error } = await supabase
                     .from('transactions')
                     .select('*')
@@ -4150,15 +4189,21 @@
                     .single();
                 
                 if (error || !transaction) {
+                    console.error("❌ Transaction fetch error:", error);
                     showToast("Transaction not found", "error");
                     return;
                 }
+                
+                console.log("✅ Transaction found:", transaction);
+                console.log("Transaction status:", transaction.status);
                 
                 // Parse items
                 let items = [];
                 try {
                     items = JSON.parse(transaction.items || '[]');
+                    console.log("Parsed items:", items);
                 } catch (e) {
+                    console.error("Error parsing items:", e);
                     items = [];
                 }
                 
@@ -4179,6 +4224,13 @@
                     memberConfirmed: transaction.member_confirmed || false
                 };
                 
+                console.log("📱 Current transaction set:", currentTransaction);
+                
+                // Set transaction flow flag
+                isInTransactionFlow = true;
+                
+                // Broadcast to salesperson
+                console.log("📡 Broadcasting member_joined event");
                 await supabase
                     .channel('transaction_join_' + transactionId)
                     .send({
@@ -4195,9 +4247,10 @@
                 showMemberTransactionScreen(currentTransaction);
                 
                 showToast("Successfully joined transaction!", "success");
+                console.log("✅ memberJoinTransaction completed successfully");
                 
             } catch (error) {
-                console.error("Error joining transaction:", error);
+                console.error("❌ Error in memberJoinTransaction:", error);
                 showToast("Failed to join transaction", "error");
             }
         }
@@ -4278,11 +4331,16 @@
         // Save transaction to Supabase
         async function saveTransaction(transaction) {
             try {
-                if (!window.supabaseDbInstance) return false;
+                if (!window.supabaseDbInstance) {
+                    console.error("❌ Supabase DB not initialized");
+                    return false;
+                }
                 
                 const { supabase } = window.supabaseDbInstance;
                 
-                const { error } = await supabase
+                console.log("💾 Attempting to save transaction:", transaction.id);
+                
+                const { data, error } = await supabase
                     .from('transactions')
                     .upsert({
                         id: transaction.id,
@@ -4306,14 +4364,15 @@
                     });
                 
                 if (error) {
-                    console.error("Error saving transaction:", error);
+                    console.error("❌ Supabase save error:", error);
                     return false;
                 }
                 
+                console.log("✅ Transaction saved successfully:", transaction.id);
                 return true;
                 
             } catch (error) {
-                console.error("Error saving transaction:", error);
+                console.error("❌ Exception in saveTransaction:", error);
                 return false;
             }
         }
@@ -4419,6 +4478,7 @@
             }
             
             currentTransaction = null;
+            isInTransactionFlow = false;
             
             if (clubManager.isAdmin) {
                 showAdminPanel();
@@ -4509,9 +4569,6 @@
                 ${!transaction.memberConfirmed ? `
                     <button class="confirm-btn" onclick="memberConfirmPayment()" ${transaction.items.length === 0 ? 'disabled' : ''}>
                         ✅ CONFIRM PAYMENT
-                    </button>
-                    <button class="cancel-btn" onclick="cancelTransaction()">
-                        ✖ Cancel Transaction
                     </button>
                 ` : `
                     <div class="status-message status-success">
@@ -4949,6 +5006,7 @@
                 showReceipt(receipt);
                 
                 currentTransaction = null;
+                isInTransactionFlow = false;
                 
                 showToast("Sale completed successfully!", "success");
                 
@@ -5066,12 +5124,26 @@
                 });
         }
 
-        // Cancel transaction
-        async function cancelTransaction() {
+        // 🔥 FIXED: Cancel transaction with navigation protection
+        async function cancelTransaction(ignoreIfNoTransaction = false) {
+            console.log("⚠️ cancelTransaction called at:", new Date().toISOString());
+            console.log("Current transaction:", currentTransaction);
+            
+            // NEW: Don't cancel if we're just navigating to scanner
+            if (isNavigatingToScanner) {
+                console.log("📱 Navigating to scanner - preserving transaction");
+                return;
+            }
+            
             if (currentTransaction) {
+                console.log("Setting transaction to cancelled:", currentTransaction.id);
                 currentTransaction.status = "cancelled";
-                await saveTransaction(currentTransaction);
+                const saveResult = await saveTransaction(currentTransaction);
+                console.log("Save result after cancel:", saveResult);
                 currentTransaction = null;
+                isInTransactionFlow = false;
+            } else if (!ignoreIfNoTransaction) {
+                console.log("No current transaction to cancel");
             }
             
             if (transactionSubscription) {
@@ -5079,13 +5151,59 @@
                 transactionSubscription = null;
             }
             
-            if (clubManager.isAdmin) {
-                showAdminPanel();
-            } else {
-                showDashboard(clubManager.currentMember);
+            // Only navigate away if we're not in the middle of a transaction flow
+            if (!isInTransactionFlow) {
+                if (clubManager.isAdmin) {
+                    showAdminPanel();
+                } else {
+                    showDashboard(clubManager.currentMember);
+                }
             }
             
             showToast("Transaction cancelled", "info");
+        }
+
+        // 🔥 NEW: Go back to dashboard but keep transaction alive
+        function goBackFromTransaction() {
+            console.log("🔙 Going back to dashboard - preserving transaction");
+            
+            // Just hide the transaction screen but keep transaction alive
+            hideAllSections();
+            document.getElementById('dashboardSection').classList.remove('hidden');
+            
+            // Show resume button
+            document.getElementById('resumeTransactionSection').classList.remove('hidden');
+            
+            // Update dashboard data
+            if (clubManager.currentMember) {
+                updateMemberDashboard(clubManager.currentMember);
+            }
+            
+            showToast("Transaction paused - you can resume by clicking 'Resume Transaction'", "info");
+        }
+
+        // 🔥 NEW: Check for pending transaction on dashboard load
+        function checkForPendingTransaction() {
+            if (currentTransaction && currentTransaction.status !== 'cancelled' && currentTransaction.status !== 'completed') {
+                document.getElementById('resumeTransactionSection').classList.remove('hidden');
+            } else {
+                document.getElementById('resumeTransactionSection').classList.add('hidden');
+            }
+        }
+
+        // 🔥 NEW: Resume transaction
+        function resumeTransaction() {
+            if (currentTransaction) {
+                showMemberTransactionScreen(currentTransaction);
+                showToast("Transaction resumed", "success");
+            }
+        }
+
+        // 🔥 NEW: Explicitly cancel transaction with confirmation
+        function explicitCancelTransaction() {
+            if (confirm("Are you sure you want to cancel this transaction? This cannot be undone.")) {
+                cancelTransaction();
+            }
         }
 
         // ===========================
@@ -7399,9 +7517,13 @@
             document.head.appendChild(style);
         }
 
+        // 🔥 FIXED: Show dashboard with pending transaction check
         async function showDashboard(member) {
             hideAllSections();
             document.getElementById('dashboardSection').classList.remove('hidden');
+            
+            // Check for pending transaction
+            checkForPendingTransaction();
             
             const freshMember = await clubManager.db.getMemberByJCId(member.jcId);
             if (freshMember) {
