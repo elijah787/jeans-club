@@ -3735,9 +3735,9 @@
                     
                     const parsed = JSON.parse(decodedData);
                     
-                    if (parsed.action === 'join_transaction') {
-                        // Member is joining a transaction
-                        memberJoinTransaction(decodedData);
+                    if (parsed.action === 'view_receipt') {
+                        // Member is viewing receipt from salesperson's send
+                        viewReceiptFromQR(decodedData);
                     } 
                     else if (parsed.action === 'confirm_sale') {
                         // Salesperson is scanning confirmation QR
@@ -3857,6 +3857,160 @@
             `;
             
             document.body.appendChild(modal);
+        }
+
+        // 🔥 NEW: Show receipt QR for member to scan (after Send to Member)
+        function showReceiptQR(transaction) {
+            const receiptData = JSON.stringify({
+                action: "view_receipt",
+                transactionId: transaction.id,
+                memberJcId: transaction.memberJcId,
+                timestamp: Date.now()
+            });
+            
+            const encodedData = encodeURIComponent(receiptData);
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodedData}`;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 90%;">
+                    <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 50px; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0; color: #333;">Receipt Ready for Member</h3>
+                    <p style="color: #666; margin-bottom: 20px;">Ask member to scan this QR code to view their receipt and apply vouchers</p>
+                    <img src="${qrCodeUrl}" alt="Receipt QR Code" 
+                         style="width: 250px; height: 250px; border: 2px solid #28a745; border-radius: 10px; padding: 10px; margin: 20px 0;">
+                    <p style="color: #28a745; font-weight: bold; margin-bottom: 10px;" id="receiptStatus">⏳ Waiting for member to scan...</p>
+                    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Total: ${transaction.subtotal.toLocaleString()} UGX</p>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            class="btn" style="padding: 10px 20px;">
+                        Close
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Wait for member to view receipt (they will join via database)
+            waitForMemberToViewReceipt(transaction.id);
+        }
+
+        // Wait for member to view receipt
+        function waitForMemberToViewReceipt(transactionId) {
+            if (!window.supabaseDbInstance) return;
+            
+            const { supabase } = window.supabaseDbInstance;
+            
+            const viewChannel = supabase
+                .channel('receipt_view_' + transactionId)
+                .on('broadcast', { event: 'receipt_viewed' }, (payload) => {
+                    console.log("✅ Member viewed receipt!", payload);
+                    
+                    const statusEl = document.getElementById('receiptStatus');
+                    if (statusEl) {
+                        statusEl.innerHTML = '✅ Member viewed receipt!';
+                        statusEl.style.color = '#28a745';
+                    }
+                    
+                    setTimeout(() => {
+                        const modal = document.querySelector('div[style*="position: fixed"]');
+                        if (modal) modal.remove();
+                    }, 2000);
+                    
+                    viewChannel.unsubscribe();
+                })
+                .subscribe();
+            
+            setTimeout(() => {
+                viewChannel.unsubscribe();
+                const statusEl = document.getElementById('receiptStatus');
+                if (statusEl) {
+                    statusEl.innerHTML = '⏰ Timeout - please try again';
+                    statusEl.style.color = '#dc3545';
+                }
+            }, 300000);
+        }
+
+        // Member views receipt from QR
+        async function viewReceiptFromQR(receiptData) {
+            try {
+                let decodedData = receiptData;
+                try {
+                    if (receiptData.includes('%')) {
+                        decodedData = decodeURIComponent(receiptData);
+                    }
+                } catch (e) {}
+                
+                const parsed = JSON.parse(decodedData);
+                const { transactionId, memberJcId } = parsed;
+                
+                if (!clubManager.currentMember || clubManager.currentMember.jcId !== memberJcId) {
+                    showToast("Please login as the correct member first", "error");
+                    return;
+                }
+                
+                if (!window.supabaseDbInstance) return;
+                
+                const { supabase } = window.supabaseDbInstance;
+                
+                const { data: transaction, error } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('id', transactionId)
+                    .single();
+                
+                if (error || !transaction) {
+                    showToast("Transaction not found", "error");
+                    return;
+                }
+                
+                currentTransaction = {
+                    id: transaction.id,
+                    sessionId: transaction.session_id,
+                    memberJcId: transaction.member_jc_id,
+                    memberName: transaction.member_name,
+                    memberTier: transaction.member_tier,
+                    salespersonName: transaction.salesperson_name,
+                    status: transaction.status,
+                    items: JSON.parse(transaction.items || '[]'),
+                    subtotal: transaction.subtotal || 0,
+                    appliedVoucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
+                    finalTotal: transaction.final_total || 0,
+                    memberConfirmed: transaction.member_confirmed || false
+                };
+                
+                await supabase
+                    .channel('receipt_view_' + transactionId)
+                    .send({
+                        type: 'broadcast',
+                        event: 'receipt_viewed',
+                        payload: { 
+                            memberName: clubManager.currentMember.name
+                        }
+                    });
+                
+                subscribeToTransaction(transactionId);
+                
+                showMemberTransactionScreen(currentTransaction);
+                
+                showToast("Receipt loaded successfully!", "success");
+                
+            } catch (error) {
+                console.error("Error viewing receipt:", error);
+                showToast("Failed to load receipt", "error");
+            }
         }
 
         // Show member join QR after salesperson scans
@@ -4490,8 +4644,7 @@
             
             let finalTotal = currentTransaction.subtotal;
             if (currentTransaction.appliedVoucher) {
-                const amountAfterVoucher = currentTransaction.subtotal - currentTransaction.appliedVoucher.discount;
-                finalTotal = amountAfterVoucher;
+                finalTotal = currentTransaction.subtotal - currentTransaction.appliedVoucher.discount;
             }
             currentTransaction.finalTotal = finalTotal;
             
@@ -4630,22 +4783,17 @@
             showToast("Payment confirmed! Show QR to salesperson.", "success");
         }
 
-        // Send to member for confirmation (salesperson)
+        // Send to member for confirmation (salesperson) - SHOWS QR CODE
         async function sendToMemberForConfirmation() {
             if (!currentTransaction || currentTransaction.items.length === 0) return;
             
             currentTransaction.status = "awaiting_confirmation";
             await saveTransaction(currentTransaction);
             
-            broadcastToMember({
-                type: 'ready_for_confirmation',
-                items: currentTransaction.items,
-                subtotal: currentTransaction.subtotal,
-                appliedVoucher: currentTransaction.appliedVoucher,
-                finalTotal: currentTransaction.finalTotal
-            });
+            // Show QR code for member to scan
+            showReceiptQR(currentTransaction);
             
-            showToast("Sent to member for confirmation", "success");
+            showToast("QR code shown - ask member to scan", "success");
         }
 
         // Show confirmation QR for salesperson to scan
@@ -4709,7 +4857,6 @@
                 const { transactionId, memberJcId, finalTotal, appliedVoucher } = parsed;
                 
                 if (!currentTransaction || currentTransaction.id !== transactionId) {
-                    // Get transaction from database
                     if (!window.supabaseDbInstance) return;
                     
                     const { supabase } = window.supabaseDbInstance;
@@ -4741,13 +4888,14 @@
                     };
                 }
                 
-                // Complete the sale
+                // Add purchase to member's account
                 await clubManager.addPurchase(
                     currentTransaction.memberJcId,
                     finalTotal,
                     `Store purchase: ${currentTransaction.items.map(i => i.name).join(', ')}`
                 );
                 
+                // Mark voucher as used if applied
                 if (appliedVoucher) {
                     await voucherSystem.redeemVoucher(
                         appliedVoucher.code,
