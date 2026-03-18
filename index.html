@@ -1141,13 +1141,16 @@
             border: 2px solid #ddd;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 10px;
         }
 
         .btn.google img {
             width: 20px;
             height: 20px;
-            margin-right: 10px;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         }
 
         .section-title {
@@ -1253,10 +1256,12 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
         .nav-buttons .btn {
             flex: 1;
+            min-width: 120px;
         }
 
         .newsletter-checkbox {
@@ -1982,6 +1987,142 @@
             border-top: 2px dashed #333;
         }
 
+        /* Shopping Guide Styles */
+        .shopping-guide-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .guide-step {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .step-content p {
+            margin: 0;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .flow-diagram {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .flow-step {
+            position: relative;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .flow-step:not(:last-child)::after {
+            content: '→';
+            position: absolute;
+            right: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .flow-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .flow-step h4 {
+            margin: 10px 0 5px;
+            color: #333;
+        }
+
+        .flow-step p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .example-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .example-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .example-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .example-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .example-item .points {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        @media (max-width: 768px) {
+            .flow-step:not(:last-child)::after {
+                content: '↓';
+                right: 50%;
+                top: auto;
+                bottom: -25px;
+                transform: translateX(50%);
+            }
+            
+            .guide-step {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
         @media (max-width: 1024px) {
             .nav-links {
                 gap: 20px;
@@ -2040,6 +2181,10 @@
             
             .nav-buttons {
                 flex-direction: column;
+            }
+            
+            .nav-buttons .btn {
+                width: 100%;
             }
             
             .member-card {
@@ -2188,6 +2333,18 @@
 
             .quick-items-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .flow-diagram {
+                grid-template-columns: 1fr;
+            }
+            
+            .flow-step:not(:last-child)::after {
+                content: '↓';
+                right: 50%;
+                top: auto;
+                bottom: -25px;
+                transform: translateX(50%);
             }
         }
 
@@ -2471,6 +2628,7 @@
                 <li class="nav-item"><a href="#benefits" class="nav-link" onclick="showBenefits()">Benefits</a></li>
                 <li class="nav-item"><a href="#tiers" class="nav-link" onclick="showTiers()">Tiers</a></li>
                 <li class="nav-item"><a href="#vouchers" class="nav-link" onclick="showVouchersInfo()">Vouchers</a></li>
+                <li class="nav-item"><a href="#shopping" class="nav-link" onclick="showShoppingGuide()">How to Shop</a></li>
                 <li class="nav-item"><a href="#contact" class="nav-link" onclick="showContact()">Contact</a></li>
             </ul>
         </nav>
@@ -2890,6 +3048,140 @@
             
             <div style="text-align: center; margin-top: 40px;">
                 <button class="btn" onclick="showDashboardSection()">Go to Dashboard</button>
+            </div>
+        </div>
+
+        <!-- NEW: Shopping Guide Page -->
+        <div id="shoppingGuidePage" class="info-page hidden">
+            <div class="nav-buttons">
+                <button class="btn secondary" onclick="showDashboardSection()">← Back to Dashboard</button>
+            </div>
+            
+            <h1>🛍️ How to Shop with Jeans Club</h1>
+            
+            <div class="shopping-guide-steps">
+                <div class="guide-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Login to Your Account</h3>
+                        <p>Open your Jeans Club dashboard on your phone. Make sure you're logged in with your JC ID. Your membership card will be displayed with your name and tier.</p>
+                    </div>
+                </div>
+                
+                <div class="guide-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Show Your QR Code to Salesperson</h3>
+                        <p>Click "Start Shopping" button on your dashboard. A QR code will appear on your screen. Show this to the salesperson - they will scan it to begin your transaction.</p>
+                    </div>
+                </div>
+                
+                <div class="guide-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Salesperson Adds Items</h3>
+                        <p>The salesperson will scan the items you want to purchase. They will appear in your cart in real-time. You don't need to do anything - just watch your screen as items are added.</p>
+                    </div>
+                </div>
+                
+                <div class="guide-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>Apply Your Discount Voucher (Optional)</h3>
+                        <p>If you have discount vouchers, they will appear below your cart. Click "Apply Voucher" on any voucher you want to use. Only one voucher per transaction.</p>
+                    </div>
+                </div>
+                
+                <div class="guide-step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h3>Confirm Payment</h3>
+                        <p>When all items are added and you're happy with the total, click "CONFIRM PAYMENT". A new QR code will appear on your screen.</p>
+                    </div>
+                </div>
+                
+                <div class="guide-step">
+                    <div class="step-number">6</div>
+                    <div class="step-content">
+                        <h3>Show Confirmation QR to Salesperson</h3>
+                        <p>Show the confirmation QR code to the salesperson. They will scan it to complete the transaction. You'll receive points for your purchase immediately!</p>
+                    </div>
+                </div>
+            </div>
+            
+            <h2>📱 Visual Shopping Flow</h2>
+            <div class="flow-diagram">
+                <div class="flow-step">
+                    <div class="flow-icon">📱</div>
+                    <h4>Dashboard</h4>
+                    <p>Start Shopping</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-icon">🔲</div>
+                    <h4>QR Code</h4>
+                    <p>Show to salesperson</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-icon">🛒</div>
+                    <h4>Items Added</h4>
+                    <p>Watch in real-time</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-icon">🎫</div>
+                    <h4>Apply Voucher</h4>
+                    <p>Optional discount</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-icon">✅</div>
+                    <h4>Confirm Payment</h4>
+                    <p>New QR appears</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-icon">💵</div>
+                    <h4>Salesperson Scans</h4>
+                    <p>Transaction complete</p>
+                </div>
+            </div>
+            
+            <h2>💰 Points & Discount Example</h2>
+            <div class="example-box">
+                <div class="example-title">Real Shopping Example:</div>
+                <div class="example-content">
+                    <div class="example-item">
+                        <strong>You buy:</strong> 2 Jeans (130,000 UGX)
+                        <div class="points">Points earned: 130</div>
+                    </div>
+                    <div class="example-item">
+                        <strong>You apply voucher:</strong> 10% discount
+                        <div class="points">Save: 13,000 UGX</div>
+                    </div>
+                    <div class="example-item">
+                        <strong>You pay:</strong> 117,000 UGX
+                        <div class="points">Still earn: 117 points</div>
+                    </div>
+                </div>
+                <p style="margin-top: 15px; color: #666;">Note: Points are earned on the final amount you pay!</p>
+            </div>
+            
+            <h2>❓ Common Questions</h2>
+            
+            <h3>Do I need to install an app?</h3>
+            <p>No! Jeans Club works entirely in your phone's browser. Just save the website to your home screen for easy access.</p>
+            
+            <h3>What if I don't have a voucher?</h3>
+            <p>That's fine! You can still shop and earn points. Skip step 4 and confirm payment directly.</p>
+            
+            <h3>How do I earn points?</h3>
+            <p>Every 1,000 UGX you spend = 1 point. Points are automatically added after the salesperson completes the transaction.</p>
+            
+            <h3>Can I use multiple vouchers?</h3>
+            <p>No, only one voucher per transaction. Choose the one that gives you the best discount!</p>
+            
+            <h3>What if my phone battery dies?</h3>
+            <p>Don't worry! The salesperson can look up your account using your JC ID. Just remember your ID number.</p>
+            
+            <div style="text-align: center; margin-top: 40px;">
+                <button class="btn" onclick="showDashboardSection()">Try It Now → Go to Dashboard</button>
             </div>
         </div>
 
@@ -3438,6 +3730,7 @@
                 <p><a href="#" onclick="showBenefits()" style="color: #999; text-decoration: none;">Benefits</a></p>
                 <p><a href="#" onclick="showTiers()" style="color: #999; text-decoration: none;">Tiers</a></p>
                 <p><a href="#" onclick="showVouchersInfo()" style="color: #999; text-decoration: none;">Vouchers</a></p>
+                <p><a href="#" onclick="showShoppingGuide()" style="color: #999; text-decoration: none;">How to Shop</a></p>
             </div>
             
             <div class="footer-section">
@@ -7244,7 +7537,11 @@
                     
                     member.points += pointsEarned;
                     member.totalSpent += amount;
-                    member.tier = this.calculateTier(member.points);
+                    
+                    // CRITICAL FIX: Calculate tier based on TOTAL SPENT, not current points balance
+                    // This ensures members don't get downgraded when using points
+                    const totalSpentInThousands = Math.floor(member.totalSpent / 1000);
+                    member.tier = this.calculateTier(totalSpentInThousands);
                     
                     member.purchaseHistory.unshift({
                         timestamp: new Date().toISOString(),
@@ -7608,6 +7905,12 @@
             document.getElementById('vouchersInfoPage').classList.remove('hidden');
         }
 
+        // NEW: Show shopping guide
+        function showShoppingGuide() {
+            hideAllSections();
+            document.getElementById('shoppingGuidePage').classList.remove('hidden');
+        }
+
         function showContact() {
             hideAllSections();
             document.getElementById('contactInfoPage').classList.remove('hidden');
@@ -7627,7 +7930,7 @@
                 'dashboardSection', 'adminSection', 'deleteMemberSection',
                 'voucherManagementSection', 'membershipInfoPage',
                 'benefitsInfoPage', 'tiersInfoPage', 'vouchersInfoPage',
-                'contactInfoPage', 'memberTransactionScreen', 'salespersonTransactionScreen'
+                'shoppingGuidePage', 'contactInfoPage', 'memberTransactionScreen', 'salespersonTransactionScreen'
             ];
             
             sections.forEach(section => {
@@ -7660,14 +7963,17 @@
                 { name: 'PLATINUM', min: 1000000, max: Infinity }
             ];
             
+            // CRITICAL FIX: Calculate progress based on TOTAL SPENT, not current points
+            const totalSpentInThousands = Math.floor(member.totalSpent / 1000);
+            
             const currentTier = tiers.find(t => t.name === member.tier);
             const nextTier = tiers[tiers.findIndex(t => t.name === member.tier) + 1];
             
             if (nextTier) {
-                const progress = ((member.points - currentTier.min) / (nextTier.min - currentTier.min)) * 100;
+                const progress = ((totalSpentInThousands - currentTier.min) / (nextTier.min - currentTier.min)) * 100;
                 document.getElementById('progressFill').style.width = `${Math.min(progress, 100)}%`;
                 document.getElementById('tierProgressText').textContent = 
-                    `${member.points.toLocaleString()} / ${nextTier.min.toLocaleString()} points to ${nextTier.name}`;
+                    `${totalSpentInThousands.toLocaleString()} / ${nextTier.min.toLocaleString()} lifetime points to ${nextTier.name} (based on total spent)`;
             } else {
                 document.getElementById('progressFill').style.width = '100%';
                 document.getElementById('tierProgressText').textContent = 'Maximum tier reached!';
@@ -7860,24 +8166,30 @@
                     <div class="admin-card">
                         <h3>All Members (${members.length})</h3>
                         <div class="members-list">
-                            ${members.map(member => `
-                                <div class="member-item" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea;">
-                                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                                        <div>
-                                            <strong>${member.name}</strong><br>
-                                            <small>JC ID: ${member.jcId} | Tier: <span class="tier-${member.tier.toLowerCase()}">${member.tier}</span></small><br>
-                                            <small>Email: ${member.email}</small><br>
-                                            <small>Points: ${member.points.toLocaleString()} | Spent: ${member.totalSpent.toLocaleString()} UGX</small>
-                                        </div>
-                                        <div style="text-align: right;">
-                                            <small>Joined: ${new Date(member.joinedDate).toLocaleDateString()}</small><br>
-                                            <button onclick="adminAddPurchaseForMember('${member.jcId}')" class="btn" style="padding: 5px 10px; font-size: 12px; margin-top: 5px;">
-                                                Add Purchase
-                                            </button>
+                            ${members.map(member => {
+                                // Calculate tier based on total spent, not points
+                                const totalSpentInThousands = Math.floor(member.totalSpent / 1000);
+                                const displayTier = clubManager.calculateTier(totalSpentInThousands);
+                                
+                                return `
+                                    <div class="member-item" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                                            <div>
+                                                <strong>${member.name}</strong><br>
+                                                <small>JC ID: ${member.jcId} | Tier: <span class="tier-${displayTier.toLowerCase()}">${displayTier}</span> (based on total spent)</small><br>
+                                                <small>Email: ${member.email}</small><br>
+                                                <small>Current Points: ${member.points.toLocaleString()} | Total Spent: ${member.totalSpent.toLocaleString()} UGX</small>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <small>Joined: ${new Date(member.joinedDate).toLocaleDateString()}</small><br>
+                                                <button onclick="adminAddPurchaseForMember('${member.jcId}')" class="btn" style="padding: 5px 10px; font-size: 12px; margin-top: 5px;">
+                                                    Add Purchase
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     </div>
                 `;
