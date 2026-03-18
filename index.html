@@ -2788,10 +2788,9 @@
             <h3>Important Notes</h3>
             <ul>
                 <li>Points are permanent and never expire</li>
-                <li><strong style="color: #28a745;">Tiers only increase - no downgrading</strong></li>
+                <li><strong>Tiers only increase - no downgrading!</strong> Once you reach Gold, you stay Gold forever</li>
                 <li>All tiers earn at the same rate: 1 point per 1,000 UGX</li>
                 <li>All tiers redeem at the same rate: 1 point = 50 UGX</li>
-                <li>Your highest ever tier is locked in forever</li>
             </ul>
             
             <div style="text-align: center; margin-top: 40px;">
@@ -2986,7 +2985,7 @@
             A: Accumulate points through purchases and referrals to automatically progress to higher tiers.</p>
             
             <p><strong>Q: Can I be downgraded to a lower tier?</strong><br>
-            A: <strong>No, once you reach a tier, you never go down.</strong> Our system only allows tier upgrades.</p>
+            A: <strong>No, once you reach a tier, you never go down.</strong> Our system only allows tier upgrades and tracks your highest tier ever achieved.</p>
             
             <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
                 <h3>Ready to Shop?</h3>
@@ -3194,6 +3193,12 @@
                     <h3>Referral Code</h3>
                     <p id="memberReferralCode">-</p>
                 </div>
+            </div>
+
+            <div class="info-card">
+                <h3>Highest Tier Ever Achieved</h3>
+                <p id="highestTier" style="font-size: 1.2em; font-weight: bold;"></p>
+                <p style="color: #28a745; font-size: 0.9em;">🏆 You never downgrade from your highest tier!</p>
             </div>
 
             <div class="info-card">
@@ -3417,7 +3422,7 @@
                 <h3>Jeans Club</h3>
                 <p>Premium Denim Loyalty Program with Tiered Privileges for our valued members.</p>
                 <p><strong>Earn 1 point per 1,000 UGX | Redeem 1 point for 50 UGX discount</strong></p>
-                <p><strong style="color: #28a745;">✅ Tiers only increase - never downgrade!</strong></p>
+                
                 <p>Raised on Denim</p>
                 <div class="social-links">
                     <a href="https://www.tiktok.com/@jeansclubug?_r=1&_t=ZM-91wJ0p98EMG" target="_blank" class="social-link social-tiktok">
@@ -3451,11 +3456,112 @@
         </div>
         
         <div class="footer-bottom">
-            <p>&copy; 2026 Jeans Club. All rights reserved. | Premium Denim Benefits</p>
+            <p>&copy; 2026 Jeans Club. All rights reserved. | Premium Denim Benefits | <strong>Never downgrade - once you reach a tier, you stay there forever!</strong></p>
         </div>
     </footer>
 
     <script>
+        // ===========================
+        // TIER PROTECTION - NEVER DOWNGRADE
+        // ===========================
+        
+        // Tier definitions
+        const TIERS = [
+            { name: 'PEARL', min: 0, max: 7499 },
+            { name: 'BRONZE', min: 7500, max: 24999 },
+            { name: 'SILVER', min: 25000, max: 99999 },
+            { name: 'RUBY', min: 100000, max: 249999 },
+            { name: 'GOLD', min: 250000, max: 499999 },
+            { name: 'SAPPHIRE', min: 500000, max: 999999 },
+            { name: 'PLATINUM', min: 1000000, max: Infinity }
+        ];
+        
+        // Tier order for comparison (higher index = higher tier)
+        const TIER_ORDER = TIERS.map(t => t.name);
+        
+        /**
+         * Calculate tier based on points with protection against downgrading
+         * @param {number} points - Current points balance
+         * @param {string} currentTier - Current tier (if any)
+         * @param {string} highestTier - Highest tier ever achieved
+         * @returns {string} The appropriate tier (never lower than highest tier)
+         */
+        function calculateTierWithProtection(points, currentTier = null, highestTier = null) {
+            // First calculate what tier the points would normally give
+            let calculatedTier = 'PEARL';
+            
+            for (const tier of TIERS) {
+                if (points >= tier.min && points <= tier.max) {
+                    calculatedTier = tier.name;
+                    break;
+                }
+            }
+            
+            // If points are above max of all tiers, give highest tier (PLATINUM)
+            if (points >= 1000000) {
+                calculatedTier = 'PLATINUM';
+            }
+            
+            // If we have a highest tier recorded, ensure we never go below it
+            if (highestTier) {
+                const highestIndex = TIER_ORDER.indexOf(highestTier);
+                const calculatedIndex = TIER_ORDER.indexOf(calculatedTier);
+                
+                // If calculated tier is lower than highest tier, return highest tier instead
+                if (calculatedIndex < highestIndex) {
+                    console.log(`⚠️ Tier protection: Preventing downgrade from ${highestTier} to ${calculatedTier}`);
+                    return highestTier;
+                }
+            }
+            
+            // If we're moving up, update highest tier
+            return calculatedTier;
+        }
+        
+        /**
+         * Update member's tier with protection against downgrading
+         * @param {Object} member - Member object
+         * @returns {Object} Updated member with proper tier
+         */
+        function updateMemberTierWithProtection(member) {
+            if (!member) return member;
+            
+            // Initialize highest tier if not set
+            if (!member.highestTier) {
+                member.highestTier = member.tier || 'PEARL';
+            }
+            
+            // Calculate new tier based on points
+            const newTier = calculateTierWithProtection(member.points, member.tier, member.highestTier);
+            
+            // Check if we're moving to a higher tier
+            const currentIndex = TIER_ORDER.indexOf(member.tier || 'PEARL');
+            const newIndex = TIER_ORDER.indexOf(newTier);
+            
+            if (newIndex > currentIndex) {
+                // Moving up! Update highest tier
+                member.highestTier = newTier;
+                member.tier = newTier;
+                member.activityLog = member.activityLog || [];
+                member.activityLog.unshift({
+                    timestamp: new Date().toISOString(),
+                    action: 'tier_upgrade',
+                    description: `Congratulations! You've been upgraded to ${newTier} tier!`,
+                    points: 0
+                });
+            } else if (newIndex < currentIndex) {
+                // Attempting to downgrade - PREVENT IT
+                console.log(`🔒 Preventing downgrade from ${member.tier} to ${newTier}`);
+                // Keep current tier
+                member.tier = member.tier;
+            } else {
+                // Same tier, no change
+                member.tier = newTier;
+            }
+            
+            return member;
+        }
+
         // ===========================
         // GLOBAL VARIABLE DECLARATIONS
         // ===========================
@@ -5723,7 +5829,8 @@
                             purchaseHistory: purchaseHistory,
                             activityLog: activityLog,
                             challenges: [],
-                            referrals: referrals
+                            referrals: referrals,
+                            highestTier: member.highest_tier || member.tier || 'PEARL' // Track highest tier ever achieved
                         };
                     }) : [];
 
@@ -5745,29 +5852,38 @@
                 try {
                     console.log('💾 Saving member to Supabase:', member.jcId);
                     
+                    // Ensure member has highest tier tracking
+                    if (!member.highestTier) {
+                        member.highestTier = member.tier || 'PEARL';
+                    }
+                    
+                    // Apply tier protection before saving
+                    const protectedMember = updateMemberTierWithProtection(member);
+                    
                     const memberData = {
-                        id: member.id || 'member_' + Date.now(),
-                        jc_id: member.jcId,
-                        email: member.email,
-                        normalized_email: normalizeEmailForDatabase(member.email),
-                        name: member.name,
-                        password: member.password || null,
-                        points: member.points || 0,
-                        tier: member.tier || 'PEARL',
-                        referral_code: member.referralCode,
-                        referred_by: member.referredBy || null,
-                        joined_date: member.joinedDate || new Date().toISOString(),
-                        total_spent: member.totalSpent || 0,
-                        newsletter_subscribed: member.newsletterSubscribed !== false,
-                        purchasehistory: JSON.stringify(member.purchaseHistory || []),
-                        activitylog: JSON.stringify(member.activityLog || []),
-                        challenges: JSON.stringify(member.challenges || []),
-                        referrals: JSON.stringify(member.referrals || []),
-                        resettoken: member.resetToken || null,
-                        resettokenexpiry: member.resetTokenExpiry || null,
-                        ip_address: member.ip_address || 'unknown',
-                        last_login: member.lastLogin || null,
-                        created_at: member.createdAt || new Date().toISOString()
+                        id: protectedMember.id || 'member_' + Date.now(),
+                        jc_id: protectedMember.jcId,
+                        email: protectedMember.email,
+                        normalized_email: normalizeEmailForDatabase(protectedMember.email),
+                        name: protectedMember.name,
+                        password: protectedMember.password || null,
+                        points: protectedMember.points || 0,
+                        tier: protectedMember.tier || 'PEARL',
+                        highest_tier: protectedMember.highestTier || 'PEARL', // Store highest tier ever achieved
+                        referral_code: protectedMember.referralCode,
+                        referred_by: protectedMember.referredBy || null,
+                        joined_date: protectedMember.joinedDate || new Date().toISOString(),
+                        total_spent: protectedMember.totalSpent || 0,
+                        newsletter_subscribed: protectedMember.newsletterSubscribed !== false,
+                        purchasehistory: JSON.stringify(protectedMember.purchaseHistory || []),
+                        activitylog: JSON.stringify(protectedMember.activityLog || []),
+                        challenges: JSON.stringify(protectedMember.challenges || []),
+                        referrals: JSON.stringify(protectedMember.referrals || []),
+                        resettoken: protectedMember.resetToken || null,
+                        resettokenexpiry: protectedMember.resetTokenExpiry || null,
+                        ip_address: protectedMember.ip_address || 'unknown',
+                        last_login: protectedMember.lastLogin || null,
+                        created_at: protectedMember.createdAt || new Date().toISOString()
                     };
 
                     const { data, error } = await this.supabase
@@ -5869,7 +5985,8 @@
                             purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
                             activityLog: member.activitylog ? JSON.parse(member.activitylog) : [],
                             challenges: member.challenges ? JSON.parse(member.challenges) : [],
-                            referrals: member.referrals ? JSON.parse(member.referrals) : []
+                            referrals: member.referrals ? JSON.parse(member.referrals) : [],
+                            highestTier: member.highest_tier || member.tier || 'PEARL' // Track highest tier ever achieved
                         };
                     }
                     
@@ -5916,7 +6033,8 @@
                             purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
                             activityLog: member.activitylog ? JSON.parse(member.activitylog) : [],
                             challenges: member.challenges ? JSON.parse(member.challenges) : [],
-                            referrals: member.referrals ? JSON.parse(member.referrals) : []
+                            referrals: member.referrals ? JSON.parse(member.referrals) : [],
+                            highestTier: member.highest_tier || member.tier || 'PEARL'
                         };
                     }
                     
@@ -6821,6 +6939,11 @@
                     this.isAdmin = adminStatus === 'true';
                     this.currentSalesperson = salesperson;
                     
+                    // Apply tier protection on load
+                    if (this.currentMember) {
+                        this.currentMember = updateMemberTierWithProtection(this.currentMember);
+                    }
+                    
                     if (this.isAdmin) {
                         showAdminPanel();
                     } else {
@@ -6900,7 +7023,11 @@
                     if (member) {
                         this.currentMember = member;
                         this.isAdmin = false;
-                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
+                        
+                        // Apply tier protection
+                        this.currentMember = updateMemberTierWithProtection(this.currentMember);
+                        
+                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
                         localStorage.setItem('jeansClubIsAdmin', 'false');
                         
                         member.lastLogin = new Date().toISOString();
@@ -6908,8 +7035,8 @@
                         
                         const updatedMember = await this.db.getMemberByJCId(member.jcId);
                         if (updatedMember) {
-                            this.currentMember = updatedMember;
-                            localStorage.setItem('jeansClubCurrentMember', JSON.stringify(updatedMember));
+                            this.currentMember = updateMemberTierWithProtection(updatedMember);
+                            localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
                         }
                         
                         showDashboard(this.currentMember);
@@ -6926,6 +7053,7 @@
                             loginMethod: 'google',
                             points: 10,
                             tier: 'PEARL',
+                            highestTier: 'PEARL', // Initialize highest tier
                             referralCode: referralCode,
                             joinedDate: new Date().toISOString(),
                             totalSpent: 0,
@@ -6935,7 +7063,9 @@
                             challenges: [],
                             referrals: [],
                             lastLogin: new Date().toISOString(),
-                            createdAt: new Date().toISOString()
+                            createdAt: new Date().toISOString(),
+                            // Track highest tier ever achieved
+                            highestTierAchieved: 'PEARL'
                         };
                         
                         member.activityLog.unshift({
@@ -6988,13 +7118,17 @@
                         
                         this.currentMember = member;
                         this.isAdmin = false;
-                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
+                        
+                        // Apply tier protection
+                        this.currentMember = updateMemberTierWithProtection(this.currentMember);
+                        
+                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
                         localStorage.setItem('jeansClubIsAdmin', 'false');
                         
                         const updatedMember = await this.db.getMemberByJCId(member.jcId);
                         if (updatedMember) {
-                            this.currentMember = updatedMember;
-                            localStorage.setItem('jeansClubCurrentMember', JSON.stringify(updatedMember));
+                            this.currentMember = updateMemberTierWithProtection(updatedMember);
+                            localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
                         }
                         
                         showDashboard(this.currentMember);
@@ -7114,6 +7248,7 @@
                         loginMethod: 'email',
                         points: referralPoints,
                         tier: 'PEARL',
+                        highestTier: 'PEARL', // Initialize highest tier
                         referralCode: memberReferralCode,
                         referredBy: referredBy,
                         joinedDate: new Date().toISOString(),
@@ -7209,13 +7344,17 @@
                     
                     this.currentMember = member;
                     this.isAdmin = false;
-                    localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
+                    
+                    // Apply tier protection
+                    this.currentMember = updateMemberTierWithProtection(this.currentMember);
+                    
+                    localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
                     localStorage.setItem('jeansClubIsAdmin', 'false');
                     
                     const updatedMember = await this.db.getMemberByJCId(member.jcId);
                     if (updatedMember) {
-                        this.currentMember = updatedMember;
-                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(updatedMember));
+                        this.currentMember = updateMemberTierWithProtection(updatedMember);
+                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(this.currentMember));
                     }
                     
                     showDashboard(this.currentMember);
@@ -7246,15 +7385,21 @@
                     member.points += pointsEarned;
                     member.totalSpent += amount;
                     
-                    // CALCULATE NEW TIER BASED ON POINTS
+                    // Update tier with protection against downgrading
+                    const oldTier = member.tier;
+                    const oldHighestTier = member.highestTier;
+                    
+                    // Calculate new tier based on points
                     const newTier = this.calculateTier(member.points);
                     
-                    // ONLY UPDATE TIER IF NEW TIER IS HIGHER
-                    const currentTierIndex = this.getTierIndex(member.tier);
-                    const newTierIndex = this.getTierIndex(newTier);
+                    // Check if this is higher than current tier
+                    const currentIndex = TIER_ORDER.indexOf(member.tier);
+                    const newIndex = TIER_ORDER.indexOf(newTier);
                     
-                    if (newTierIndex > currentTierIndex) {
+                    if (newIndex > currentIndex) {
+                        // Moving up! Update tier and highest tier
                         member.tier = newTier;
+                        member.highestTier = newTier;
                         
                         member.activityLog.unshift({
                             timestamp: new Date().toISOString(),
@@ -7262,6 +7407,11 @@
                             description: `Congratulations! You've been upgraded to ${newTier} tier!`,
                             points: 0
                         });
+                    } else if (newIndex < currentIndex) {
+                        // Attempting to downgrade - PREVENT IT
+                        console.log(`🔒 Preventing downgrade from ${member.tier} to ${newTier}`);
+                        // Keep current tier
+                        // No change
                     }
                     
                     member.purchaseHistory.unshift({
@@ -7323,12 +7473,6 @@
                     console.error('Add purchase error:', error);
                     return { success: false, message: 'Failed to record purchase' };
                 }
-            }
-            
-            // Helper method to get tier index
-            getTierIndex(tierName) {
-                const tiers = ['PEARL', 'BRONZE', 'SILVER', 'RUBY', 'GOLD', 'SAPPHIRE', 'PLATINUM'];
-                return tiers.indexOf(tierName);
             }
 
             logout() {
@@ -7551,11 +7695,13 @@
             
             const freshMember = await clubManager.db.getMemberByJCId(member.jcId);
             if (freshMember) {
-                clubManager.currentMember = freshMember;
-                localStorage.setItem('jeansClubCurrentMember', JSON.stringify(freshMember));
-                updateMemberDashboard(freshMember);
+                // Apply tier protection before displaying
+                clubManager.currentMember = updateMemberTierWithProtection(freshMember);
+                localStorage.setItem('jeansClubCurrentMember', JSON.stringify(clubManager.currentMember));
+                updateMemberDashboard(clubManager.currentMember);
             } else {
-                updateMemberDashboard(member);
+                const protectedMember = updateMemberTierWithProtection(member);
+                updateMemberDashboard(protectedMember);
             }
         }
 
@@ -7674,6 +7820,13 @@
             document.getElementById('totalSpent').textContent = `${member.totalSpent.toLocaleString()} UGX`;
             document.getElementById('memberReferralCode').textContent = member.referralCode;
             
+            // Display highest tier ever achieved
+            const highestTierElement = document.getElementById('highestTier');
+            if (highestTierElement) {
+                highestTierElement.textContent = member.highestTier || member.tier;
+                highestTierElement.className = `tier-${(member.highestTier || member.tier).toLowerCase()}`;
+            }
+            
             const tiers = [
                 { name: 'PEARL', min: 0, max: 7499 },
                 { name: 'BRONZE', min: 7500, max: 24999 },
@@ -7694,7 +7847,7 @@
                     `${member.points.toLocaleString()} / ${nextTier.min.toLocaleString()} points to ${nextTier.name}`;
             } else {
                 document.getElementById('progressFill').style.width = '100%';
-                document.getElementById('tierProgressText').textContent = 'Maximum tier reached!';
+                document.getElementById('tierProgressText').textContent = 'Maximum tier reached! 🏆';
             }
             
             const newsletterToggle = document.getElementById('newsletterToggle');
@@ -7875,21 +8028,25 @@
             try {
                 const members = await clubManager.db.getAllMembers();
                 
-                if (members.length === 0) {
+                // Apply tier protection to all members for display
+                const protectedMembers = members.map(m => updateMemberTierWithProtection(m));
+                
+                if (protectedMembers.length === 0) {
                     adminContent.innerHTML = '<div class="activity-item">No members found</div>';
                     return;
                 }
                 
                 adminContent.innerHTML = `
                     <div class="admin-card">
-                        <h3>All Members (${members.length})</h3>
+                        <h3>All Members (${protectedMembers.length})</h3>
                         <div class="members-list">
-                            ${members.map(member => `
+                            ${protectedMembers.map(member => `
                                 <div class="member-item" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea;">
                                     <div style="display: flex; justify-content: space-between; align-items: start;">
                                         <div>
                                             <strong>${member.name}</strong><br>
-                                            <small>JC ID: ${member.jcId} | Tier: <span class="tier-${member.tier.toLowerCase()}">${member.tier}</span></small><br>
+                                            <small>JC ID: ${member.jcId} | Current Tier: <span class="tier-${member.tier.toLowerCase()}">${member.tier}</span></small><br>
+                                            <small>Highest Tier Ever: <span class="tier-${(member.highestTier || member.tier).toLowerCase()}" style="font-weight: bold; color: #28a745;">🏆 ${member.highestTier || member.tier}</span></small><br>
                                             <small>Email: ${member.email}</small><br>
                                             <small>Points: ${member.points.toLocaleString()} | Spent: ${member.totalSpent.toLocaleString()} UGX</small>
                                         </div>
@@ -8317,9 +8474,11 @@
             if (clubManager.currentMember) {
                 clubManager.db.getMemberByJCId(clubManager.currentMember.jcId).then(member => {
                     if (member) {
-                        clubManager.currentMember = member;
-                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
-                        updateMemberDashboard(member);
+                        // Apply tier protection before updating
+                        const protectedMember = updateMemberTierWithProtection(member);
+                        clubManager.currentMember = protectedMember;
+                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(protectedMember));
+                        updateMemberDashboard(protectedMember);
                         showToast('Data refreshed!', 'success');
                     }
                 });
@@ -8469,7 +8628,7 @@
                         resultsHTML += memberResults.slice(0, 5).map(member => `
                             <div class="search-result-item" onclick="showMemberDetails('${member.jcId}')">
                                 <strong>${member.name}</strong> (${member.jcId})<br>
-                                <small>Tier: ${member.tier} | Points: ${member.points} | Email: ${member.email}</small>
+                                <small>Current Tier: ${member.tier} | Highest: ${member.highestTier || member.tier} | Points: ${member.points} | Email: ${member.email}</small>
                             </div>
                         `).join('');
                     }
@@ -8528,13 +8687,14 @@
 
         window.onload = function() {
             console.log('=== PAGE LOAD START ===');
+            console.log('🚀 Tier Protection System Active - Members never downgrade!');
             
             clubManager = new ClubManager();
             
             setTimeout(() => {
                 if (clubManager) {
                     voucherSystem = clubManager.voucherSystem;
-                    console.log('Systems initialized');
+                    console.log('Systems initialized with tier protection');
                 }
                 
                 const urlParams = new URLSearchParams(window.location.search);
