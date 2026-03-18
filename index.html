@@ -2971,7 +2971,7 @@
                                 <span class="tier-badge-large sapphire">SAPPHIRE</span>
                                 <span class="tier-badge-large platinum">PLATINUM</span>
                             </div>
-                            <p style="margin-top: 15px;"><strong>⚠️ IMPORTANT:</strong> Once you reach a tier, you NEVER lose it! Your tier is based on your highest points achieved, not your current balance.</p>
+                            <p style="margin-top: 15px;"><strong>⚠️ IMPORTANT:</strong> Once you reach a tier, you NEVER lose it! Your tier is based on your highest points ever achieved, not your current balance.</p>
                         </div>
                     </div>
                 </div>
@@ -3295,7 +3295,7 @@
             </div>
             
             <h2>📈 Tier Progression</h2>
-            <p>Your tier is automatically calculated based on your highest points ever achieved. Points never expire and tiers only go up - once you reach a tier, you never downgrade!</p>
+            <p>Your tier is automatically calculated based on your <strong>highest points ever achieved</strong>. Points never expire and tiers only go up - once you reach a tier, you never downgrade!</p>
             
             <h3>How to Move Up Tiers</h3>
             <ol>
@@ -3506,7 +3506,7 @@
             A: Accumulate points through purchases and referrals to automatically progress to higher tiers.</p>
             
             <p><strong>Q: Can I be downgraded to a lower tier?</strong><br>
-            A: <strong>NO!</strong> Once you reach a tier, you never go down. Our system only allows tier upgrades based on your highest points ever achieved.</p>
+            A: <strong>NO!</strong> Once you reach a tier, you never go down. Your tier is based on your <strong>highest points ever achieved</strong>, not your current balance. This means even after you spend your points, your tier stays the same!</p>
             
             <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
                 <h3>Ready to Shop?</h3>
@@ -3643,7 +3643,7 @@
                 <button class="btn" onclick="openMemberScanner()" id="memberScannerBtn">📷 Scan QR</button>
             </div>
             
-            <!-- 🔥 NEW: Resume Transaction Button (appears when there's a pending transaction) -->
+            <!-- Resume Transaction Button (appears when there's a pending transaction) -->
             <div id="resumeTransactionSection" class="hidden" style="margin-top: 10px; margin-bottom: 20px;">
                 <div class="info-card" style="border-left-color: #28a745; background: #e8f5e8;">
                     <h3 style="color: #28a745; margin-top: 0;">⏳ Pending Transaction</h3>
@@ -3701,6 +3701,7 @@
                 <div class="info-card">
                     <h3>Current Tier</h3>
                     <p id="memberTier">-</p>
+                    <p style="font-size: 12px; color: #28a745; margin-top: 5px;">✅ Based on highest points: <span id="highestPoints">-</span></p>
                 </div>
                 <div class="info-card">
                     <h3>Points Balance</h3>
@@ -3776,7 +3777,6 @@
         <!-- MEMBER TRANSACTION SCREEN (Beautiful Receipt Page) -->
         <div id="memberTransactionScreen" class="card hidden">
             <div class="nav-buttons">
-                <!-- 🔥 FIXED: Use goBackFromTransaction instead of cancelTransaction -->
                 <button class="btn secondary" onclick="goBackFromTransaction()">← Back to Dashboard</button>
                 <button class="btn" onclick="explicitCancelTransaction()" style="background: #dc3545;">✖ Cancel Transaction</button>
             </div>
@@ -3987,10 +3987,33 @@
         let currentTransaction = null;
         let transactionSubscription = null;
         
-        // 🔥 NEW: Navigation flags to prevent transaction cancellation
+        // Navigation flags to prevent transaction cancellation
         let isNavigatingToScanner = false;
         let isInTransactionFlow = false;
         
+        // ===========================
+        // TIER CALCULATION FUNCTION (USES HIGHEST POINTS)
+        // ===========================
+        
+        function calculateTierFromPoints(points) {
+            const tiers = [
+                { name: 'PEARL', min: 0, max: 7499 },
+                { name: 'BRONZE', min: 7500, max: 24999 },
+                { name: 'SILVER', min: 25000, max: 99999 },
+                { name: 'RUBY', min: 100000, max: 249999 },
+                { name: 'GOLD', min: 250000, max: 499999 },
+                { name: 'SAPPHIRE', min: 500000, max: 999999 },
+                { name: 'PLATINUM', min: 1000000, max: Infinity }
+            ];
+            
+            for (const tier of tiers) {
+                if (points >= tier.min && points <= tier.max) {
+                    return tier.name;
+                }
+            }
+            return 'PEARL';
+        }
+
         // ===========================
         // CAMERA SCANNER FUNCTIONALITY
         // ===========================
@@ -4020,7 +4043,7 @@
             initScanner();
         }
 
-        // 🔥 FIXED: Open camera scanner for member with navigation flag
+        // Open camera scanner for member with navigation flag
         function openMemberScanner() {
             if (!clubManager.currentMember) {
                 showToast("Please login first", "error");
@@ -4351,7 +4374,7 @@
             statusElement.className = 'scan-status' + (active ? ' active' : '');
         }
 
-        // 🔥 FIXED: Close camera scanner and reset navigation flag
+        // Close camera scanner and reset navigation flag
         function closeCameraScanner() {
             const modal = document.getElementById('cameraScannerModal');
             modal.classList.remove('active');
@@ -4981,7 +5004,7 @@
             }
         }
 
-        // Handle member confirmed - show QR for salesperson to scan
+        // Handle member confirmed - shows QR for salesperson to scan
         function handleMemberConfirmed(payload) {
             if (currentTransaction) {
                 currentTransaction.memberConfirmed = true;
@@ -5653,7 +5676,7 @@
                 });
         }
 
-        // 🔥 FIXED: Cancel transaction with navigation protection
+        // Cancel transaction with navigation protection
         async function cancelTransaction(ignoreIfNoTransaction = false) {
             console.log("⚠️ cancelTransaction called at:", new Date().toISOString());
             console.log("Current transaction:", currentTransaction);
@@ -5692,7 +5715,7 @@
             showToast("Transaction cancelled", "info");
         }
 
-        // 🔥 NEW: Go back to dashboard but keep transaction alive
+        // Go back to dashboard but keep transaction alive
         function goBackFromTransaction() {
             console.log("🔙 Going back to dashboard - preserving transaction");
             
@@ -5711,7 +5734,7 @@
             showToast("Transaction paused - you can resume by clicking 'Resume Transaction'", "info");
         }
 
-        // 🔥 NEW: Check for pending transaction on dashboard load
+        // Check for pending transaction on dashboard load
         function checkForPendingTransaction() {
             if (currentTransaction && currentTransaction.status !== 'cancelled' && currentTransaction.status !== 'completed') {
                 document.getElementById('resumeTransactionSection').classList.remove('hidden');
@@ -5720,7 +5743,7 @@
             }
         }
 
-        // 🔥 NEW: Resume transaction
+        // Resume transaction
         function resumeTransaction() {
             if (currentTransaction) {
                 showMemberTransactionScreen(currentTransaction);
@@ -5728,7 +5751,7 @@
             }
         }
 
-        // 🔥 NEW: Explicitly cancel transaction with confirmation
+        // Explicitly cancel transaction with confirmation
         function explicitCancelTransaction() {
             if (confirm("Are you sure you want to cancel this transaction? This cannot be undone.")) {
                 cancelTransaction();
@@ -7357,29 +7380,6 @@
         }
 
         // ===========================
-        // TIER CALCULATION FUNCTION (USES HIGHEST POINTS)
-        // ===========================
-        
-        function calculateTierFromPoints(points) {
-            const tiers = [
-                { name: 'PEARL', min: 0, max: 7499 },
-                { name: 'BRONZE', min: 7500, max: 24999 },
-                { name: 'SILVER', min: 25000, max: 99999 },
-                { name: 'RUBY', min: 100000, max: 249999 },
-                { name: 'GOLD', min: 250000, max: 499999 },
-                { name: 'SAPPHIRE', min: 500000, max: 999999 },
-                { name: 'PLATINUM', min: 1000000, max: Infinity }
-            ];
-            
-            for (const tier of tiers) {
-                if (points >= tier.min && points <= tier.max) {
-                    return tier.name;
-                }
-            }
-            return 'PEARL';
-        }
-
-        // ===========================
         // CLUB MANAGER IMPLEMENTATION
         // ===========================
         
@@ -8118,7 +8118,7 @@
             document.head.appendChild(style);
         }
 
-        // 🔥 FIXED: Show dashboard with pending transaction check
+        // Show dashboard with pending transaction check
         async function showDashboard(member) {
             hideAllSections();
             document.getElementById('dashboardSection').classList.remove('hidden');
@@ -8258,6 +8258,9 @@
             document.getElementById('memberTier').className = `tier-${member.tier.toLowerCase()}`;
             document.getElementById('totalSpent').textContent = `${member.totalSpent.toLocaleString()} UGX`;
             document.getElementById('memberReferralCode').textContent = member.referralCode;
+            
+            // Show highest points
+            document.getElementById('highestPoints').textContent = member.highestPoints?.toLocaleString() || member.points.toLocaleString();
             
             const tiers = [
                 { name: 'PEARL', min: 0, max: 7499 },
@@ -8719,7 +8722,8 @@
                     <strong>Discount value:</strong> ${discountValue.toLocaleString()} UGX<br>
                     <strong>Approx. percentage:</strong> ${discountPercentage.toFixed(1)}% off<br>
                     <strong>New points balance:</strong> ${clubManager.currentMember.points - points} points<br>
-                    <strong>Highest points (for tier):</strong> ${clubManager.currentMember.highestPoints || clubManager.currentMember.points} points
+                    <strong>Highest points (for tier):</strong> ${clubManager.currentMember.highestPoints || clubManager.currentMember.points} points<br>
+                    <strong>Your tier remains:</strong> ${clubManager.currentMember.tier} (even after spending points!)
                 </div>
             `;
         }
@@ -8774,11 +8778,10 @@
                     discountPercentage
                 );
                 
+                // Subtract points but KEEP highestPoints unchanged
                 clubManager.currentMember.points -= points;
-                clubManager.currentMember.highestPoints = Math.max(
-                    clubManager.currentMember.highestPoints || 0,
-                    clubManager.currentMember.points
-                );
+                // highestPoints remains the same - tier won't drop!
+                
                 clubManager.currentMember.activityLog.unshift({
                     timestamp: new Date().toISOString(),
                     action: 'voucher_created',
@@ -8825,6 +8828,10 @@
                                     <td>${new Date(voucher.expiryDate).toLocaleDateString()}</td>
                                 </tr>
                             </table>
+                        </div>
+                        
+                        <div class="info-card" style="background: #e7f3ff; margin-top: 15px;">
+                            <p style="margin: 0;"><strong>🎯 TIER PROTECTION:</strong> Your tier remains <strong>${clubManager.currentMember.tier}</strong> (based on ${clubManager.currentMember.highestPoints} highest points)</p>
                         </div>
                         
                         <div style="display: flex; gap: 10px; margin-top: 15px;">
@@ -9061,7 +9068,7 @@
                         resultsHTML += memberResults.slice(0, 5).map(member => `
                             <div class="search-result-item" onclick="showMemberDetails('${member.jcId}')">
                                 <strong>${member.name}</strong> (${member.jcId})<br>
-                                <small>Tier: ${member.tier} | Points: ${member.points} | Email: ${member.email}</small>
+                                <small>Tier: ${member.tier} | Points: ${member.points} | Highest: ${member.highestPoints} | Email: ${member.email}</small>
                             </div>
                         `).join('');
                     }
