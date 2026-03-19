@@ -3819,9 +3819,9 @@
         <div class="footer-content">
             <div class="footer-section">
                 <h3>Jeans Club</h3>
-                <p>Premium Denim Loyalty Program with Tiered Privileges for our valued members.</p>
+                <p>Premium Denim Program with Tiered Privileges for our valued members.</p>
                 <p><strong>Earn 1 point per 1,000 UGX | Redeem 1 point for 50 UGX discount</strong></p>
-                <p><strong>Tiers based on lifetime points - never downgrade!</strong></p>
+                <p><strong>Tiers based on lifetime points - Never downgrade...Ever!</strong></p>
                 
                 <p>Raised on Denim</p>
                 <div class="social-links">
@@ -3850,13 +3850,13 @@
                 <h3>Contact</h3>
                 <p>Email: oliviakamukama@gmail.com</p>
                 <p>Phone: +256 772558913</p>
-                <p>Hours: Mon-Saturday 8AM-9PM</p>
+                <p>Hours: Mon-Saturday 7AM-9PM</p>
                 <p>📍 Kampala, Uganda</p>
             </div>
         </div>
         
         <div class="footer-bottom">
-            <p>&copy; 2026 Jeans Club. All rights reserved. | Premium Denim Benefits | No Tier Downgrading - Ever!</p>
+            <p>&copy; 2026 Jeans Club. All rights reserved | Raised On Denim. </p>
         </div>
     </footer>
 
@@ -7441,26 +7441,18 @@
                 return code;
             }
 
-            calculateTier(member) {
-                const points = member.lifetimePoints || member.points || 0;
-                
-                const tiers = [
-                    { name: 'PEARL', min: 0, max: 7499 },
-                    { name: 'BRONZE', min: 7500, max: 24999 },
-                    { name: 'SILVER', min: 25000, max: 99999 },
-                    { name: 'RUBY', min: 100000, max: 249999 },
-                    { name: 'GOLD', min: 250000, max: 499999 },
-                    { name: 'SAPPHIRE', min: 500000, max: 999999 },
-                    { name: 'PLATINUM', min: 1000000, max: Infinity }
-                ];
-                
-                for (const tier of tiers) {
-                    if (points >= tier.min && points <= tier.max) {
-                        return tier.name;
-                    }
-                }
-                return 'PEARL';
-            }
+           calculateTier(member) {
+    // ONLY use lifetimePoints for tier calculation
+    const points = member.lifetimePoints || 0;
+    
+    if (points >= 1000000) return 'PLATINUM';
+    if (points >= 500000) return 'SAPPHIRE';
+    if (points >= 250000) return 'GOLD';
+    if (points >= 100000) return 'RUBY';
+    if (points >= 25000) return 'SILVER';
+    if (points >= 7500) return 'BRONZE';
+    return 'PEARL';
+}
 
             async signUpWithEmail(name, email, password, referralCode = null) {
                 try {
@@ -7649,87 +7641,109 @@
                     return false;
                 }
             }
-
-            async addPurchase(jcId, amount, description) {
-                try {
-                    if (!jcId || !amount || amount <= 0) {
-                        return { success: false, message: 'Invalid purchase data' };
-                    }
+async addPurchase(jcId, amount, description) {
+    try {
+        if (!jcId || !amount || amount <= 0) {
+            return { success: false, message: 'Invalid purchase data' };
+        }
+        
+        const member = await this.db.getMemberByJCId(jcId.toUpperCase());
+        if (!member) {
+            return { success: false, message: 'Member not found' };
+        }
+        
+        const pointsEarned = Math.floor(amount / 1000);
+        
+        // SIMPLE LOGIC:
+        // 1. Add to current points (spendable balance)
+        member.points += pointsEarned;
+        
+        // 2. Add to lifetime points (total ever earned - NEVER decreases)
+        member.lifetimePoints = (member.lifetimePoints || 0) + pointsEarned;
+        
+        // 3. Update total spent
+        member.totalSpent += amount;
+        
+        // 4. Calculate tier based ONLY on lifetime points
+        const tiers = [
+            { name: 'PEARL', min: 0, max: 7499 },
+            { name: 'BRONZE', min: 7500, max: 24999 },
+            { name: 'SILVER', min: 25000, max: 99999 },
+            { name: 'RUBY', min: 100000, max: 249999 },
+            { name: 'GOLD', min: 250000, max: 499999 },
+            { name: 'SAPPHIRE', min: 500000, max: 999999 },
+            { name: 'PLATINUM', min: 1000000, max: Infinity }
+        ];
+        
+        for (const tier of tiers) {
+            if (member.lifetimePoints >= tier.min && member.lifetimePoints <= tier.max) {
+                member.tier = tier.name;
+                break;
+            }
+        }
+        
+        // Rest of your code remains the same...
+        member.purchaseHistory.unshift({
+            timestamp: new Date().toISOString(),
+            amount: amount,
+            description: description || 'Purchase',
+            pointsEarned: pointsEarned
+        });
+        
+        member.activityLog.unshift({
+            timestamp: new Date().toISOString(),
+            action: 'purchase',
+            description: `Purchase: ${description || 'Item'} - ${amount.toLocaleString()} UGX`,
+            points: pointsEarned
+        });
+        
+        if (member.referredBy) {
+            const referrer = await this.db.getMemberByJCId(member.referredBy);
+            if (referrer) {
+                const referral = referrer.referrals.find(r => r.referredJCId === member.jcId);
+                if (referral && referral.status === 'pending') {
+                    referral.status = 'completed';
+                    referral.completionDate = new Date().toISOString();
                     
-                    const member = await this.db.getMemberByJCId(jcId.toUpperCase());
-                    if (!member) {
-                        return { success: false, message: 'Member not found' };
-                    }
-                    
-                    const pointsEarned = Math.floor(amount / 1000);
-                    
-                    member.points += pointsEarned;
-                    member.lifetimePoints = (member.lifetimePoints || 0) + pointsEarned;
-                    member.totalSpent += amount;
-                    
-                    member.tier = this.calculateTier(member);
-                    
-                    member.purchaseHistory.unshift({
+                    referrer.points += 100;
+                    referrer.lifetimePoints = (referrer.lifetimePoints || 0) + 100;
+                    referrer.activityLog.unshift({
                         timestamp: new Date().toISOString(),
-                        amount: amount,
-                        description: description || 'Purchase',
-                        pointsEarned: pointsEarned
+                        action: 'referral_completed',
+                        description: `Referral completed: ${member.name}`,
+                        points: 100
                     });
                     
-                    member.activityLog.unshift({
-                        timestamp: new Date().toISOString(),
-                        action: 'purchase',
-                        description: `Purchase: ${description || 'Item'} - ${amount.toLocaleString()} UGX`,
-                        points: pointsEarned
+                    await this.db.saveMember(referrer);
+                    
+                    this.emailService.sendReferralEmail(referrer.email, referrer, {
+                        referredName: member.name,
+                        pointsEarned: 100
                     });
-                    
-                    if (member.referredBy) {
-                        const referrer = await this.db.getMemberByJCId(member.referredBy);
-                        if (referrer) {
-                            const referral = referrer.referrals.find(r => r.referredJCId === member.jcId);
-                            if (referral && referral.status === 'pending') {
-                                referral.status = 'completed';
-                                referral.completionDate = new Date().toISOString();
-                                
-                                referrer.points += 100;
-                                referrer.lifetimePoints = (referrer.lifetimePoints || 0) + 100;
-                                referrer.activityLog.unshift({
-                                    timestamp: new Date().toISOString(),
-                                    action: 'referral_completed',
-                                    description: `Referral completed: ${member.name}`,
-                                    points: 100
-                                });
-                                
-                                await this.db.saveMember(referrer);
-                                
-                                this.emailService.sendReferralEmail(referrer.email, referrer, {
-                                    referredName: member.name,
-                                    pointsEarned: 100
-                                });
-                            }
-                        }
-                    }
-                    
-                    await this.db.saveMember(member);
-                    
-                    this.emailService.sendPurchaseEmail(member.email, member, {
-                        amount: amount,
-                        description: description,
-                        pointsEarned: pointsEarned,
-                        newBalance: member.points
-                    });
-                    
-                    return {
-                        success: true,
-                        message: `Purchase recorded! ${pointsEarned} points added.`,
-                        member: member
-                    };
-                    
-                } catch (error) {
-                    console.error('Add purchase error:', error);
-                    return { success: false, message: 'Failed to record purchase' };
                 }
             }
+        }
+        
+        await this.db.saveMember(member);
+        
+        this.emailService.sendPurchaseEmail(member.email, member, {
+            amount: amount,
+            description: description,
+            pointsEarned: pointsEarned,
+            newBalance: member.points
+        });
+        
+        return {
+            success: true,
+            message: `Purchase recorded! ${pointsEarned} points added.`,
+            member: member
+        };
+        
+    } catch (error) {
+        console.error('Add purchase error:', error);
+        return { success: false, message: 'Failed to record purchase' };
+    }
+}
 
             logout() {
                 this.currentMember = null;
@@ -9182,6 +9196,27 @@
                 }
                 
                 console.log('✅ Safe dashboard update complete');
+
+// Load vouchers and activity - ADD THESE LINES RIGHT HERE
+if (member && member.jcId) {
+    setTimeout(() => {
+        if (typeof updateMemberVouchers === 'function') {
+            updateMemberVouchers(member.jcId);
+        }
+        if (typeof updateActivityLog === 'function') {
+            updateActivityLog(member);
+        }
+        // Update referral stats
+        if (document.getElementById('referralStats')) {
+            const referredCount = member.referrals ? member.referrals.filter(r => r.status === 'completed').length : 0;
+            const pendingCount = member.referrals ? member.referrals.filter(r => r.status === 'pending').length : 0;
+            document.getElementById('referralStats').innerHTML = `
+                <strong>Completed Referrals:</strong> ${referredCount} (${referredCount * 100} points)<br>
+                <strong>Pending Referrals:</strong> ${pendingCount}
+            `;
+        }
+    }, 200);
+}
             };
             
             // Override updateMemberDashboard
