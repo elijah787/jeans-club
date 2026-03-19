@@ -1982,6 +1982,200 @@
             border-top: 2px dashed #333;
         }
 
+        /* Tutorial Page Styles */
+        .tutorial-page {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 40px;
+            margin: 20px auto;
+            max-width: 1200px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .tutorial-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .tutorial-header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .tutorial-header p {
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .tutorial-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .tutorial-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-top: 4px solid #667eea;
+            transition: transform 0.3s ease;
+        }
+
+        .tutorial-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .tutorial-card.member {
+            border-top-color: #28a745;
+        }
+
+        .tutorial-card.staff {
+            border-top-color: #ffc107;
+        }
+
+        .tutorial-icon {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .tutorial-card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        .tutorial-card h3 {
+            color: #667eea;
+            margin: 20px 0 10px;
+            font-size: 1.2em;
+        }
+
+        .tutorial-card.member h3 {
+            color: #28a745;
+        }
+
+        .tutorial-card.staff h3 {
+            color: #ffc107;
+        }
+
+        .tutorial-card ol, .tutorial-card ul {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        .tutorial-card li {
+            margin-bottom: 10px;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .tutorial-card .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .tutorial-card .note strong {
+            color: #856404;
+        }
+
+        .tutorial-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .step {
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .step.member .step-number {
+            background: #28a745;
+        }
+
+        .step.staff .step-number {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content p {
+            margin: 5px 0;
+        }
+
+        .step-content .tip {
+            background: #e7f3ff;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            color: #2196F3;
+            margin-top: 8px;
+        }
+
+        .tutorial-footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .tutorial-footer .btn {
+            display: inline-block;
+            width: auto;
+            padding: 12px 30px;
+            margin: 10px;
+        }
+
+        .faq-section {
+            margin-top: 40px;
+        }
+
+        .faq-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .faq-question {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .faq-answer {
+            color: #666;
+            line-height: 1.5;
+        }
+
         @media (max-width: 1024px) {
             .nav-links {
                 gap: 20px;
@@ -2125,6 +2319,10 @@
             .quick-items-grid {
                 grid-template-columns: 1fr 1fr;
             }
+
+            .tutorial-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 480px) {
@@ -2188,6 +2386,10 @@
 
             .quick-items-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .step {
+                flex-direction: column;
             }
         }
 
@@ -2471,6 +2673,7 @@
                 <li class="nav-item"><a href="#benefits" class="nav-link" onclick="showBenefits()">Benefits</a></li>
                 <li class="nav-item"><a href="#tiers" class="nav-link" onclick="showTiers()">Tiers</a></li>
                 <li class="nav-item"><a href="#vouchers" class="nav-link" onclick="showVouchersInfo()">Vouchers</a></li>
+                <li class="nav-item"><a href="#tutorial" class="nav-link" onclick="showTutorial()">📚 Tutorial</a></li>
                 <li class="nav-item"><a href="#contact" class="nav-link" onclick="showContact()">Contact</a></li>
             </ul>
         </nav>
@@ -2482,6 +2685,204 @@
     </section>
 
     <div class="container" id="main-content">
+        <!-- Tutorial Page - New Section -->
+        <div id="tutorialPage" class="tutorial-page hidden">
+            <div class="nav-buttons">
+                <button class="btn secondary" onclick="showDashboardSection()">← Back to Dashboard</button>
+            </div>
+            
+            <div class="tutorial-header">
+                <h1>📚 How to Use Jeans Club</h1>
+                <p>Complete guide for members and staff</p>
+            </div>
+            
+            <div class="tutorial-grid">
+                <!-- Member Guide -->
+                <div class="tutorial-card member">
+                    <div class="tutorial-icon">👤</div>
+                    <h2>For Members</h2>
+                    
+                    <div class="tutorial-steps">
+                        <div class="step member">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h3>Create Your Account</h3>
+                                <p>Sign up with email or Google to get your unique JC ID and 10 welcome points.</p>
+                                <p class="tip">💡 Use a real email to receive important updates and vouchers</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step member">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h3>Earn Points</h3>
+                                <p>Every 1,000 UGX spent = 1 point. Points never expire!</p>
+                                <p class="tip">💡 Refer friends with your code to earn 100 bonus points</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step member">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h3>Create Discount Vouchers</h3>
+                                <p>Go to Dashboard → Enter points (min 4) → Click "Generate Discount Voucher"</p>
+                                <p class="tip">💡 Each point = 50 UGX discount. Vouchers valid for 30 days</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step member">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h3>How to Shop</h3>
+                                <p>Option A: Click "🛍️ Start Shopping" and show QR to salesperson</p>
+                                <p>Option B: Salesperson scans your QR to start transaction</p>
+                                <p class="tip">💡 You'll receive a receipt on your phone to apply vouchers</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step member">
+                            <div class="step-number">5</div>
+                            <div class="step-content">
+                                <h3>Apply Vouchers & Confirm</h3>
+                                <p>On the receipt screen, click "Apply Voucher" then "Confirm Payment"</p>
+                                <p>Show the confirmation QR to salesperson to complete purchase</p>
+                                <p class="tip">💡 Points are deducted only when you create vouchers, not when you use them</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="note">
+                        <strong>🌟 Important:</strong> Your tier is based on lifetime points (total earned, not current balance). You never lose tier status when redeeming points!
+                    </div>
+                </div>
+                
+                <!-- Staff Guide -->
+                <div class="tutorial-card staff">
+                    <div class="tutorial-icon">👔</div>
+                    <h2>For Staff</h2>
+                    
+                    <div class="tutorial-steps">
+                        <div class="step staff">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h3>Staff Login</h3>
+                                <p>Click "Staff Login" and enter:</p>
+                                <p>JC ID: <strong>admin</strong><br>Password: <strong>jeansclub2024</strong></p>
+                                <p class="tip">💡 Enter your name when prompted</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step staff">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h3>Start a Transaction</h3>
+                                <p>Click "📷 Scan Member QR Code" and scan member's QR</p>
+                                <p>OR manually enter JC ID in "Add Purchase" section</p>
+                                <p class="tip">💡 Member must show QR from their "Start Shopping" button</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step staff">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h3>Add Items to Cart</h3>
+                                <p>Use quick buttons or enter custom items with price</p>
+                                <p>Items appear in cart with running total</p>
+                                <p class="tip">💡 You can remove items by clicking ✖</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step staff">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h3>Send to Member</h3>
+                                <p>Click "📱 Send to Member" to generate QR code</p>
+                                <p>Ask member to scan with their phone to view receipt and apply vouchers</p>
+                                <p class="tip">💡 This allows members to choose their discount vouchers</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step staff">
+                            <div class="step-number">5</div>
+                            <div class="step-content">
+                                <h3>Complete the Sale</h3>
+                                <p>After member confirms payment, they'll show a confirmation QR</p>
+                                <p>Click "💵 Scan Member Confirmation" to scan and complete</p>
+                                <p class="tip">💡 Points are automatically added to member's account</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step staff">
+                            <div class="step-number">6</div>
+                            <div class="step-content">
+                                <h3>Redeem Vouchers</h3>
+                                <p>In "Scan & Redeem Voucher" section:</p>
+                                <p>Scan voucher QR or enter code manually</p>
+                                <p>Enter your name and click "Redeem Voucher"</p>
+                                <p class="tip">💡 Vouchers can only be used once and expire after 30 days</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="note">
+                        <strong>🔔 Staff Tips:</strong> Always verify member identity. Transactions can be paused and resumed. Use "Refresh Data" to see updated member info.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- FAQ Section -->
+            <div class="faq-section">
+                <h2 style="text-align: center; margin-bottom: 30px;">❓ Frequently Asked Questions</h2>
+                
+                <div class="faq-item">
+                    <div class="faq-question">Q: How do I know my tier?</div>
+                    <div class="faq-answer">A: Your tier is displayed on your dashboard and membership card. It's based on lifetime points (total earned, not current balance).</div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">Q: Can I lose my tier if I use points?</div>
+                    <div class="faq-answer">A: No! Your tier is based on lifetime points earned, which never decrease. You keep your tier forever once achieved.</div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">Q: How do I create a voucher?</div>
+                    <div class="faq-answer">A: On your dashboard, enter points (minimum 4) in the "Create Discount Voucher" section, click Calculate, then Generate. Each voucher has a unique QR code.</div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">Q: How long are vouchers valid?</div>
+                    <div class="faq-answer">A: Vouchers are valid for 30 days from creation. Expired vouchers are automatically cleaned up.</div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">Q: Can I use multiple vouchers in one transaction?</div>
+                    <div class="faq-answer">A: No, only one voucher can be used per transaction. Choose your best discount!</div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">Q: What if I lose my voucher QR?</div>
+                    <div class="faq-answer">A: You can always view your active vouchers in the dashboard and click "Show QR" to display them again.</div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">Q: How do referrals work?</div>
+                    <div class="faq-answer">A: Share your referral code with friends. When they sign up and make their first purchase, you get 100 bonus points!</div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">Q: What if a transaction is interrupted?</div>
+                    <div class="faq-answer">A: No problem! You'll see a "Resume Transaction" button on your dashboard. Click it to continue where you left off.</div>
+                </div>
+            </div>
+            
+            <div class="tutorial-footer">
+                <h3>Ready to start?</h3>
+                <button class="btn" onclick="showDashboardSection()">Go to Dashboard</button>
+                <button class="btn secondary" onclick="showSignupScreen()">Create Account</button>
+                <button class="btn secondary" onclick="showLoginScreen()">Login</button>
+            </div>
+        </div>
+
         <!-- Information Pages -->
         <div id="membershipInfoPage" class="info-page hidden">
             <div class="nav-buttons">
@@ -2775,7 +3176,7 @@
             </div>
             
             <h2>📈 Tier Progression</h2>
-            <p>Your tier is automatically calculated based on your total points. Points never expire and tiers only go up - once you reach a tier, you never downgrade!</p>
+            <p>Your tier is automatically calculated based on your total lifetime points earned. Points never expire and tiers only go up - once you reach a tier, you never downgrade!</p>
             
             <h3>How to Move Up Tiers</h3>
             <ol>
@@ -2788,6 +3189,7 @@
             <h3>Important Notes</h3>
             <ul>
                 <li>Points are permanent and never expire</li>
+                <li><strong>Lifetime points determine your tier - redeeming points does not lower your tier!</strong></li>
                 <li>Tiers only increase - no downgrading</li>
                 <li>All tiers earn at the same rate: 1 point per 1,000 UGX</li>
                 <li>All tiers redeem at the same rate: 1 point = 50 UGX</li>
@@ -2980,9 +3382,12 @@
             <p><strong>Q: Do points expire?</strong><br>
             A: No, your points never expire as long as your account remains active.</p>
             
+            <p><strong>Q: Does redeeming points lower my tier?</strong><br>
+            A: No! Your tier is based on lifetime points earned, not your current balance. You never lose tier status.</p>
+            
             <h3>Tier System</h3>
             <p><strong>Q: How do I move to a higher tier?</strong><br>
-            A: Accumulate points through purchases and referrals to automatically progress to higher tiers.</p>
+            A: Accumulate lifetime points through purchases and referrals to automatically progress to higher tiers.</p>
             
             <p><strong>Q: Can I be downgraded to a lower tier?</strong><br>
             A: No, once you reach a tier, you never go down. Our system only allows tier upgrades.</p>
@@ -3190,13 +3595,13 @@
                     <p id="totalSpent">- UGX</p>
                 </div>
                 <div class="info-card">
-                    <h3>Referral Code</h3>
-                    <p id="memberReferralCode">-</p>
+                    <h3>Lifetime Points</h3>
+                    <p id="lifetimePoints">-</p>
                 </div>
             </div>
 
             <div class="info-card">
-                <h3>Tier Progress</h3>
+                <h3>Tier Progress (Based on Lifetime Points)</h3>
                 <div class="progress-bar">
                     <div id="progressFill" class="progress-fill" style="width: 0%"></div>
                 </div>
@@ -3207,7 +3612,7 @@
                 <h3>Points System</h3>
                 <p><strong>Earn:</strong> 1 point for every 1,000 UGX spent</p>
                 <p><strong>Redeem:</strong> 1 point = 50 UGX discount</p>
-                <p><small>All tiers earn at the same rate</small></p>
+                <p><strong>Lifetime Points:</strong> Your tier is based on lifetime points, which never decrease</p>
             </div>
 
             <div class="info-card">
@@ -3416,6 +3821,7 @@
                 <h3>Jeans Club</h3>
                 <p>Premium Denim Loyalty Program with Tiered Privileges for our valued members.</p>
                 <p><strong>Earn 1 point per 1,000 UGX | Redeem 1 point for 50 UGX discount</strong></p>
+                <p><strong>Tiers based on lifetime points - never downgrade!</strong></p>
                 
                 <p>Raised on Denim</p>
                 <div class="social-links">
@@ -3450,7 +3856,7 @@
         </div>
         
         <div class="footer-bottom">
-            <p>&copy; 2026 Jeans Club. All rights reserved. | Premium Denim Benefits</p>
+            <p>&copy; 2026 Jeans Club. All rights reserved. | Premium Denim Benefits | No Tier Downgrading - Ever!</p>
         </div>
     </footer>
 
@@ -3464,7 +3870,7 @@
         let currentTransaction = null;
         let transactionSubscription = null;
         
-        // 🔥 NEW: Navigation flags to prevent transaction cancellation
+        // Navigation flags to prevent transaction cancellation
         let isNavigatingToScanner = false;
         let isInTransactionFlow = false;
         
@@ -3477,7 +3883,7 @@
         let scannerFacingMode = 'environment';
         let scannerCameras = [];
         let scannerCanvasContext = null;
-        let scannerMode = 'member'; // 'member', 'voucher', 'member_join', or 'confirm_sale'
+        let scannerMode = 'member';
 
         // Open camera scanner for member QR (Salesperson)
         function openCameraScanner() {
@@ -3497,14 +3903,13 @@
             initScanner();
         }
 
-        // 🔥 FIXED: Open camera scanner for member with navigation flag
+        // Open camera scanner for member with navigation flag
         function openMemberScanner() {
             if (!clubManager.currentMember) {
                 showToast("Please login first", "error");
                 return;
             }
 
-            // Set flag to prevent cancellation during navigation
             isNavigatingToScanner = true;
             isInTransactionFlow = true;
 
@@ -3750,7 +4155,6 @@
                 closeCameraScanner();
                 
                 try {
-                    // Try to decode if URL encoded
                     let decodedData = qrData;
                     try {
                         if (qrData.includes('%')) {
@@ -3758,12 +4162,9 @@
                         }
                     } catch (e) {}
                     
-                    // Try to parse as JSON
                     const parsed = JSON.parse(decodedData);
                     
-                    // Check what type of QR this is
                     if (parsed.type === 'MEMBER_LOGIN' && parsed.jcId) {
-                        // Member login QR - Salesperson starting transaction
                         if (clubManager.isAdmin) {
                             startTransactionWithMember(parsed);
                         } else {
@@ -3771,15 +4172,12 @@
                         }
                     }
                     else if (parsed.action === 'join_transaction') {
-                        // Member joining transaction - shows receipt page
                         memberJoinTransaction(parsed);
                     }
                     else if (parsed.action === 'view_receipt') {
-                        // Member viewing receipt from Send to Member
                         viewReceiptFromQR(parsed);
                     }
                     else if (parsed.action === 'confirm_sale') {
-                        // Salesperson confirming sale
                         processConfirmedSale(parsed);
                     }
                     else {
@@ -3787,7 +4185,6 @@
                     }
                 } catch (e) {
                     console.log("Error parsing QR:", e);
-                    // Not JSON, check if it's a voucher code
                     if (scannerMode === 'voucher') {
                         document.getElementById('voucherCodeInput').value = qrData;
                         document.getElementById('salespersonName').focus();
@@ -3816,9 +4213,7 @@
                 
                 oscillator.start();
                 oscillator.stop(audioContext.currentTime + 0.5);
-            } catch (e) {
-                // Sound not critical
-            }
+            } catch (e) {}
         }
 
         // Update scanner status
@@ -3828,7 +4223,7 @@
             statusElement.className = 'scan-status' + (active ? ' active' : '');
         }
 
-        // 🔥 FIXED: Close camera scanner and reset navigation flag
+        // Close camera scanner and reset navigation flag
         function closeCameraScanner() {
             const modal = document.getElementById('cameraScannerModal');
             modal.classList.remove('active');
@@ -3836,10 +4231,7 @@
             
             stopScanner();
             
-            // Reset navigation flag
             isNavigatingToScanner = false;
-            
-            // Don't reset isInTransactionFlow yet - we might go back to receipt
         }
 
         // ===========================
@@ -3898,7 +4290,7 @@
             document.body.appendChild(modal);
         }
 
-        // Show receipt QR for member to scan (after Send to Member)
+        // Show receipt QR for member to scan
         function showReceiptQR(transaction) {
             const receiptData = {
                 action: "view_receipt",
@@ -3996,7 +4388,6 @@
                 
                 const { supabase } = window.supabaseDbInstance;
                 
-                // Fetch the latest transaction data from Supabase
                 const { data: transaction, error } = await supabase
                     .from('transactions')
                     .select('*')
@@ -4011,7 +4402,6 @@
                 
                 console.log("Transaction data from Supabase:", transaction);
                 
-                // Parse items - they're stored as JSON string in the database
                 let items = [];
                 try {
                     items = JSON.parse(transaction.items || '[]');
@@ -4020,10 +4410,8 @@
                     items = [];
                 }
                 
-                // Calculate subtotal from items
                 const subtotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
                 
-                // Create currentTransaction object with all the data
                 currentTransaction = {
                     id: transaction.id,
                     sessionId: transaction.session_id,
@@ -4041,10 +4429,8 @@
                 
                 console.log("Current transaction set:", currentTransaction);
                 
-                // Set transaction flow flag
                 isInTransactionFlow = true;
                 
-                // Notify salesperson that receipt was viewed
                 await supabase
                     .channel('receipt_view_' + transactionId)
                     .send({
@@ -4055,10 +4441,8 @@
                         }
                     });
                 
-                // Subscribe to real-time updates
                 subscribeToTransaction(transactionId);
                 
-                // Show the member transaction screen with all items
                 showMemberTransactionScreen(currentTransaction);
                 
                 showToast("Receipt loaded successfully!", "success");
@@ -4197,7 +4581,6 @@
                 console.log("✅ Transaction found:", transaction);
                 console.log("Transaction status:", transaction.status);
                 
-                // Parse items
                 let items = [];
                 try {
                     items = JSON.parse(transaction.items || '[]');
@@ -4226,10 +4609,8 @@
                 
                 console.log("📱 Current transaction set:", currentTransaction);
                 
-                // Set transaction flow flag
                 isInTransactionFlow = true;
                 
-                // Broadcast to salesperson
                 console.log("📡 Broadcasting member_joined event");
                 await supabase
                     .channel('transaction_join_' + transactionId)
@@ -4487,14 +4868,13 @@
             }
         }
 
-        // Show member transaction screen (NO AUTO DISCOUNT)
+        // Show member transaction screen
         function showMemberTransactionScreen(transaction) {
             hideAllSections();
             document.getElementById('memberTransactionScreen').classList.remove('hidden');
             
             const container = document.getElementById('memberTransactionContainer');
             
-            // Get member's active vouchers
             const memberVouchers = voucherSystem.getMemberVouchers(transaction.memberJcId)
                 .filter(v => v.status === 'active' && new Date(v.expiryDate) > new Date());
             
@@ -4934,7 +5314,6 @@
                         return;
                     }
                     
-                    // Parse items
                     let items = [];
                     try {
                         items = JSON.parse(transaction.items || '[]');
@@ -5124,12 +5503,11 @@
                 });
         }
 
-        // 🔥 FIXED: Cancel transaction with navigation protection
+        // Cancel transaction with navigation protection
         async function cancelTransaction(ignoreIfNoTransaction = false) {
             console.log("⚠️ cancelTransaction called at:", new Date().toISOString());
             console.log("Current transaction:", currentTransaction);
             
-            // NEW: Don't cancel if we're just navigating to scanner
             if (isNavigatingToScanner) {
                 console.log("📱 Navigating to scanner - preserving transaction");
                 return;
@@ -5151,7 +5529,6 @@
                 transactionSubscription = null;
             }
             
-            // Only navigate away if we're not in the middle of a transaction flow
             if (!isInTransactionFlow) {
                 if (clubManager.isAdmin) {
                     showAdminPanel();
@@ -5163,18 +5540,15 @@
             showToast("Transaction cancelled", "info");
         }
 
-        // 🔥 NEW: Go back to dashboard but keep transaction alive
+        // Go back to dashboard but keep transaction alive
         function goBackFromTransaction() {
             console.log("🔙 Going back to dashboard - preserving transaction");
             
-            // Just hide the transaction screen but keep transaction alive
             hideAllSections();
             document.getElementById('dashboardSection').classList.remove('hidden');
             
-            // Show resume button
             document.getElementById('resumeTransactionSection').classList.remove('hidden');
             
-            // Update dashboard data
             if (clubManager.currentMember) {
                 updateMemberDashboard(clubManager.currentMember);
             }
@@ -5182,7 +5556,7 @@
             showToast("Transaction paused - you can resume by clicking 'Resume Transaction'", "info");
         }
 
-        // 🔥 NEW: Check for pending transaction on dashboard load
+        // Check for pending transaction on dashboard load
         function checkForPendingTransaction() {
             if (currentTransaction && currentTransaction.status !== 'cancelled' && currentTransaction.status !== 'completed') {
                 document.getElementById('resumeTransactionSection').classList.remove('hidden');
@@ -5191,7 +5565,7 @@
             }
         }
 
-        // 🔥 NEW: Resume transaction
+        // Resume transaction
         function resumeTransaction() {
             if (currentTransaction) {
                 showMemberTransactionScreen(currentTransaction);
@@ -5199,7 +5573,7 @@
             }
         }
 
-        // 🔥 NEW: Explicitly cancel transaction with confirmation
+        // Explicitly cancel transaction with confirmation
         function explicitCancelTransaction() {
             if (confirm("Are you sure you want to cancel this transaction? This cannot be undone.")) {
                 cancelTransaction();
@@ -5722,7 +6096,8 @@
                             purchaseHistory: purchaseHistory,
                             activityLog: activityLog,
                             challenges: [],
-                            referrals: referrals
+                            referrals: referrals,
+                            lifetimePoints: member.lifetime_points || Math.floor((member.total_spent || 0) / 1000) + (member.activitylog ? 10 : 0)
                         };
                     }) : [];
 
@@ -5744,6 +6119,8 @@
                 try {
                     console.log('💾 Saving member to Supabase:', member.jcId);
                     
+                    const lifetimePoints = member.lifetimePoints || Math.floor(member.totalSpent / 1000) + 10;
+                    
                     const memberData = {
                         id: member.id || 'member_' + Date.now(),
                         jc_id: member.jcId,
@@ -5752,6 +6129,7 @@
                         name: member.name,
                         password: member.password || null,
                         points: member.points || 0,
+                        lifetime_points: lifetimePoints,
                         tier: member.tier || 'PEARL',
                         referral_code: member.referralCode,
                         referred_by: member.referredBy || null,
@@ -5865,6 +6243,7 @@
                             ip_address: member.ip_address,
                             lastLogin: member.last_login,
                             createdAt: member.created_at,
+                            lifetimePoints: member.lifetime_points || Math.floor((member.total_spent || 0) / 1000) + 10,
                             purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
                             activityLog: member.activitylog ? JSON.parse(member.activitylog) : [],
                             challenges: member.challenges ? JSON.parse(member.challenges) : [],
@@ -5912,6 +6291,7 @@
                             ip_address: member.ip_address,
                             lastLogin: member.last_login,
                             createdAt: member.created_at,
+                            lifetimePoints: member.lifetime_points || Math.floor((member.total_spent || 0) / 1000) + 10,
                             purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
                             activityLog: member.activitylog ? JSON.parse(member.activitylog) : [],
                             challenges: member.challenges ? JSON.parse(member.challenges) : [],
@@ -6811,72 +7191,105 @@
             }
 
             async init() {
-                const savedMember = localStorage.getItem('jeansClubCurrentMember');
-                const adminStatus = localStorage.getItem('jeansClubIsAdmin');
-                const salesperson = localStorage.getItem('jeansClubSalesperson');
-                
-                if (savedMember) {
-                    this.currentMember = JSON.parse(savedMember);
-                    this.isAdmin = adminStatus === 'true';
-                    this.currentSalesperson = salesperson;
+                try {
+                    const savedMember = localStorage.getItem('jeansClubCurrentMember');
+                    const adminStatus = localStorage.getItem('jeansClubIsAdmin');
+                    const salesperson = localStorage.getItem('jeansClubSalesperson');
                     
-                    if (this.isAdmin) {
-                        showAdminPanel();
+                    if (savedMember && savedMember !== '') {
+                        try {
+                            this.currentMember = JSON.parse(savedMember);
+                            this.isAdmin = adminStatus === 'true';
+                            this.currentSalesperson = salesperson;
+                            
+                            const freshMember = await this.db.getMemberByJCId(this.currentMember.jcId);
+                            
+                            if (freshMember) {
+                                this.currentMember = freshMember;
+                                localStorage.setItem('jeansClubCurrentMember', JSON.stringify(freshMember));
+                                
+                                if (this.isAdmin) {
+                                    showAdminPanel();
+                                } else {
+                                    setTimeout(() => showDashboard(this.currentMember), 100);
+                                }
+                            } else {
+                                localStorage.removeItem('jeansClubCurrentMember');
+                                localStorage.removeItem('jeansClubIsAdmin');
+                                localStorage.removeItem('jeansClubSalesperson');
+                                showSignupScreen();
+                            }
+                        } catch (parseError) {
+                            console.error('Error parsing saved member:', parseError);
+                            localStorage.removeItem('jeansClubCurrentMember');
+                            showSignupScreen();
+                        }
                     } else {
-                        showDashboard(this.currentMember);
+                        showSignupScreen();
                     }
-                } else {
+                    
+                    this.voucherSystem.updateVoucherStatuses();
+                    
+                    setTimeout(() => this.initializeGoogleSignIn(), 500);
+                    
+                } catch (error) {
+                    console.error('Init error:', error);
                     showSignupScreen();
                 }
-                
-                this.voucherSystem.updateVoucherStatuses();
-                
-                this.initializeGoogleSignIn();
             }
 
             initializeGoogleSignIn() {
-                google.accounts.id.initialize({
-                    client_id: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com',
-                    callback: this.handleGoogleSignIn.bind(this),
-                    context: 'signup',
-                    ux_mode: 'popup'
-                });
-                
-                google.accounts.id.initialize({
-                    client_id: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com',
-                    callback: this.handleGoogleLogin.bind(this),
-                    context: 'login',
-                    ux_mode: 'popup'
-                });
+                if (!window.googleInitialized) {
+                    google.accounts.id.initialize({
+                        client_id: '607807821474-43243foqc9ml9eq3e0ugu04fnsigbqc5.apps.googleusercontent.com',
+                        callback: (response) => {
+                            if (!document.getElementById('loginSection').classList.contains('hidden')) {
+                                this.handleGoogleLogin(response);
+                            } else {
+                                this.handleGoogleSignIn(response);
+                            }
+                        },
+                        ux_mode: 'popup'
+                    });
+                    window.googleInitialized = true;
+                }
                 
                 setTimeout(() => {
                     const signupButton = document.querySelector('.google-signin-button');
                     const loginButton = document.querySelector('.google-login-button');
                     
-                    if (signupButton) {
-                        google.accounts.id.renderButton(
-                            signupButton,
-                            { 
-                                theme: 'outline',
-                                size: 'large',
-                                width: '100%',
-                                text: 'signup_with'
-                            }
-                        );
+                    if (signupButton && signupButton.children.length === 0) {
+                        try {
+                            google.accounts.id.renderButton(
+                                signupButton,
+                                { 
+                                    theme: 'outline',
+                                    size: 'large',
+                                    width: 280,
+                                    text: 'signup_with'
+                                }
+                            );
+                        } catch (e) {
+                            console.log('Signup button render error:', e);
+                        }
                     }
                     
-                    if (loginButton) {
-                        google.accounts.id.renderButton(
-                            loginButton,
-                            { 
-                                theme: 'outline',
-                                size: 'large',
-                                width: '100%',
-                                text: 'signin_with'
-                            }
-                        );
+                    if (loginButton && loginButton.children.length === 0) {
+                        try {
+                            google.accounts.id.renderButton(
+                                loginButton,
+                                { 
+                                    theme: 'outline',
+                                    size: 'large',
+                                    width: 280,
+                                    text: 'signin_with'
+                                }
+                            );
+                        } catch (e) {
+                            console.log('Login button render error:', e);
+                        }
                     }
-                }, 1000);
+                }, 500);
             }
 
             async handleGoogleSignIn(response) {
@@ -6924,6 +7337,7 @@
                             googleId: googleId,
                             loginMethod: 'google',
                             points: 10,
+                            lifetimePoints: 10,
                             tier: 'PEARL',
                             referralCode: referralCode,
                             joinedDate: new Date().toISOString(),
@@ -7027,7 +7441,9 @@
                 return code;
             }
 
-            calculateTier(points) {
+            calculateTier(member) {
+                const points = member.lifetimePoints || member.points || 0;
+                
                 const tiers = [
                     { name: 'PEARL', min: 0, max: 7499 },
                     { name: 'BRONZE', min: 7500, max: 24999 },
@@ -7112,6 +7528,7 @@
                         password: password,
                         loginMethod: 'email',
                         points: referralPoints,
+                        lifetimePoints: referralPoints,
                         tier: 'PEARL',
                         referralCode: memberReferralCode,
                         referredBy: referredBy,
@@ -7203,6 +7620,10 @@
                         return false;
                     }
                     
+                    if (!member.lifetimePoints) {
+                        member.lifetimePoints = Math.floor(member.totalSpent / 1000) + 10;
+                    }
+                    
                     member.lastLogin = new Date().toISOString();
                     await this.db.saveMember(member);
                     
@@ -7243,8 +7664,10 @@
                     const pointsEarned = Math.floor(amount / 1000);
                     
                     member.points += pointsEarned;
+                    member.lifetimePoints = (member.lifetimePoints || 0) + pointsEarned;
                     member.totalSpent += amount;
-                    member.tier = this.calculateTier(member.points);
+                    
+                    member.tier = this.calculateTier(member);
                     
                     member.purchaseHistory.unshift({
                         timestamp: new Date().toISOString(),
@@ -7269,6 +7692,7 @@
                                 referral.completionDate = new Date().toISOString();
                                 
                                 referrer.points += 100;
+                                referrer.lifetimePoints = (referrer.lifetimePoints || 0) + 100;
                                 referrer.activityLog.unshift({
                                     timestamp: new Date().toISOString(),
                                     action: 'referral_completed',
@@ -7517,21 +7941,46 @@
             document.head.appendChild(style);
         }
 
-        // 🔥 FIXED: Show dashboard with pending transaction check
         async function showDashboard(member) {
             hideAllSections();
-            document.getElementById('dashboardSection').classList.remove('hidden');
             
-            // Check for pending transaction
-            checkForPendingTransaction();
+            const dashboardSection = document.getElementById('dashboardSection');
+            if (!dashboardSection) {
+                console.error('Dashboard section not found!');
+                return;
+            }
+            dashboardSection.classList.remove('hidden');
             
-            const freshMember = await clubManager.db.getMemberByJCId(member.jcId);
-            if (freshMember) {
-                clubManager.currentMember = freshMember;
-                localStorage.setItem('jeansClubCurrentMember', JSON.stringify(freshMember));
-                updateMemberDashboard(freshMember);
-            } else {
-                updateMemberDashboard(member);
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            if (typeof checkForPendingTransaction === 'function') {
+                checkForPendingTransaction();
+            }
+            
+            try {
+                const freshMember = await clubManager.db.getMemberByJCId(member.jcId);
+                if (freshMember) {
+                    clubManager.currentMember = freshMember;
+                    localStorage.setItem('jeansClubCurrentMember', JSON.stringify(freshMember));
+                    
+                    if (typeof window.safeUpdateDashboard === 'function') {
+                        window.safeUpdateDashboard(freshMember);
+                    } else if (typeof updateMemberDashboard === 'function') {
+                        const memberTier = document.getElementById('memberTier');
+                        if (memberTier) {
+                            updateMemberDashboard(freshMember);
+                        } else {
+                            setTimeout(() => updateMemberDashboard(freshMember), 200);
+                        }
+                    }
+                } else {
+                    if (typeof updateMemberDashboard === 'function') {
+                        setTimeout(() => updateMemberDashboard(member), 200);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading member:', error);
+                showToast('Error loading member data', 'error');
             }
         }
 
@@ -7613,6 +8062,11 @@
             document.getElementById('contactInfoPage').classList.remove('hidden');
         }
 
+        function showTutorial() {
+            hideAllSections();
+            document.getElementById('tutorialPage').classList.remove('hidden');
+        }
+
         function showDashboardSection() {
             if (clubManager.currentMember) {
                 showDashboard(clubManager.currentMember);
@@ -7627,7 +8081,8 @@
                 'dashboardSection', 'adminSection', 'deleteMemberSection',
                 'voucherManagementSection', 'membershipInfoPage',
                 'benefitsInfoPage', 'tiersInfoPage', 'vouchersInfoPage',
-                'contactInfoPage', 'memberTransactionScreen', 'salespersonTransactionScreen'
+                'contactInfoPage', 'memberTransactionScreen', 'salespersonTransactionScreen',
+                'tutorialPage'
             ];
             
             sections.forEach(section => {
@@ -7636,19 +8091,52 @@
             });
         }
 
+        function safeSetText(id, value) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = value;
+                return true;
+            }
+            return false;
+        }
+
+        function safeSetHTML(id, html) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.innerHTML = html;
+                return true;
+            }
+            return false;
+        }
+
+        function safeSetStyle(id, property, value) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style[property] = value;
+                return true;
+            }
+            return false;
+        }
+
         function updateMemberDashboard(member) {
             if (!member) return;
             
-            document.getElementById('memberJcId').textContent = member.jcId;
-            document.getElementById('memberName').textContent = member.name;
-            document.getElementById('memberEmail').textContent = member.email;
-            document.getElementById('memberLoginMethod').textContent = member.loginMethod === 'google' ? 'Google Sign-In' : 'Email';
+            if (!member.lifetimePoints) {
+                member.lifetimePoints = Math.floor(member.totalSpent / 1000) + 10;
+            }
             
-            document.getElementById('memberPoints').textContent = member.points.toLocaleString();
-            document.getElementById('memberTier').textContent = member.tier;
-            document.getElementById('memberTier').className = `tier-${member.tier.toLowerCase()}`;
-            document.getElementById('totalSpent').textContent = `${member.totalSpent.toLocaleString()} UGX`;
-            document.getElementById('memberReferralCode').textContent = member.referralCode;
+            safeSetText('memberJcId', member.jcId);
+            safeSetText('memberName', member.name);
+            safeSetText('memberEmail', member.email);
+            safeSetText('memberLoginMethod', member.loginMethod === 'google' ? 'Google Sign-In' : 'Email');
+            safeSetText('memberPoints', member.points.toLocaleString());
+            safeSetText('memberTier', member.tier);
+            safeSetText('totalSpent', `${member.totalSpent.toLocaleString()} UGX`);
+            safeSetText('lifetimePoints', member.lifetimePoints.toLocaleString());
+            safeSetText('memberReferralCode', member.referralCode);
+            
+            const tierEl = document.getElementById('memberTier');
+            if (tierEl) tierEl.className = `tier-${member.tier.toLowerCase()}`;
             
             const tiers = [
                 { name: 'PEARL', min: 0, max: 7499 },
@@ -7660,34 +8148,37 @@
                 { name: 'PLATINUM', min: 1000000, max: Infinity }
             ];
             
+            const lifetimePoints = member.lifetimePoints;
             const currentTier = tiers.find(t => t.name === member.tier);
             const nextTier = tiers[tiers.findIndex(t => t.name === member.tier) + 1];
             
             if (nextTier) {
-                const progress = ((member.points - currentTier.min) / (nextTier.min - currentTier.min)) * 100;
-                document.getElementById('progressFill').style.width = `${Math.min(progress, 100)}%`;
-                document.getElementById('tierProgressText').textContent = 
-                    `${member.points.toLocaleString()} / ${nextTier.min.toLocaleString()} points to ${nextTier.name}`;
+                const progress = ((lifetimePoints - currentTier.min) / (nextTier.min - currentTier.min)) * 100;
+                safeSetStyle('progressFill', 'width', `${Math.min(progress, 100)}%`);
+                safeSetText('tierProgressText', 
+                    `${lifetimePoints.toLocaleString()} / ${nextTier.min.toLocaleString()} lifetime points to ${nextTier.name}`);
             } else {
-                document.getElementById('progressFill').style.width = '100%';
-                document.getElementById('tierProgressText').textContent = 'Maximum tier reached!';
+                safeSetStyle('progressFill', 'width', '100%');
+                safeSetText('tierProgressText', 'Maximum tier reached!');
             }
             
             const newsletterToggle = document.getElementById('newsletterToggle');
-            if (member.newsletterSubscribed) {
-                newsletterToggle.textContent = 'Unsubscribe from Newsletter';
-                newsletterToggle.style.backgroundColor = '#6c757d';
-            } else {
-                newsletterToggle.textContent = 'Subscribe to Newsletter';
-                newsletterToggle.style.backgroundColor = '';
+            if (newsletterToggle) {
+                if (member.newsletterSubscribed) {
+                    newsletterToggle.textContent = 'Unsubscribe from Newsletter';
+                    newsletterToggle.style.backgroundColor = '#6c757d';
+                } else {
+                    newsletterToggle.textContent = 'Subscribe to Newsletter';
+                    newsletterToggle.style.backgroundColor = '';
+                }
             }
             
             const referredCount = member.referrals ? member.referrals.filter(r => r.status === 'completed').length : 0;
             const pendingCount = member.referrals ? member.referrals.filter(r => r.status === 'pending').length : 0;
-            document.getElementById('referralStats').innerHTML = `
+            safeSetHTML('referralStats', `
                 <strong>Completed Referrals:</strong> ${referredCount} (${referredCount * 100} points)<br>
                 <strong>Pending Referrals:</strong> ${pendingCount}
-            `;
+            `);
             
             updateActivityLog(member);
             updateMemberVouchers(member.jcId);
@@ -7701,19 +8192,24 @@
             const cardTier = document.getElementById('cardTier');
             const cardDate = document.getElementById('cardDate');
             
-            memberCard.className = `member-card ${member.tier.toLowerCase()}`;
+            if (memberCard) memberCard.className = `member-card ${member.tier.toLowerCase()}`;
+            if (cardNumber) cardNumber.innerHTML = member.jcId.split('').map(char => `<span>${char}</span>`).join('');
+            if (cardHolderName) cardHolderName.textContent = member.name.toUpperCase();
+            if (cardTier) {
+                cardTier.textContent = member.tier;
+                cardTier.className = `tier-${member.tier.toLowerCase()}`;
+            }
             
-            cardNumber.innerHTML = member.jcId.split('').map(char => `<span>${char}</span>`).join('');
-            cardHolderName.textContent = member.name.toUpperCase();
-            cardTier.textContent = member.tier;
-            cardTier.className = `tier-${member.tier.toLowerCase()}`;
-            
-            const joinedDate = new Date(member.joinedDate);
-            cardDate.textContent = `${String(joinedDate.getMonth() + 1).padStart(2, '0')}/${String(joinedDate.getFullYear()).slice(-2)}`;
+            if (cardDate && member.joinedDate) {
+                const joinedDate = new Date(member.joinedDate);
+                cardDate.textContent = `${String(joinedDate.getMonth() + 1).padStart(2, '0')}/${String(joinedDate.getFullYear()).slice(-2)}`;
+            }
         }
 
         function updateActivityLog(member) {
             const activityLog = document.getElementById('activityLog');
+            if (!activityLog) return;
+            
             if (!member.activityLog || member.activityLog.length === 0) {
                 activityLog.innerHTML = '<div class="activity-item">No activity yet</div>';
                 return;
@@ -7733,6 +8229,7 @@
 
         function updateMemberVouchers(jcId) {
             const vouchersList = document.getElementById('vouchersList');
+            if (!vouchersList) return;
             
             const vs = window.voucherSystem || (clubManager?.voucherSystem);
             
@@ -7860,14 +8357,17 @@
                     <div class="admin-card">
                         <h3>All Members (${members.length})</h3>
                         <div class="members-list">
-                            ${members.map(member => `
+                            ${members.map(member => {
+                                const lifetimePoints = member.lifetimePoints || Math.floor(member.totalSpent / 1000) + 10;
+                                return `
                                 <div class="member-item" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea;">
                                     <div style="display: flex; justify-content: space-between; align-items: start;">
                                         <div>
                                             <strong>${member.name}</strong><br>
                                             <small>JC ID: ${member.jcId} | Tier: <span class="tier-${member.tier.toLowerCase()}">${member.tier}</span></small><br>
                                             <small>Email: ${member.email}</small><br>
-                                            <small>Points: ${member.points.toLocaleString()} | Spent: ${member.totalSpent.toLocaleString()} UGX</small>
+                                            <small>Current Points: ${member.points.toLocaleString()} | Lifetime Points: ${lifetimePoints.toLocaleString()}</small><br>
+                                            <small>Spent: ${member.totalSpent.toLocaleString()} UGX</small>
                                         </div>
                                         <div style="text-align: right;">
                                             <small>Joined: ${new Date(member.joinedDate).toLocaleDateString()}</small><br>
@@ -7877,7 +8377,7 @@
                                         </div>
                                     </div>
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                         </div>
                     </div>
                 `;
@@ -8163,6 +8663,7 @@
                 );
                 
                 clubManager.currentMember.points -= points;
+                
                 clubManager.currentMember.activityLog.unshift({
                     timestamp: new Date().toISOString(),
                     action: 'voucher_created',
@@ -8198,11 +8699,15 @@
                                 </tr>
                                 <tr>
                                     <td><strong>Points Used:</strong></td>
-                                    <td>${points} points</td>
+                                    <td>${points} points (from current balance)</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Value:</strong></td>
                                     <td>${discountValue.toLocaleString()} UGX</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Lifetime Points:</strong></td>
+                                    <td>${clubManager.currentMember.lifetimePoints.toLocaleString()} (unchanged)</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Expires:</strong></td>
@@ -8407,7 +8912,6 @@
             document.body.style.overflow = 'auto';
         }
 
-        // Search functionality
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('searchInput');
             if (searchInput) {
@@ -8445,7 +8949,7 @@
                         resultsHTML += memberResults.slice(0, 5).map(member => `
                             <div class="search-result-item" onclick="showMemberDetails('${member.jcId}')">
                                 <strong>${member.name}</strong> (${member.jcId})<br>
-                                <small>Tier: ${member.tier} | Points: ${member.points} | Email: ${member.email}</small>
+                                <small>Tier: ${member.tier} | Points: ${member.points} | Lifetime: ${member.lifetimePoints || 'N/A'} | Email: ${member.email}</small>
                             </div>
                         `).join('');
                     }
@@ -8502,6 +9006,219 @@
             return re.test(String(email).toLowerCase());
         }
 
+        async function migrateLifetimePoints() {
+            console.log('🔄 Starting lifetimePoints migration...');
+            
+            try {
+                const members = await clubManager.db.getAllMembers();
+                let updatedCount = 0;
+                
+                for (const member of members) {
+                    if (!member.lifetimePoints) {
+                        const pointsFromSpending = Math.floor(member.totalSpent / 1000);
+                        const welcomePoints = 10;
+                        const lifetimePoints = pointsFromSpending + welcomePoints;
+                        
+                        member.lifetimePoints = lifetimePoints;
+                        
+                        member.tier = clubManager.calculateTier(member);
+                        
+                        await clubManager.db.saveMember(member);
+                        updatedCount++;
+                        
+                        console.log(`✅ Updated ${member.jcId}: lifetimePoints=${lifetimePoints}, tier=${member.tier}`);
+                    }
+                }
+                
+                console.log(`✅ Migration complete! Updated ${updatedCount} members.`);
+                showToast(`Migration complete! Updated ${updatedCount} members.`, 'success');
+                
+                if (clubManager.currentMember) {
+                    const freshMember = await clubManager.db.getMemberByJCId(clubManager.currentMember.jcId);
+                    if (freshMember) {
+                        clubManager.currentMember = freshMember;
+                        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(freshMember));
+                        updateMemberDashboard(freshMember);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Migration error:', error);
+                showToast('Migration failed: ' + error.message, 'error');
+            }
+        }
+
+        window.migrateLifetimePoints = migrateLifetimePoints;
+
+        // ===========================================
+        // PERMANENT DASHBOARD SAFETY FIXES
+        // ===========================================
+        (function installSafeDashboard() {
+            console.log('🔧 Installing permanent dashboard safety fixes...');
+            
+            // Safe element update helpers
+            window.safeSetText = function(id, value) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.textContent = value;
+                    return true;
+                }
+                return false;
+            };
+            
+            window.safeSetHTML = function(id, html) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.innerHTML = html;
+                    return true;
+                }
+                return false;
+            };
+            
+            window.safeSetStyle = function(id, property, value) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style[property] = value;
+                    return true;
+                }
+                return false;
+            };
+            
+            // Safe dashboard update function
+            window.safeUpdateDashboard = function(member) {
+                if (!member) {
+                    console.log('❌ No member data provided');
+                    return;
+                }
+                
+                console.log('🔄 Running safe dashboard update for:', member.name);
+                
+                const dashboard = document.getElementById('dashboardSection');
+                if (!dashboard) {
+                    console.log('⚠️ Dashboard section not found, retrying...');
+                    setTimeout(() => window.safeUpdateDashboard(member), 200);
+                    return;
+                }
+                
+                const updates = [
+                    { id: 'memberJcId', value: member.jcId },
+                    { id: 'memberName', value: member.name },
+                    { id: 'memberEmail', value: member.email },
+                    { id: 'memberLoginMethod', value: member.loginMethod === 'google' ? 'Google Sign-In' : 'Email' },
+                    { id: 'memberPoints', value: member.points ? member.points.toLocaleString() : '0' },
+                    { id: 'memberTier', value: member.tier || 'PEARL' },
+                    { id: 'totalSpent', value: member.totalSpent ? member.totalSpent.toLocaleString() + ' UGX' : '0 UGX' },
+                    { id: 'lifetimePoints', value: member.lifetimePoints ? member.lifetimePoints.toLocaleString() : '0' },
+                    { id: 'memberReferralCode', value: member.referralCode || 'N/A' },
+                    { id: 'cardTier', value: member.tier || 'PEARL' },
+                    { id: 'cardHolderName', value: member.name ? member.name.toUpperCase() : 'MEMBER' }
+                ];
+                
+                updates.forEach(update => {
+                    const el = document.getElementById(update.id);
+                    if (el) {
+                        el.textContent = update.value;
+                    } else {
+                        setTimeout(() => {
+                            const retryEl = document.getElementById(update.id);
+                            if (retryEl) retryEl.textContent = update.value;
+                        }, 300);
+                    }
+                });
+                
+                const tierEl = document.getElementById('memberTier');
+                if (tierEl && member.tier) {
+                    tierEl.className = `tier-${member.tier.toLowerCase()}`;
+                }
+                
+                const cardTier = document.getElementById('cardTier');
+                if (cardTier && member.tier) {
+                    cardTier.className = `tier-${member.tier.toLowerCase()}`;
+                }
+                
+                if (member.lifetimePoints) {
+                    const lifetimePoints = member.lifetimePoints;
+                    const tiers = [
+                        { name: 'PEARL', min: 0, max: 7499 },
+                        { name: 'BRONZE', min: 7500, max: 24999 },
+                        { name: 'SILVER', min: 25000, max: 99999 },
+                        { name: 'RUBY', min: 100000, max: 249999 },
+                        { name: 'GOLD', min: 250000, max: 499999 },
+                        { name: 'SAPPHIRE', min: 500000, max: 999999 },
+                        { name: 'PLATINUM', min: 1000000, max: Infinity }
+                    ];
+                    
+                    const currentTier = tiers.find(t => t.name === member.tier) || tiers[0];
+                    const nextTier = tiers[tiers.findIndex(t => t.name === member.tier) + 1];
+                    
+                    const progressFill = document.getElementById('progressFill');
+                    const progressText = document.getElementById('tierProgressText');
+                    
+                    if (nextTier) {
+                        const progress = ((lifetimePoints - currentTier.min) / (nextTier.min - currentTier.min)) * 100;
+                        if (progressFill) progressFill.style.width = `${Math.min(progress, 100)}%`;
+                        if (progressText) progressText.textContent = 
+                            `${lifetimePoints.toLocaleString()} / ${nextTier.min.toLocaleString()} lifetime points to ${nextTier.name}`;
+                    } else {
+                        if (progressFill) progressFill.style.width = '100%';
+                        if (progressText) progressText.textContent = 'Maximum tier reached!';
+                    }
+                }
+                
+                const memberCard = document.getElementById('memberCard');
+                if (memberCard && member.tier) {
+                    memberCard.className = `member-card ${member.tier.toLowerCase()}`;
+                }
+                
+                const cardNumber = document.getElementById('cardNumber');
+                if (cardNumber && member.jcId) {
+                    cardNumber.innerHTML = member.jcId.split('').map(char => `<span>${char}</span>`).join('');
+                }
+                
+                const cardDate = document.getElementById('cardDate');
+                if (cardDate && member.joinedDate) {
+                    const joinedDate = new Date(member.joinedDate);
+                    cardDate.textContent = `${String(joinedDate.getMonth() + 1).padStart(2, '0')}/${String(joinedDate.getFullYear()).slice(-2)}`;
+                }
+                
+                console.log('✅ Safe dashboard update complete');
+            };
+            
+            // Override updateMemberDashboard
+            const originalUpdateMemberDashboard = window.updateMemberDashboard;
+            window.updateMemberDashboard = function(member) {
+                console.log('🔄 updateMemberDashboard called (safe wrapper)');
+                window.safeUpdateDashboard(member);
+            };
+            
+            // Override showDashboard
+            const originalShowDashboard = window.showDashboard;
+            window.showDashboard = async function(member) {
+                console.log('📊 showDashboard called (safe wrapper)');
+                
+                hideAllSections();
+                
+                const dashboard = document.getElementById('dashboardSection');
+                if (dashboard) {
+                    dashboard.classList.remove('hidden');
+                    
+                    setTimeout(() => {
+                        if (member) {
+                            window.safeUpdateDashboard(member);
+                        }
+                    }, 200);
+                } else {
+                    console.error('Dashboard section not found');
+                }
+                
+                if (typeof checkForPendingTransaction === 'function') {
+                    setTimeout(checkForPendingTransaction, 300);
+                }
+            };
+            
+            console.log('✅ Permanent dashboard safety fixes installed');
+        })();
+
         window.onload = function() {
             console.log('=== PAGE LOAD START ===');
             
@@ -8522,22 +9239,30 @@
                     showSignupScreen();
                 } else if (action === 'admin') {
                     showAdminLogin();
+                } else if (action === 'tutorial') {
+                    showTutorial();
                 }
                 
                 console.log('=== PAGE LOAD COMPLETE ===');
             }, 1000);
             
-            document.getElementById('searchModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    hideSearch();
-                }
-            });
+            const searchModal = document.getElementById('searchModal');
+            if (searchModal) {
+                searchModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        hideSearch();
+                    }
+                });
+            }
             
-            document.getElementById('cameraScannerModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeCameraScanner();
-                }
-            });
+            const cameraModal = document.getElementById('cameraScannerModal');
+            if (cameraModal) {
+                cameraModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeCameraScanner();
+                    }
+                });
+            }
         };
     </script>
 </body>
