@@ -2672,8 +2672,8 @@
             </div>
             
             <div class="header-actions">
-                <div class="search-icon" onclick="showSearch()">🔍</div>
-                <div class="user-icon" onclick="toggleUserMenu()">👤</div>
+                
+                
                 <div class="menu-toggle" onclick="toggleMobileMenu()">
                     <span></span>
                     <span></span>
@@ -3719,23 +3719,7 @@
                 </button>
             </div>
 
-            <div class="info-card">
-                <h3>Add Purchase (Manual)</h3>
-                <div class="form-group">
-                    <label for="purchaseJCId">Member JC ID</label>
-                    <input type="text" id="purchaseJCId" placeholder="Enter JC ID">
-                </div>
-                <div class="form-group">
-                    <label for="purchaseAmount">Amount (UGX)</label>
-                    <input type="number" id="purchaseAmount" placeholder="Enter amount">
-                </div>
-                <div class="form-group">
-                    <label for="purchaseDescription">Description</label>
-                    <input type="text" id="purchaseDescription" placeholder="Purchase description">
-                </div>
-                <button class="btn" onclick="adminAddPurchase()">Add Purchase</button>
-                <div id="purchaseResult" style="margin-top: 10px;"></div>
-            </div>
+            
 
             <!-- VOUCHER SCANNING SECTION -->
             <div class="scan-voucher-section">
@@ -4808,37 +4792,35 @@
                 return false;
             }
         }
-
-        // Subscribe to real-time transaction updates
-        function subscribeToTransaction(transactionId) {
-            if (transactionSubscription) {
-                transactionSubscription.unsubscribe();
-            }
-            
-            if (!window.supabaseDbInstance) return;
-            
-            const { supabase } = window.supabaseDbInstance;
-            
-            transactionSubscription = supabase
-                .channel('transaction_' + transactionId)
-                .on('broadcast', { event: 'items_updated' }, (payload) => {
-                    handleTransactionUpdate(payload);
-                })
-                .on('broadcast', { event: 'voucher_applied' }, (payload) => {
-                    handleTransactionUpdate(payload);
-                })
-                .on('broadcast', { event: 'voucher_removed' }, (payload) => {
-                    handleTransactionUpdate(payload);
-                })
-                .on('broadcast', { event: 'member_confirmed' }, (payload) => {
-                    handleMemberConfirmed(payload);
-                })
-                .on('broadcast', { event: 'sale_completed' }, (payload) => {
-                    handleSaleCompleted(payload);
-                })
-                .subscribe();
-        }
-
+function subscribeToTransaction(transactionId) {
+    if (transactionSubscription) {
+        transactionSubscription.unsubscribe();
+    }
+    
+    if (!window.supabaseDbInstance) return;
+    
+    const { supabase } = window.supabaseDbInstance;
+    
+    transactionSubscription = supabase
+        .channel('transaction_' + transactionId)
+        .on('broadcast', { event: 'items_updated' }, (payload) => {
+            handleTransactionUpdate(payload);
+        })
+        .on('broadcast', { event: 'voucher_applied' }, (payload) => {
+            handleTransactionUpdate(payload);
+        })
+        .on('broadcast', { event: 'voucher_removed' }, (payload) => {
+            handleTransactionUpdate(payload);
+        })
+        .on('broadcast', { event: 'member_confirmed' }, (payload) => {
+            handleMemberConfirmed(payload);
+        })
+        .on('broadcast', { event: 'sale_completed' }, (payload) => {
+            // 🔥 ADD THIS NEW HANDLER
+            handleSaleCompletedOnMember(payload);
+        })
+        .subscribe();
+}
         // Handle transaction update
         function handleTransactionUpdate(payload) {
             if (!currentTransaction) return;
@@ -4885,7 +4867,101 @@
                 showDashboard(clubManager.currentMember);
             }
         }
-
+// Add this new function
+function handleSaleCompletedOnMember(payload) {
+    console.log("🎉 Sale completed! Receipt received:", payload);
+    
+    if (payload.receipt) {
+        // Close the transaction screen
+        hideAllSections();
+        
+        // Show receipt on member device
+        showMemberReceipt(payload.receipt);
+        
+        // Clear current transaction
+        currentTransaction = null;
+        isInTransactionFlow = false;
+        
+        showToast("Purchase completed! Thank you for shopping!", "success");
+    }
+}
+function showMemberReceipt(receipt) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10001;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    const itemsHtml = receipt.items.map(item => `
+        <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+            <span>${item.name}</span>
+            <span style="font-weight: bold;">${item.price.toLocaleString()} UGX</span>
+        </div>
+    `).join('');
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 20px; max-width: 400px; width: 90%; max-height: 90vh; overflow-y: auto; padding: 25px; font-family: 'Courier New', monospace;">
+            <div style="text-align: center; border-bottom: 2px dashed #333; padding-bottom: 15px; margin-bottom: 15px;">
+                <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 40px; margin-bottom: 10px;">
+                <h2 style="margin: 0; color: #333;">JEANS CLUB</h2>
+                <div style="color: #666; font-size: 12px;">Raised on Denim</div>
+                <div style="color: #666; font-size: 11px; margin-top: 5px;">${receipt.date}</div>
+                <div style="color: #666; font-size: 11px;">Salesperson: ${receipt.salesperson}</div>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <div style="font-weight: bold; margin-bottom: 10px;">Items:</div>
+                ${itemsHtml}
+            </div>
+            
+            <div style="border-top: 1px dashed #333; margin: 10px 0;"></div>
+            
+            <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                <span>Subtotal:</span>
+                <span>${receipt.subtotal.toLocaleString()} UGX</span>
+            </div>
+            ${receipt.voucher ? `
+            <div style="display: flex; justify-content: space-between; padding: 5px 0; color: #28a745;">
+                <span>Voucher (${receipt.voucher.percentage}%):</span>
+                <span>-${receipt.voucher.discount.toLocaleString()} UGX</span>
+            </div>
+            <div style="font-size: 10px; color: #666; text-align: right;">Code: ${receipt.voucher.code}</div>
+            ` : ''}
+            
+            <div style="border-top: 1px dashed #333; margin: 10px 0;"></div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; padding: 10px 0;">
+                <span>TOTAL:</span>
+                <span style="color: #FFD700;">${receipt.finalTotal.toLocaleString()} UGX</span>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin: 15px 0; text-align: center;">
+                <div style="font-size: 14px; color: #28a745;">✨ Points Earned: +${receipt.pointsEarned}</div>
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">Total Lifetime Points: ${(receipt.pointsEarned + (window.clubManager?.currentMember?.lifetimePoints || 0)).toLocaleString()}</div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #333;">
+                <div style="font-size: 12px;">Thank you for shopping at Jeans Club!</div>
+                <div style="font-size: 10px; color: #999; margin-top: 5px;">Transaction ID: ${receipt.transactionId}</div>
+                <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" 
+                        style="margin-top: 15px; padding: 10px 25px; background: linear-gradient(135deg, #FFD700, #FFA500); color: #2c1810; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
         // Show member transaction screen
         function showMemberTransactionScreen(transaction) {
             hideAllSections();
@@ -8403,52 +8479,49 @@ async function updateMemberVouchers(jcId) {
             document.body.appendChild(modal);
         }
 
-        async function loadAdminMembersList() {
-            const adminContent = document.getElementById('adminContent');
-            adminContent.innerHTML = '<div class="activity-item">Loading members...</div>';
-            
-            try {
-                const members = await clubManager.db.getAllMembers();
-                
-                if (members.length === 0) {
-                    adminContent.innerHTML = '<div class="activity-item">No members found</div>';
-                    return;
-                }
-                
-                adminContent.innerHTML = `
-                    <div class="admin-card">
-                        <h3>All Members (${members.length})</h3>
-                        <div class="members-list">
-                            ${members.map(member => {
-                                const lifetimePoints = member.lifetimePoints || Math.floor(member.totalSpent / 1000) + 10;
-                                return `
-                                <div class="member-item" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea;">
-                                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                                        <div>
-                                            <strong>${member.name}</strong><br>
-                                            <small>JC ID: ${member.jcId} | Tier: <span class="tier-${member.tier.toLowerCase()}">${member.tier}</span></small><br>
-                                            <small>Email: ${member.email}</small><br>
-                                            <small>Current Points: ${member.points.toLocaleString()} | Lifetime Points: ${lifetimePoints.toLocaleString()}</small><br>
-                                            <small>Spent: ${member.totalSpent.toLocaleString()} UGX</small>
-                                        </div>
-                                        <div style="text-align: right;">
-                                            <small>Joined: ${new Date(member.joinedDate).toLocaleDateString()}</small><br>
-                                            <button onclick="adminAddPurchaseForMember('${member.jcId}')" class="btn" style="padding: 5px 10px; font-size: 12px; margin-top: 5px;">
-                                                Add Purchase
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            `}).join('')}
-                        </div>
-                    </div>
-                `;
-                
-            } catch (error) {
-                console.error('Error loading members:', error);
-                adminContent.innerHTML = '<div class="activity-item">Error loading members</div>';
-            }
+       async function loadAdminMembersList() {
+    const adminContent = document.getElementById('adminContent');
+    adminContent.innerHTML = '<div class="activity-item">Loading members...</div>';
+    
+    try {
+        const members = await clubManager.db.getAllMembers();
+        
+        if (members.length === 0) {
+            adminContent.innerHTML = '<div class="activity-item">No members found</div>';
+            return;
         }
+        
+        adminContent.innerHTML = `
+            <div class="admin-card">
+                <h3>All Members (${members.length})</h3>
+                <div class="members-list">
+                    ${members.map(member => {
+                        const lifetimePoints = member.lifetimePoints || Math.floor(member.totalSpent / 1000) + 10;
+                        return `
+                        <div class="member-item" style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #FFD700;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <strong>${member.name}</strong><br>
+                                    <small>JC ID: ${member.jcId} | Tier: <span class="tier-${member.tier.toLowerCase()}">${member.tier}</span></small><br>
+                                    <small>Email: ${member.email}</small><br>
+                                    <small>Current Points: ${member.points.toLocaleString()} | Lifetime Points: ${lifetimePoints.toLocaleString()}</small><br>
+                                    <small>Spent: ${member.totalSpent.toLocaleString()} UGX</small>
+                                </div>
+                                <div style="text-align: right;">
+                                    <small>Joined: ${new Date(member.joinedDate).toLocaleDateString()}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `}).join('')}
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error loading members:', error);
+        adminContent.innerHTML = '<div class="activity-item">Error loading members</div>';
+    }
+}
 
         function adminAddPurchaseForMember(jcId) {
             document.getElementById('purchaseJCId').value = jcId;
