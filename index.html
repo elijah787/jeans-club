@@ -3719,23 +3719,7 @@
                 </button>
             </div>
 
-            <div class="info-card">
-                <h3>Add Purchase (Manual)</h3>
-                <div class="form-group">
-                    <label for="purchaseJCId">Member JC ID</label>
-                    <input type="text" id="purchaseJCId" placeholder="Enter JC ID">
-                </div>
-                <div class="form-group">
-                    <label for="purchaseAmount">Amount (UGX)</label>
-                    <input type="number" id="purchaseAmount" placeholder="Enter amount">
-                </div>
-                <div class="form-group">
-                    <label for="purchaseDescription">Description</label>
-                    <input type="text" id="purchaseDescription" placeholder="Purchase description">
-                </div>
-                <button class="btn" onclick="adminAddPurchase()">Add Purchase</button>
-                <div id="purchaseResult" style="margin-top: 10px;"></div>
-            </div>
+           
 
             <!-- VOUCHER SCANNING SECTION -->
             <div class="scan-voucher-section">
@@ -8511,9 +8495,7 @@ async function updateMemberVouchers(jcId) {
                                         </div>
                                         <div style="text-align: right;">
                                             <small>Joined: ${new Date(member.joinedDate).toLocaleDateString()}</small><br>
-                                            <button onclick="adminAddPurchaseForMember('${member.jcId}')" class="btn" style="padding: 5px 10px; font-size: 12px; margin-top: 5px;">
-                                                Add Purchase
-                                            </button>
+                                            
                                         </div>
                                     </div>
                                 </div>
