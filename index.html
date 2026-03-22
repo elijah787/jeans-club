@@ -9727,6 +9727,330 @@ pulseStyle.textContent = `
 document.head.appendChild(pulseStyle);
 
 console.log("✅ Confirmation and receipt fixes loaded!");
+// ===========================================
+// CRITICAL FIX: Member Confirmation Status
+// ===========================================
+
+// FIXED: memberConfirmPayment - Ensures database is updated BEFORE showing QR
+window.memberConfirmPayment = async function() {
+    if (!currentTransaction) {
+        showToast("No active transaction", "error");
+        return;
+    }
+    
+    console.log("💰 Member confirming payment for transaction:", currentTransaction.id);
+    console.log("Current transaction state:", currentTransaction);
+    
+    try {
+        // IMPORTANT: Update the transaction in memory first
+        currentTransaction.memberConfirmed = true;
+        currentTransaction.memberConfirmedAt = new Date().toISOString();
+        currentTransaction.status = "member_confirmed";
+        
+        // CRITICAL: Save to database IMMEDIATELY
+        console.log("💾 Saving confirmation to database...");
+        const saveResult = await saveTransaction(currentTransaction);
+        
+        if (!saveResult) {
+            console.error("❌ Failed to save confirmation to database!");
+            showToast("Failed to save confirmation. Please try again.", "error");
+            return;
+        }
+        
+        console.log("✅ Confirmation saved to database!");
+        
+        // Verify the save worked by fetching it back
+        if (window.supabaseDbInstance) {
+            const { supabase } = window.supabaseDbInstance;
+            const { data: verifyTransaction, error: verifyError } = await supabase
+                .from('transactions')
+                .select('member_confirmed')
+                .eq('id', currentTransaction.id)
+                .single();
+            
+            if (!verifyError && verifyTransaction) {
+                console.log("✅ Verification: member_confirmed =", verifyTransaction.member_confirmed);
+                if (verifyTransaction.member_confirmed !== true) {
+                    console.error("⚠️ Database verification failed! Confirmation not saved properly.");
+                }
+            }
+        }
+        
+        // Now broadcast to staff
+        console.log("📡 Broadcasting member_confirmed event to staff...");
+        await broadcastToSalesperson({
+            type: 'member_confirmed',
+            transactionId: currentTransaction.id,
+            memberJcId: currentTransaction.memberJcId,
+            finalTotal: currentTransaction.appliedVoucher ? currentTransaction.finalTotal : currentTransaction.subtotal,
+            appliedVoucher: currentTransaction.appliedVoucher,
+            timestamp: Date.now(),
+            confirmedAt: currentTransaction.memberConfirmedAt
+        });
+        
+        // Update the member's screen
+        showMemberTransactionScreen(currentTransaction);
+        
+        // Show the confirmation QR code
+        showConfirmationQR(currentTransaction);
+        
+        showToast("✅ Payment confirmed! Show QR to salesperson.", "success");
+        
+    } catch (error) {
+        console.error("❌ Error in memberConfirmPayment:", error);
+        showToast("Failed to confirm payment: " + error.message, "error");
+    }
+};
+
+// FIXED: processConfirmedSale - Better verification and fallback
+window.processConfirmedSale = async function(parsedData) {
+    console.log("🔍 Processing confirmed sale with data:", parsedData);
+    
+    try {
+        const { transactionId, memberJcId, finalTotal, appliedVoucher } = parsedData;
+        
+        console.log(`🔍 Looking for transaction: ${transactionId}`);
+        
+        // Get the latest transaction data from database FIRST
+        if (!window.supabaseDbInstance) {
+            showToast("Database not connected", "error");
+            return;
+        }
+        
+        const { supabase } = window.supabaseDbInstance;
+        
+        // Fetch the latest transaction from database to ensure we have fresh data
+        const { data: dbTransaction, error: fetchError } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('id', transactionId)
+            .single();
+        
+        if (fetchError || !dbTransaction) {
+            console.error("❌ Transaction fetch error:", fetchError);
+            showToast("Transaction not found", "error");
+            return;
+        }
+        
+        console.log("📦 Transaction from database:", dbTransaction);
+        console.log("Member confirmed status:", dbTransaction.member_confirmed);
+        
+        // Check if member confirmed in the DATABASE, not just in memory
+        if (dbTransaction.member_confirmed !== true) {
+            console.error("❌ Member has NOT confirmed in database!");
+            showToast("Member has not confirmed payment yet. Please ask them to confirm first.", "error");
+            
+            // Try to broadcast a reminder to the member
+            await broadcastToMember({
+                type: 'reminder_confirm',
+                message: 'Please confirm your payment by clicking "Confirm Payment" button',
+                transactionId: transactionId
+            });
+            
+            return;
+        }
+        
+        console.log("✅ Member confirmation verified in database!");
+        
+        // Parse items from database
+        let items = [];
+        try {
+            items = JSON.parse(dbTransaction.items || '[]');
+        } catch (e) {
+            items = [];
+        }
+        
+        const subtotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+        
+        // Create transaction object from database data
+        const transaction = {
+            id: dbTransaction.id,
+            sessionId: dbTransaction.session_id,
+            memberJcId: dbTransaction.member_jc_id,
+            memberName: dbTransaction.member_name,
+            memberTier: dbTransaction.member_tier,
+            salespersonName: dbTransaction.salesperson_name,
+            status: dbTransaction.status,
+            items: items,
+            subtotal: subtotal,
+            appliedVoucher: dbTransaction.applied_voucher ? JSON.parse(dbTransaction.applied_voucher) : null,
+            finalTotal: dbTransaction.final_total || subtotal,
+            memberConfirmed: dbTransaction.member_confirmed,
+            memberConfirmedAt: dbTransaction.member_confirmed_at
+        };
+        
+        console.log("✅ Transaction loaded, proceeding with sale completion");
+        
+        // Calculate points earned (1 point per 1000 UGX)
+        const finalTotalAmount = transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal;
+        const pointsEarned = Math.floor(finalTotalAmount / 1000);
+        
+        console.log(`💰 Adding purchase: ${finalTotalAmount} UGX = ${pointsEarned} points`);
+        
+        // Add purchase to member's account
+        await clubManager.addPurchase(
+            transaction.memberJcId,
+            finalTotalAmount,
+            `Store purchase: ${transaction.items.map(i => i.name).join(', ')}`
+        );
+        
+        // Redeem the voucher if one was used
+        if (transaction.appliedVoucher) {
+            console.log(`🎫 Redeeming voucher: ${transaction.appliedVoucher.code}`);
+            await voucherSystem.redeemVoucher(
+                transaction.appliedVoucher.code,
+                clubManager.currentSalesperson || "Salesperson"
+            );
+        }
+        
+        // Create receipt object
+        const receipt = {
+            transactionId: transaction.id,
+            store: "JEANS CLUB",
+            tagline: "Raised on Denim",
+            date: new Date().toLocaleString(),
+            salesperson: transaction.salespersonName,
+            memberName: transaction.memberName,
+            memberJcId: transaction.memberJcId,
+            memberTier: transaction.memberTier,
+            items: transaction.items,
+            subtotal: transaction.subtotal,
+            voucher: transaction.appliedVoucher,
+            finalTotal: finalTotalAmount,
+            pointsEarned: pointsEarned,
+            paymentMethod: "Cash"
+        };
+        
+        // Update transaction status to completed
+        const { error: updateError } = await supabase
+            .from('transactions')
+            .update({
+                status: "completed",
+                salesperson_completed: true,
+                completed_at: new Date().toISOString(),
+                points_earned: pointsEarned
+            })
+            .eq('id', transaction.id);
+        
+        if (updateError) {
+            console.error("❌ Error updating transaction:", updateError);
+        }
+        
+        // Broadcast to member that sale is completed
+        console.log("📡 Broadcasting sale_completed to member...");
+        await broadcastToMember({
+            type: 'sale_completed',
+            receipt: receipt,
+            transactionId: transaction.id
+        });
+        
+        // Show receipt on staff side
+        showReceipt(receipt);
+        
+        // Clear current transaction
+        currentTransaction = null;
+        isInTransactionFlow = false;
+        
+        // Navigate back to appropriate screen
+        if (clubManager.isAdmin) {
+            showAdminPanel();
+        } else {
+            showDashboard(clubManager.currentMember);
+        }
+        
+        showToast(`✅ Sale completed! ${pointsEarned} points earned by ${transaction.memberName}`, "success");
+        
+    } catch (error) {
+        console.error("❌ Error processing confirmed sale:", error);
+        showToast("Failed to complete sale: " + error.message, "error");
+    }
+};
+
+// FIXED: SaveTransaction function with better error handling
+async function saveTransaction(transaction) {
+    try {
+        if (!window.supabaseDbInstance) {
+            console.error("❌ Supabase DB not initialized");
+            return false;
+        }
+        
+        const { supabase } = window.supabaseDbInstance;
+        
+        console.log("💾 Saving transaction:", transaction.id);
+        console.log("member_confirmed value:", transaction.memberConfirmed);
+        
+        const transactionData = {
+            id: transaction.id,
+            session_id: transaction.sessionId,
+            member_jc_id: transaction.memberJcId,
+            member_name: transaction.memberName,
+            member_tier: transaction.memberTier,
+            salesperson_name: transaction.salespersonName,
+            salesperson_device_id: transaction.salespersonDeviceId,
+            status: transaction.status,
+            items: JSON.stringify(transaction.items),
+            subtotal: transaction.subtotal,
+            applied_voucher: transaction.appliedVoucher ? JSON.stringify(transaction.appliedVoucher) : null,
+            final_total: transaction.finalTotal,
+            points_earned: transaction.pointsEarned,
+            member_confirmed: transaction.memberConfirmed || false,
+            member_confirmed_at: transaction.memberConfirmedAt || null,
+            salesperson_completed: transaction.salespersonCompleted || false,
+            member_device_id: transaction.memberDeviceId,
+            updated_at: new Date().toISOString()
+        };
+        
+        const { data, error } = await supabase
+            .from('transactions')
+            .upsert(transactionData, { 
+                onConflict: 'id'
+            });
+        
+        if (error) {
+            console.error("❌ Supabase save error:", error);
+            return false;
+        }
+        
+        console.log("✅ Transaction saved successfully");
+        
+        // Verify the save
+        const { data: verifyData, error: verifyError } = await supabase
+            .from('transactions')
+            .select('member_confirmed')
+            .eq('id', transaction.id)
+            .single();
+        
+        if (!verifyError && verifyData) {
+            console.log("✅ Verified saved confirmation status:", verifyData.member_confirmed);
+        }
+        
+        return true;
+        
+    } catch (error) {
+        console.error("❌ Exception in saveTransaction:", error);
+        return false;
+    }
+}
+
+// Helper function to broadcast reminder to member
+async function broadcastToMember(data) {
+    if (!currentTransaction || !window.supabaseDbInstance) return;
+    
+    const { supabase } = window.supabaseDbInstance;
+    
+    try {
+        await supabase
+            .channel('transaction_' + currentTransaction.id)
+            .send({
+                type: 'broadcast',
+                event: data.type,
+                payload: data
+            });
+        console.log("📡 Broadcast sent to member:", data.type);
+    } catch (error) {
+        console.error("❌ Broadcast failed:", error);
+    }
+}
     </script>
 </body>
 </html>
