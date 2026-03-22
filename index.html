@@ -10051,6 +10051,433 @@ async function broadcastToMember(data) {
         console.error("❌ Broadcast failed:", error);
     }
 }
+// ===========================================
+// COMPLETE FIX: Modal Management & Receipt System
+// ===========================================
+
+// Store active modals to manage them properly
+window.activeModals = [];
+
+// Function to close all modals
+window.closeAllModals = function() {
+    console.log("🔴 Closing all modals...");
+    window.activeModals.forEach(modal => {
+        if (modal && modal.parentNode) {
+            modal.remove();
+        }
+    });
+    window.activeModals = [];
+};
+
+// Function to close a specific modal
+window.closeModal = function(modal) {
+    if (modal && modal.parentNode) {
+        modal.remove();
+        const index = window.activeModals.indexOf(modal);
+        if (index > -1) {
+            window.activeModals.splice(index, 1);
+        }
+        console.log("✅ Modal closed, remaining modals:", window.activeModals.length);
+    }
+};
+
+// FIXED: Show confirmation QR with working close button
+window.showConfirmationQR = function(transaction) {
+    console.log("📱 Showing confirmation QR for transaction:", transaction.id);
+    
+    // Close any existing modals first
+    closeAllModals();
+    
+    const confirmData = {
+        action: 'confirm_sale',
+        transactionId: transaction.id,
+        memberJcId: transaction.memberJcId,
+        finalTotal: transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal,
+        appliedVoucher: transaction.appliedVoucher,
+        timestamp: Date.now()
+    };
+    
+    const encodedData = encodeURIComponent(JSON.stringify(confirmData));
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedData}`;
+    
+    // Create modal container
+    const modal = document.createElement('div');
+    modal.id = 'confirmationQRModal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10002;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 90%; width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+            <div style="margin-bottom: 15px;">
+                <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" alt="Jeans Club" style="height: 50px;">
+            </div>
+            <h3 style="color: #28a745; margin: 0 0 10px 0;">✅ Payment Confirmed!</h3>
+            <p style="color: #666; margin-bottom: 20px;">Show this QR code to the salesperson</p>
+            
+            <div style="background: white; padding: 15px; border-radius: 15px; display: inline-block; margin: 10px 0; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
+                <img src="${qrCodeUrl}" alt="Confirmation QR Code" 
+                     style="width: 250px; height: 250px; border: 3px solid #28a745; border-radius: 15px; padding: 10px;">
+            </div>
+            
+            <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                <div style="font-size: 24px; font-weight: bold; color: #333;">
+                    ${(transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal).toLocaleString()} UGX
+                </div>
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    Transaction: ${transaction.id.substring(0, 12)}...
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="closeQRModalBtn" 
+                        style="flex: 1; background: #6c757d; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer;">
+                    Close
+                </button>
+                <button id="refreshDashboardBtn" 
+                        style="flex: 1; background: #28a745; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer;">
+                    Dashboard
+                </button>
+            </div>
+            
+            <p style="color: #999; font-size: 11px; margin-top: 15px;">
+                Waiting for salesperson to scan...
+            </p>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    window.activeModals.push(modal);
+    
+    // Add event listeners
+    const closeBtn = modal.querySelector('#closeQRModalBtn');
+    const dashboardBtn = modal.querySelector('#refreshDashboardBtn');
+    
+    closeBtn.onclick = function() {
+        console.log("🔴 Close button clicked");
+        closeModal(modal);
+        // Show the dashboard behind
+        if (clubManager.currentMember) {
+            showDashboard(clubManager.currentMember);
+        }
+    };
+    
+    dashboardBtn.onclick = function() {
+        console.log("🏠 Dashboard button clicked");
+        closeModal(modal);
+        if (clubManager.currentMember) {
+            showDashboard(clubManager.currentMember);
+        }
+    };
+    
+    // Auto-refresh when sale completes (polling)
+    let checkInterval = setInterval(async () => {
+        if (!window.supabaseDbInstance) return;
+        
+        const { supabase } = window.supabaseDbInstance;
+        const { data: transaction, error } = await supabase
+            .from('transactions')
+            .select('status, salesperson_completed')
+            .eq('id', transaction.id)
+            .single();
+        
+        if (!error && transaction && transaction.status === 'completed') {
+            console.log("🎉 Sale completed! Closing QR modal...");
+            clearInterval(checkInterval);
+            closeModal(modal);
+            // Show receipt on member device
+            fetchAndShowReceipt(transaction.id);
+        }
+    }, 2000);
+    
+    // Auto-cleanup interval after 10 seconds
+    setTimeout(() => {
+        clearInterval(checkInterval);
+    }, 60000);
+};
+
+// FIXED: Show receipt on member device
+window.showReceiptOnMember = function(receipt) {
+    console.log("📄 Showing receipt on member device:", receipt);
+    
+    // Close any existing modals
+    closeAllModals();
+    
+    const receiptHTML = `
+        <div style="max-width: 400px; margin: 0 auto; background: white; border-radius: 20px; padding: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); font-family: monospace;">
+            <div style="text-align: center; border-bottom: 2px dashed #333; padding-bottom: 15px; margin-bottom: 15px;">
+                <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" style="height: 40px; margin-bottom: 10px;">
+                <h2 style="margin: 0; font-size: 24px;">JEANS CLUB</h2>
+                <div style="color: #666; font-size: 12px;">Raised on Denim</div>
+                <div style="font-size: 11px; color: #666; margin-top: 5px;">${receipt.date}</div>
+                <div style="font-size: 11px; color: #666;">Salesperson: ${receipt.salesperson}</div>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                ${receipt.items.map(item => `
+                    <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px;">
+                        <span>${item.name}</span>
+                        <span>${item.price.toLocaleString()} UGX</span>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <div style="border-top: 1px dashed #ccc; margin: 10px 0;"></div>
+            
+            <div style="display: flex; justify-content: space-between; margin: 8px 0;">
+                <span>Subtotal:</span>
+                <span>${receipt.subtotal.toLocaleString()} UGX</span>
+            </div>
+            
+            ${receipt.voucher ? `
+                <div style="display: flex; justify-content: space-between; margin: 8px 0; color: #28a745;">
+                    <span>Discount (${receipt.voucher.percentage}%):</span>
+                    <span>-${receipt.voucher.discount.toLocaleString()} UGX</span>
+                </div>
+                <div style="font-size: 10px; color: #666; text-align: right;">Code: ${receipt.voucher.code}</div>
+            ` : ''}
+            
+            <div style="border-top: 1px dashed #ccc; margin: 10px 0;"></div>
+            
+            <div style="display: flex; justify-content: space-between; margin: 15px 0; font-size: 18px; font-weight: bold;">
+                <span>TOTAL:</span>
+                <span style="color: #28a745;">${receipt.finalTotal.toLocaleString()} UGX</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin: 10px 0; background: #f8f9fa; padding: 10px; border-radius: 8px;">
+                <span>🎉 Points Earned:</span>
+                <span style="color: #28a745; font-weight: bold;">+${receipt.pointsEarned}</span>
+            </div>
+            
+            <div style="text-align: center; margin-top: 25px; padding-top: 15px; border-top: 2px dashed #333;">
+                <div style="font-size: 12px; margin-bottom: 15px;">Thank you for shopping at Jeans Club!</div>
+                <button id="closeReceiptBtn" 
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 30px; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer;">
+                    Return to Dashboard
+                </button>
+            </div>
+        </div>
+    `;
+    
+    const modal = document.createElement('div');
+    modal.id = 'receiptModal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10003;
+        overflow-y: auto;
+        padding: 20px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = receiptHTML;
+    document.body.appendChild(modal);
+    window.activeModals.push(modal);
+    
+    const closeBtn = modal.querySelector('#closeReceiptBtn');
+    closeBtn.onclick = function() {
+        console.log("🔴 Closing receipt modal");
+        closeModal(modal);
+        if (clubManager.currentMember) {
+            showDashboard(clubManager.currentMember);
+        }
+    };
+    
+    // Clear transaction
+    currentTransaction = null;
+    isInTransactionFlow = false;
+};
+
+// Fetch and show receipt from transaction ID
+async function fetchAndShowReceipt(transactionId) {
+    console.log("📡 Fetching receipt for transaction:", transactionId);
+    
+    if (!window.supabaseDbInstance) return;
+    
+    const { supabase } = window.supabaseDbInstance;
+    
+    const { data: transaction, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', transactionId)
+        .single();
+    
+    if (error || !transaction) {
+        console.error("❌ Failed to fetch receipt:", error);
+        return;
+    }
+    
+    let items = [];
+    try {
+        items = JSON.parse(transaction.items || '[]');
+    } catch (e) {
+        items = [];
+    }
+    
+    const subtotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+    
+    const receipt = {
+        transactionId: transaction.id,
+        store: "JEANS CLUB",
+        tagline: "Raised on Denim",
+        date: new Date(transaction.completed_at || new Date()).toLocaleString(),
+        salesperson: transaction.salesperson_name,
+        memberName: transaction.member_name,
+        memberJcId: transaction.member_jc_id,
+        memberTier: transaction.member_tier,
+        items: items,
+        subtotal: subtotal,
+        voucher: transaction.applied_voucher ? JSON.parse(transaction.applied_voucher) : null,
+        finalTotal: transaction.final_total,
+        pointsEarned: transaction.points_earned || Math.floor(transaction.final_total / 1000),
+        paymentMethod: "Cash"
+    };
+    
+    showReceiptOnMember(receipt);
+}
+
+// FIXED: Handle sale completed event on member side
+window.handleSaleCompleted = function(payload) {
+    console.log("🎉 Member received sale completion:", payload);
+    
+    if (payload.receipt) {
+        showReceiptOnMember(payload.receipt);
+    } else if (payload.transactionId) {
+        fetchAndShowReceipt(payload.transactionId);
+    }
+};
+
+// FIXED: Show receipt on staff side with working close button
+window.showReceipt = function(receipt) {
+    console.log("📄 Showing receipt on staff side:", receipt);
+    
+    const receiptHTML = `
+        <div style="max-width: 400px; margin: 0 auto; background: white; border-radius: 20px; padding: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); font-family: monospace;">
+            <div style="text-align: center; border-bottom: 2px dashed #333; padding-bottom: 15px; margin-bottom: 15px;">
+                <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" style="height: 40px; margin-bottom: 10px;">
+                <h2 style="margin: 0;">JEANS CLUB</h2>
+                <div style="color: #666;">Raised on Denim</div>
+                <div style="font-size: 12px;">${receipt.date}</div>
+                <div style="font-size: 12px;">Salesperson: ${receipt.salesperson}</div>
+                <div style="font-size: 12px;">Member: ${receipt.memberName} (${receipt.memberJcId})</div>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                ${receipt.items.map(item => `
+                    <div style="display: flex; justify-content: space-between; margin: 5px 0;">
+                        <span>${item.name}</span>
+                        <span>${item.price.toLocaleString()} UGX</span>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <div style="border-top: 1px dashed #333; margin: 10px 0;"></div>
+            
+            <div style="display: flex; justify-content: space-between;">
+                <span>Subtotal:</span>
+                <span>${receipt.subtotal.toLocaleString()} UGX</span>
+            </div>
+            
+            ${receipt.voucher ? `
+                <div style="display: flex; justify-content: space-between; color: #28a745;">
+                    <span>Discount (${receipt.voucher.percentage}%):</span>
+                    <span>-${receipt.voucher.discount.toLocaleString()} UGX</span>
+                </div>
+                <div style="font-size: 10px; text-align: right;">Code: ${receipt.voucher.code}</div>
+            ` : ''}
+            
+            <div style="border-top: 1px dashed #333; margin: 10px 0;"></div>
+            
+            <div style="font-size: 20px; font-weight: bold; text-align: right; margin: 15px 0;">
+                TOTAL: ${receipt.finalTotal.toLocaleString()} UGX
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; background: #f8f9fa; padding: 10px; border-radius: 8px;">
+                <span>Points Earned:</span>
+                <span style="color: #28a745; font-weight: bold;">+${receipt.pointsEarned}</span>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #333;">
+                <div>Thank you for shopping!</div>
+                <button id="closeStaffReceiptBtn" 
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; margin-top: 15px; cursor: pointer;">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    
+    const modal = document.createElement('div');
+    modal.id = 'staffReceiptModal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10001;
+        overflow-y: auto;
+        padding: 20px;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = receiptHTML;
+    document.body.appendChild(modal);
+    window.activeModals.push(modal);
+    
+    const closeBtn = modal.querySelector('#closeStaffReceiptBtn');
+    closeBtn.onclick = function() {
+        console.log("🔴 Closing staff receipt");
+        closeModal(modal);
+        if (clubManager.isAdmin) {
+            showAdminPanel();
+        } else if (clubManager.currentMember) {
+            showDashboard(clubManager.currentMember);
+        }
+    };
+    
+    // Clear transaction after showing receipt
+    setTimeout(() => {
+        currentTransaction = null;
+        isInTransactionFlow = false;
+    }, 1000);
+};
+
+// Add fade-in animation if not exists
+if (!document.querySelector('#fadeInStyle')) {
+    const style = document.createElement('style');
+    style.id = 'fadeInStyle';
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+console.log("✅ Modal management and receipt system loaded!");
     </script>
 </body>
 </html>
