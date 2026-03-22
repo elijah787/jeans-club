@@ -9345,6 +9345,388 @@ async function updateMemberVouchers(jcId) {
                 });
             }
         };
+        // ===========================================
+// FIXED CONFIRMATION AND RECEIPT SYSTEM - ADD THIS AT THE VERY END
+// ===========================================
+
+// Replace the broken memberConfirmPayment function
+window.memberConfirmPayment = async function() {
+    if (!currentTransaction) {
+        showToast("No active transaction", "error");
+        return;
+    }
+    
+    console.log("💰 Member confirming payment for transaction:", currentTransaction.id);
+    
+    try {
+        currentTransaction.memberConfirmed = true;
+        currentTransaction.memberConfirmedAt = new Date().toISOString();
+        currentTransaction.status = "member_confirmed";
+        
+        await saveTransaction(currentTransaction);
+        
+        await broadcastToSalesperson({
+            type: 'member_confirmed',
+            transactionId: currentTransaction.id,
+            memberJcId: currentTransaction.memberJcId,
+            finalTotal: currentTransaction.appliedVoucher ? currentTransaction.finalTotal : currentTransaction.subtotal,
+            appliedVoucher: currentTransaction.appliedVoucher,
+            timestamp: Date.now()
+        });
+        
+        showMemberTransactionScreen(currentTransaction);
+        showConfirmationQR(currentTransaction);
+        showToast("Payment confirmed! Show QR to salesperson.", "success");
+        
+    } catch (error) {
+        console.error("Error in memberConfirmPayment:", error);
+        showToast("Failed to confirm payment", "error");
+    }
+};
+
+// Replace the broken handleMemberConfirmed function
+window.handleMemberConfirmed = function(payload) {
+    console.log("🎉 Staff received member confirmation:", payload);
+    
+    if (currentTransaction && currentTransaction.id === payload.transactionId) {
+        currentTransaction.memberConfirmed = true;
+        currentTransaction.memberConfirmedAt = new Date().toISOString();
+        currentTransaction.status = "member_confirmed";
+        
+        if (!document.getElementById('salespersonTransactionScreen').classList.contains('hidden')) {
+            showSalespersonTransactionScreen(currentTransaction);
+        }
+        
+        showToast(`✅ Member ${currentTransaction.memberName} has confirmed payment!`, "success");
+        
+        const confirmBtn = document.querySelector('.btn-success');
+        if (confirmBtn) {
+            confirmBtn.style.animation = 'pulse 1s infinite';
+            setTimeout(() => {
+                if (confirmBtn) confirmBtn.style.animation = '';
+            }, 3000);
+        }
+    }
+};
+
+// Replace the broken processConfirmedSale function
+window.processConfirmedSale = async function(parsedData) {
+    console.log("🔍 Processing confirmed sale with data:", parsedData);
+    
+    try {
+        const { transactionId, memberJcId, finalTotal, appliedVoucher } = parsedData;
+        
+        let transaction = currentTransaction;
+        
+        if (!transaction || transaction.id !== transactionId) {
+            if (!window.supabaseDbInstance) {
+                showToast("Database not connected", "error");
+                return;
+            }
+            
+            const { supabase } = window.supabaseDbInstance;
+            
+            const { data: dbTransaction, error } = await supabase
+                .from('transactions')
+                .select('*')
+                .eq('id', transactionId)
+                .single();
+            
+            if (error || !dbTransaction) {
+                showToast("Transaction not found", "error");
+                return;
+            }
+            
+            let items = [];
+            try {
+                items = JSON.parse(dbTransaction.items || '[]');
+            } catch (e) {
+                items = [];
+            }
+            
+            const subtotal = items.reduce((sum, item) => sum + (item.price || 0), 0);
+            
+            transaction = {
+                id: dbTransaction.id,
+                sessionId: dbTransaction.session_id,
+                memberJcId: dbTransaction.member_jc_id,
+                memberName: dbTransaction.member_name,
+                memberTier: dbTransaction.member_tier,
+                salespersonName: dbTransaction.salesperson_name,
+                status: dbTransaction.status,
+                items: items,
+                subtotal: subtotal,
+                appliedVoucher: dbTransaction.applied_voucher ? JSON.parse(dbTransaction.applied_voucher) : null,
+                finalTotal: dbTransaction.final_total || subtotal,
+                memberConfirmed: dbTransaction.member_confirmed || false
+            };
+        }
+        
+        if (!transaction.memberConfirmed) {
+            showToast("Member has not confirmed payment yet", "error");
+            return;
+        }
+        
+        const finalTotalAmount = transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal;
+        const pointsEarned = Math.floor(finalTotalAmount / 1000);
+        
+        console.log(`💰 Adding purchase: ${finalTotalAmount} UGX = ${pointsEarned} points`);
+        
+        await clubManager.addPurchase(
+            transaction.memberJcId,
+            finalTotalAmount,
+            `Store purchase: ${transaction.items.map(i => i.name).join(', ')}`
+        );
+        
+        if (transaction.appliedVoucher) {
+            console.log(`🎫 Redeeming voucher: ${transaction.appliedVoucher.code}`);
+            await voucherSystem.redeemVoucher(
+                transaction.appliedVoucher.code,
+                clubManager.currentSalesperson || "Salesperson"
+            );
+        }
+        
+        const receipt = {
+            transactionId: transaction.id,
+            store: "JEANS CLUB",
+            tagline: "Raised on Denim",
+            date: new Date().toLocaleString(),
+            salesperson: transaction.salespersonName,
+            memberName: transaction.memberName,
+            memberJcId: transaction.memberJcId,
+            memberTier: transaction.memberTier,
+            items: transaction.items,
+            subtotal: transaction.subtotal,
+            voucher: transaction.appliedVoucher,
+            finalTotal: finalTotalAmount,
+            pointsEarned: pointsEarned,
+            paymentMethod: "Cash"
+        };
+        
+        transaction.status = "completed";
+        transaction.salespersonCompleted = true;
+        transaction.completedAt = new Date().toISOString();
+        transaction.pointsEarned = pointsEarned;
+        
+        await saveTransaction(transaction);
+        
+        await broadcastToMember({
+            type: 'sale_completed',
+            receipt: receipt,
+            transactionId: transaction.id
+        });
+        
+        showReceipt(receipt);
+        
+        currentTransaction = null;
+        isInTransactionFlow = false;
+        
+        if (clubManager.isAdmin) {
+            showAdminPanel();
+        } else {
+            showDashboard(clubManager.currentMember);
+        }
+        
+        showToast(`✅ Sale completed! ${pointsEarned} points earned by ${transaction.memberName}`, "success");
+        
+    } catch (error) {
+        console.error("Error processing confirmed sale:", error);
+        showToast("Failed to complete sale: " + error.message, "error");
+    }
+};
+
+// Replace the broken showReceipt function
+window.showReceipt = function(receipt) {
+    console.log("📄 Generating receipt:", receipt);
+    
+    const receiptHTML = `
+        <div style="max-width: 400px; margin: 0 auto; background: white; border-radius: 15px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-family: monospace;">
+            <div style="text-align: center; border-bottom: 2px dashed #333; padding-bottom: 15px; margin-bottom: 15px;">
+                <img src="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg" style="height: 40px; margin-bottom: 10px;">
+                <h2 style="margin: 0;">JEANS CLUB</h2>
+                <div style="color: #666;">Raised on Denim</div>
+                <div style="font-size: 12px;">${receipt.date}</div>
+                <div style="font-size: 12px;">Salesperson: ${receipt.salesperson}</div>
+                <div style="font-size: 12px;">Member: ${receipt.memberName}</div>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                ${receipt.items.map(item => `
+                    <div style="display: flex; justify-content: space-between; margin: 5px 0;">
+                        <span>${item.name}</span>
+                        <span>${item.price.toLocaleString()} UGX</span>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <div style="border-top: 1px dashed #333; margin: 10px 0;"></div>
+            
+            <div style="display: flex; justify-content: space-between;">
+                <span>Subtotal:</span>
+                <span>${receipt.subtotal.toLocaleString()} UGX</span>
+            </div>
+            
+            ${receipt.voucher ? `
+                <div style="display: flex; justify-content: space-between; color: #28a745;">
+                    <span>Discount (${receipt.voucher.percentage}%):</span>
+                    <span>-${receipt.voucher.discount.toLocaleString()} UGX</span>
+                </div>
+                <div style="font-size: 10px; text-align: right;">Code: ${receipt.voucher.code}</div>
+            ` : ''}
+            
+            <div style="border-top: 1px dashed #333; margin: 10px 0;"></div>
+            
+            <div style="font-size: 20px; font-weight: bold; text-align: right; margin: 15px 0;">
+                TOTAL: ${receipt.finalTotal.toLocaleString()} UGX
+            </div>
+            
+            <div style="display: flex; justify-content: space-between;">
+                <span>Points Earned:</span>
+                <span style="color: #28a745;">+${receipt.pointsEarned}</span>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #333;">
+                <div>Thank you for shopping!</div>
+                <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" 
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; margin-top: 15px; cursor: pointer;">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10001;
+        overflow-y: auto;
+        padding: 20px;
+    `;
+    
+    modal.innerHTML = receiptHTML;
+    document.body.appendChild(modal);
+    
+    if (currentTransaction && currentTransaction.memberDeviceId) {
+        broadcastToMember({
+            type: 'show_receipt',
+            receipt: receipt
+        });
+    }
+};
+
+// Replace the broken showConfirmationQR function
+window.showConfirmationQR = function(transaction) {
+    const confirmData = {
+        action: 'confirm_sale',
+        transactionId: transaction.id,
+        memberJcId: transaction.memberJcId,
+        finalTotal: transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal,
+        appliedVoucher: transaction.appliedVoucher,
+        timestamp: Date.now()
+    };
+    
+    const encodedData = encodeURIComponent(JSON.stringify(confirmData));
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedData}`;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10002;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 90%; width: 400px;">
+            <h3 style="color: #28a745;">✅ Payment Confirmed!</h3>
+            <p>Show this QR to the salesperson</p>
+            <img src="${qrCodeUrl}" style="width: 250px; height: 250px; margin: 20px 0; border: 3px solid #28a745; border-radius: 15px; padding: 10px;">
+            <div style="font-size: 20px; font-weight: bold;">${(transaction.appliedVoucher ? transaction.finalTotal : transaction.subtotal).toLocaleString()} UGX</div>
+            <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" 
+                    style="background: #6c757d; color: white; border: none; padding: 12px 24px; border-radius: 8px; margin-top: 20px; cursor: pointer;">
+                Close
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    setTimeout(() => {
+        if (modal && modal.parentNode) modal.remove();
+    }, 300000);
+};
+
+// Replace the broken handleSaleCompleted function
+window.handleSaleCompleted = function(payload) {
+    console.log("🎉 Member received sale completion:", payload);
+    
+    if (payload.receipt) {
+        const receiptHTML = `
+            <div style="max-width: 400px; margin: 0 auto; background: white; border-radius: 15px; padding: 25px; font-family: monospace;">
+                <div style="text-align: center; border-bottom: 2px dashed #333; padding-bottom: 15px;">
+                    <h2>JEANS CLUB</h2>
+                    <div>Raised on Denim</div>
+                    <div style="font-size: 12px;">${payload.receipt.date}</div>
+                </div>
+                <div style="margin: 15px 0;">
+                    ${payload.receipt.items.map(item => `
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>${item.name}</span>
+                            <span>${item.price.toLocaleString()} UGX</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="border-top: 1px dashed #333;"></div>
+                <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                    <span>Total:</span>
+                    <span><strong>${payload.receipt.finalTotal.toLocaleString()} UGX</strong></span>
+                </div>
+                <div style="color: #28a745;">+${payload.receipt.pointsEarned} points earned!</div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="location.reload()" style="background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;">
+                        Return to Dashboard
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 10003;`;
+        modal.innerHTML = receiptHTML;
+        document.body.appendChild(modal);
+        
+        currentTransaction = null;
+        isInTransactionFlow = false;
+    }
+};
+
+// Add pulse animation CSS
+const pulseStyle = document.createElement('style');
+pulseStyle.textContent = `
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
+`;
+document.head.appendChild(pulseStyle);
+
+console.log("✅ Confirmation and receipt fixes loaded!");
     </script>
 </body>
 </html>
