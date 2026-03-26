@@ -6572,542 +6572,126 @@ function showMemberTransactionScreen(transaction) {
                 return { allowed: true, reason: '' };
             }
         }
-class GoogleAppsEmailService {
+class EmailService {
     constructor() {
-        this.scriptURL = ' https://script.google.com/macros/s/AKfycby6Fi4rDjsmwKiGayttnjGodbSmeohmlgBbMnyHzWkdagxd7tx7jEg25xBdovSKaYc4/exec; '
-        this.isActive = true;
+        // YOUR GOOGLE APPS SCRIPT URL - UPDATE WITH YOUR DEPLOYED URL
+        this.scriptURL = 'https://script.google.com/macros/s/AKfycbzMq6rsx3zCScP5xy_cfBkftlI61ZytH7oWOJuTBpaqg-K1WHBdbfL-L2g4dnh9jmlV/exec';
         
-        // 🎭 ROTATING HUMOR MESSAGES - Each email gets a random one!
+        // 🎭 ROTATING HUMOR
         this.humorMessages = {
-            password_reset: [
-                { line: '"I swear I knew my password yesterday!"', footer: "We judge your fashion, not your memory" },
-                { line: "Even our founder forgot hers twice. You're in good company.", footer: "Next time: write it on your jeans" },
-                { line: "We won't tell anyone. Your secret is safe with us.", footer: "Unlike your password, apparently" },
-                { line: "It happens to the best of us. (And also to you.)", footer: "Try your jeans size next time" },
-                { line: "Don't worry, we've seen worse. Much worse.", footer: "At least you're not 'password123'" }
-            ],
-            reset_success: [
-                { line: "Memory restored! We knew you had it in you.", footer: "We're not judging. Okay, maybe a little. But with love." },
-                { line: "You did it! We never doubted you. (We did, but we're proud now.)", footer: "Tattoo it this time?" },
-                { line: "The force is strong with this one.", footer: "May the jeans be with you" },
-                { line: "Password reset successful! Please try to remember this one.", footer: "We believe in you. Really." },
-                { line: "Crisis averted. Your style is safe.", footer: "Don't make us do this again 😉" }
-            ],
-            welcome: [
-                { line: "We've been waiting for someone with your fashion sense!", footer: "Your jeans are jealous of how good you look" },
-                { line: "You're officially cool. We have the paperwork to prove it.", footer: "Welcome to the club, stylish one" },
-                { line: "Another denim lover! Our collection is about to get jealous.", footer: "Your wardrobe called. It said 'thank you'" },
-                { line: "We like your style. And we're not just saying that.", footer: "Diamonds are expensive. Denim is forever." },
-                { line: "Fresh style detected! Welcome to the family.", footer: "Your jeans are already planning their next outfit" }
-            ],
-            purchase: [
-                { line: "Another pair? We don't judge. We encourage.", footer: "Warning: Points may cause excessive smiling" },
-                { line: "Money well spent! Your wardrobe called. It said 'thank you'.", footer: "Those jeans are going to look amazing on you" },
-                { line: "Treat yourself! (You deserve it. We checked.)", footer: "Points = more jeans. Math checks out." },
-                { line: "Shopping spree detected! We approve.", footer: "Your jeans collection is getting legendary" },
-                { line: "You're making your closet very happy right now.", footer: "Keep going. We won't stop you." }
-            ],
-            voucher: [
-                { line: "You've got a golden ticket! Charlie had chocolate. You have denim.", footer: "Don't let it expire like your gym pass" },
-                { line: "Discount alert! Your wallet is about to be happy.", footer: "Points grow back. We promise." },
-                { line: "You're basically printing money at this point.", footer: "Show this to our staff. They love scanning things." },
-                { line: "Smart shopper detected! Saving money AND looking good.", footer: "This voucher is your ticket to denim heaven" },
-                { line: "Points well spent! (Unlike your coffee addiction.)", footer: "Use it before it expires. No regrets." }
-            ],
-            referral: [
-                { line: "You're a good friend! And a little bit sneaky.", footer: "Your friends think you're generous. We know you just want more points." },
-                { line: "Style influencer status: ACTIVATED!", footer: "Each friend = more points = more jeans" },
-                { line: "Sharing is caring. And rewarding. And awesome.", footer: "We respect the hustle. Keep sharing!" },
-                { line: "You just made your friend cooler. And richer in points.", footer: "Win-win. You're basically a hero." },
-                { line: "Referral success! Your friend has good taste. (Like you.)", footer: "Keep that referral code handy. It's working!" }
-            ],
-            newsletter_welcome: [
-                { line: "You're in! (The cool club, that is.)", footer: "Unsubscribe anytime. But why would you?" },
-                { line: "Welcome to the inbox that actually brings good news.", footer: "No spam. Just style. Promise." },
-                { line: "Secret sales incoming! Don't tell your friends.", footer: "Well, maybe tell one. Then get points." },
-                { line: "You've unlocked: Exclusive updates. Level: Legendary.", footer: "Your style game is about to level up" },
-                { line: "First newsletter drops soon. Keep an eye out!", footer: "Unlike that stain on your favorite jeans" }
-            ]
+            password_reset: {
+                lines: [
+                    '"I swear I knew my password yesterday!"',
+                    "Even our founder forgot hers twice. You're in good company.",
+                    "We won't tell anyone. Your secret is safe with us.",
+                    "It happens to the best of us. (And also to you.)",
+                    "Don't worry, we've seen worse. Much worse.",
+                    "Your password is playing hide and seek. And winning."
+                ],
+                footers: [
+                    "We judge your fashion, not your memory",
+                    "Next time: write it on your jeans",
+                    "At least you're not 'password123'",
+                    "We won't tell your other passwords about this"
+                ]
+            }
         };
         
-        console.log('📧 Email service initialized with humor');
+        console.log('📧 Email service ready');
     }
 
     getRandomMessage(type) {
         const messages = this.humorMessages[type];
-        if (!messages) return { line: "Thanks for being awesome!", footer: "Jeans Club" };
-        const randomIndex = Math.floor(Math.random() * messages.length);
-        return messages[randomIndex];
+        if (!messages) return { line: "Thanks!", footer: "Jeans Club" };
+        return {
+            line: messages.lines[Math.floor(Math.random() * messages.lines.length)],
+            footer: messages.footers[Math.floor(Math.random() * messages.footers.length)]
+        };
     }
 
-    async sendEmailToGoogleScript(email, type, memberData, extraData = null) {
+    // THIS IS THE MAIN FUNCTION - NOT calling itself!
+    async sendPasswordResetEmail(email, memberData, resetData) {
+        const humor = this.getRandomMessage('password_reset');
+        const name = memberData?.name?.split(' ')[0] || 'Member';
+        const token = resetData?.token || '000000';
+        
+        const html = this.buildResetEmail(name, token, humor);
+        
         try {
-            const humor = this.getRandomMessage(type);
-            const emailContent = this.buildEmailContent(type, memberData, extraData, humor);
-            const subject = this.getSubject(type, memberData, extraData);
-            
-            const payload = {
-                action: 'sendEmail',
-                emailData: {
-                    email: email,
-                    type: type,
-                    subject: subject,
-                    message: emailContent,
-                    html: true
-                }
-            };
-
-            console.log('📤 Sending email via Google Apps Script:', type, 'to', email);
-
             const response = await fetch(this.scriptURL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'sendEmail',
+                    email: email,
+                    subject: `🔒 Reset your Jeans Club password`,
+                    html: html
+                })
             });
-
-            if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Email sent successfully:', result);
-                return result;
-            } else {
-                const errorText = await response.text();
-                console.error('❌ HTTP error:', response.status, errorText);
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
             
-        } catch (fetchError) {
-            console.error('❌ Fetch failed:', fetchError);
-            this.storeFailedEmail(email, type, memberData, extraData);
-            return { 
-                success: false, 
-                message: 'Email failed - saved for manual sending',
-                fallback: true 
-            };
+            const result = await response.json();
+            if (result.success) {
+                console.log('✅ Password reset email sent to:', email);
+                return { success: true };
+            }
+            throw new Error(result.message);
+            
+        } catch (error) {
+            console.error('❌ Email failed:', error);
+            return { success: false };
         }
     }
-    
-    storeFailedEmail(email, type, memberData, extraData) {
-        const failedEmails = JSON.parse(localStorage.getItem('failedEmails') || '[]');
-        failedEmails.push({
-            email: email,
-            type: type,
-            memberData: memberData,
-            extraData: extraData,
-            timestamp: new Date().toISOString()
-        });
-        localStorage.setItem('failedEmails', JSON.stringify(failedEmails));
-        console.log('📧 Email stored. Total pending:', failedEmails.length);
-    }
 
-    buildEmailContent(type, memberData, extraData, humor) {
-        const name = memberData?.name || 'Valued Member';
-        const points = memberData?.points || 0;
-        const tier = memberData?.tier || 'PEARL';
-        const jcId = memberData?.jcId || 'JC****';
-        
-        const baseStyles = `
-            <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
-                .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-                .header { background: #000; padding: 28px 20px; text-align: center; border-bottom: 3px solid #00AFF0; }
-                .logo { font-size: 26px; font-weight: bold; color: white; letter-spacing: 1px; }
-                .logo span { color: #00AFF0; }
-                .content { padding: 32px 24px; }
-                .card { background: #f8f9fa; border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center; border-left: 4px solid #00AFF0; }
-                .code { font-size: 32px; font-weight: bold; letter-spacing: 4px; font-family: monospace; background: white; padding: 12px 20px; border-radius: 12px; display: inline-block; margin: 12px 0; }
-                .btn { display: inline-block; background: #000; color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 600; margin: 20px 0; }
-                .footer { padding: 20px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #eee; }
-                .points { font-size: 32px; font-weight: bold; color: #00AFF0; }
-                .humor-line { font-style: italic; color: #666; margin: 16px 0 0; padding-top: 16px; border-top: 1px dashed #eee; font-size: 14px; }
-                .humor-footer { background: #fafafa; padding: 16px; border-radius: 12px; margin-top: 24px; text-align: center; color: #888; font-size: 13px; }
-                hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
-            </style>
+    buildResetEmail(name, token, humor) {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Reset Password - Jeans Club</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+                    .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                    .header { background: #000; padding: 28px 20px; text-align: center; border-bottom: 3px solid #00AFF0; }
+                    .logo { font-size: 26px; font-weight: bold; color: white; letter-spacing: 1px; }
+                    .logo span { color: #00AFF0; }
+                    .content { padding: 32px 24px; }
+                    .card { background: #f8f9fa; border-radius: 16px; padding: 24px; margin: 24px 0; text-align: center; border-left: 4px solid #00AFF0; }
+                    .code { font-size: 32px; font-weight: bold; letter-spacing: 4px; font-family: monospace; background: white; padding: 12px 20px; border-radius: 12px; display: inline-block; margin: 12px 0; }
+                    .btn { display: inline-block; background: #000; color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 600; margin: 20px 0; }
+                    .footer { padding: 20px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #eee; }
+                    .humor-footer { background: #fafafa; padding: 16px; border-radius: 12px; margin-top: 24px; text-align: center; color: #888; font-size: 13px; font-style: italic; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="logo"><span>JEANS</span>CLUB</div>
+                    </div>
+                    <div class="content">
+                        <h2 style="margin: 0 0 8px;">🔒 Uh oh, ${name}...</h2>
+                        <p style="font-size: 18px; color: #666;">${humor.line}</p>
+                        <div class="card">
+                            <div style="font-size: 12px; color: #888; margin-bottom: 8px;">YOUR RESET CODE</div>
+                            <div class="code">${token}</div>
+                            <div style="font-size: 12px; color: #888; margin-top: 12px;">⏰ Expires in 1 hour</div>
+                        </div>
+                        <p style="color: #555;">If you didn't request this, ignore this email.</p>
+                        <div style="text-align: center;">
+                            <a href="https://elijah787.github.io/jeans-club" class="btn">RESET PASSWORD</a>
+                        </div>
+                        <div class="humor-footer">
+                            ${humor.footer}
+                        </div>
+                    </div>
+                    <div class="footer">
+                        Jeans Club • Kampala, Uganda • +256 772558913
+                    </div>
+                </div>
+            </body>
+            </html>
         `;
-
-        switch(type) {
-            case 'password_reset':
-                const token = extraData?.token || '000000';
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <h2 style="margin: 0 0 8px;">🔒 Uh oh, ${name.split(' ')[0]}...</h2>
-                                <p style="color: #666; font-size: 18px;">"${humor.line}"</p>
-                                
-                                <div class="card">
-                                    <div style="font-size: 12px; color: #888; margin-bottom: 8px;">YOUR RESET CODE</div>
-                                    <div class="code">${token}</div>
-                                    <div style="font-size: 12px; color: #888; margin-top: 12px;">⏰ Expires in 1 hour</div>
-                                </div>
-                                
-                                <p style="color: #555;">If you didn't request this, someone's trying to steal your style. Ignore this email.</p>
-                                
-                                <div class="humor-footer">
-                                    ${humor.footer}
-                                </div>
-                            </div>
-                            <div class="footer">
-                                Jeans Club • Kampala, Uganda • +256 772558913
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-            case 'password_reset_success':
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <h2 style="margin: 0 0 8px;">🔓 ${humor.line}</h2>
-                                <p>Your password has been reset. Please try to remember this one. We believe in you.</p>
-                                
-                                <div style="text-align: center;">
-                                    <a href="https://elijah787.github.io/jeans-club" class="btn">LOGIN NOW</a>
-                                </div>
-                                
-                                <div class="humor-footer">
-                                    ${humor.footer}
-                                </div>
-                            </div>
-                            <div class="footer">
-                                Jeans Club • We judge your fashion, not your memory
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-            case 'welcome':
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <h2 style="margin: 0 0 8px;">🎉 ${humor.line}</h2>
-                                
-                                <div class="card">
-                                    <div style="font-size: 12px; color: #888;">YOUR MEMBERSHIP CARD</div>
-                                    <div class="code">${jcId}</div>
-                                    <div><strong>${tier}</strong> • ${points} POINTS</div>
-                                </div>
-                                
-                                <p>🎫 Your referral code: <strong>${memberData.referralCode}</strong></p>
-                                
-                                <div style="background: #f0f0f0; border-radius: 12px; padding: 12px; text-align: center; margin: 20px 0;">
-                                    💰 1pt / 1,000 UGX &nbsp;&nbsp;|&nbsp;&nbsp; 💸 1pt = 50 UGX
-                                </div>
-                                
-                                <div style="text-align: center;">
-                                    <a href="https://elijah787.github.io/jeans-club" class="btn">VISIT DASHBOARD</a>
-                                </div>
-                                
-                                <div class="humor-footer">
-                                    ${humor.footer}
-                                </div>
-                            </div>
-                            <div class="footer">
-                                Jeans Club • Raised on Denim
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-            case 'purchase':
-                const amount = extraData?.amount || 0;
-                const pointsEarned = extraData?.pointsEarned || 0;
-                const newBalance = extraData?.newBalance || points;
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <h2 style="margin: 0 0 8px;">💸 ${humor.line}</h2>
-                                
-                                <div class="card">
-                                    <div style="font-size: 14px; font-weight: bold;">${extraData?.description || 'Purchase'}</div>
-                                    <div style="font-size: 24px; font-weight: bold;">${amount.toLocaleString()} UGX</div>
-                                    <div style="font-size: 12px; color: #888;">${new Date().toLocaleDateString()}</div>
-                                </div>
-                                
-                                <div style="text-align: center;">
-                                    <div class="points">+${pointsEarned} POINTS</div>
-                                    <p>New balance: ${newBalance.toLocaleString()} points</p>
-                                </div>
-                                
-                                <div style="text-align: center;">
-                                    <a href="https://elijah787.github.io/jeans-club" class="btn">VIEW DASHBOARD</a>
-                                </div>
-                                
-                                <div class="humor-footer">
-                                    ${humor.footer}
-                                </div>
-                            </div>
-                            <div class="footer">
-                                Jeans Club • Points may cause excessive smiling
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-            case 'discount':
-                const voucherCode = extraData?.voucherCode || 'N/A';
-                const discountPercentage = extraData?.discountPercentage || 0;
-                const expiryDate = extraData?.expiryDate ? new Date(extraData.expiryDate).toLocaleDateString() : 'N/A';
-                const pointsUsed = extraData?.pointsUsed || 0;
-                const discountValue = extraData?.discountValue || pointsUsed * 50;
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <h2 style="margin: 0 0 8px;">🎫 ${humor.line}</h2>
-                                
-                                <div class="card">
-                                    <div style="font-size: 18px; font-weight: bold;">SAVE ${discountPercentage}% OFF</div>
-                                    <div class="code">${voucherCode}</div>
-                                    <div style="font-size: 12px;">Valid until: ${expiryDate}</div>
-                                    <div style="font-size: 14px; margin-top: 12px;">💰 Worth: ${discountValue.toLocaleString()} UGX</div>
-                                </div>
-                                
-                                <p style="text-align: center;">Points used: ${pointsUsed} (They grow back, we promise)</p>
-                                
-                                <div style="text-align: center;">
-                                    <a href="https://elijah787.github.io/jeans-club" class="btn">SHOW AT CHECKOUT</a>
-                                </div>
-                                
-                                <div class="humor-footer">
-                                    ${humor.footer}
-                                </div>
-                            </div>
-                            <div class="footer">
-                                Jeans Club • Your jeans are already planning their next outfit
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-            case 'referral':
-                const referredName = extraData?.referredName || 'someone';
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <h2 style="margin: 0 0 8px;">🎊 ${humor.line}</h2>
-                                <p>Your friend ${referredName} just made their first purchase!</p>
-                                
-                                <div style="text-align: center; margin: 30px 0;">
-                                    <div class="points">+100 POINTS</div>
-                                    <p>New balance: ${(points + 100).toLocaleString()} points</p>
-                                </div>
-                                
-                                <p>Keep sharing your code: <strong>${memberData.referralCode}</strong></p>
-                                
-                                <div style="text-align: center;">
-                                    <a href="https://elijah787.github.io/jeans-club" class="btn">SHARE AGAIN</a>
-                                </div>
-                                
-                                <div class="humor-footer">
-                                    ${humor.footer}
-                                </div>
-                            </div>
-                            <div class="footer">
-                                Jeans Club • We respect the hustle
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-            case 'newsletter_welcome':
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <h2 style="margin: 0 0 8px;">📬 ${humor.line}</h2>
-                                <p>You'll now get:</p>
-                                <ul style="color: #555; line-height: 1.8;">
-                                    <li>🎉 Secret sales (that your friends won't know)</li>
-                                    <li>👖 New drops (before everyone else)</li>
-                                    <li>💸 Exclusive discounts (for your eyes only)</li>
-                                    <li>🎁 Birthday surprises (we don't forget)</li>
-                                </ul>
-                                
-                                <div style="text-align: center;">
-                                    <a href="https://elijah787.github.io/jeans-club" class="btn">SHOP NOW</a>
-                                </div>
-                                
-                                <div class="humor-footer">
-                                    ${humor.footer}
-                                </div>
-                            </div>
-                            <div class="footer">
-                                Jeans Club • No spam. Just style. Promise.
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-            case 'newsletter':
-                const subject = extraData?.subject || 'Jeans Club Update';
-                const message = extraData?.message || '';
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <h2 style="margin: 0 0 8px;">📰 ${subject}</h2>
-                                <div style="color: #555; line-height: 1.6;">
-                                    ${message}
-                                </div>
-                                
-                                <div style="text-align: center; margin-top: 30px;">
-                                    <a href="https://elijah787.github.io/jeans-club" class="btn">SHOP NOW</a>
-                                </div>
-                                
-                                <div class="humor-footer">
-                                    Forward to a friend. They'll thank you.
-                                </div>
-                            </div>
-                            <div class="footer">
-                                Jeans Club • Raised on Denim
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-            default:
-                return `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>${baseStyles}</head>
-                    <body style="margin: 0; padding: 20px; background: #f5f5f5;">
-                        <div class="container">
-                            <div class="header">
-                                <div class="logo"><span>JEANS</span>CLUB</div>
-                            </div>
-                            <div class="content">
-                                <p>Hey ${name},</p>
-                                <p>Thanks for being a Jeans Club member!</p>
-                                <div style="text-align: center;">
-                                    <a href="https://elijah787.github.io/jeans-club" class="btn">VISIT DASHBOARD</a>
-                                </div>
-                            </div>
-                            <div class="footer">Jeans Club</div>
-                        </div>
-                    </body>
-                    </html>
-                `;
-        }
-    }
-
-    getSubject(type, memberData, extraData) {
-        const humor = this.getRandomMessage(type);
-        
-        switch(type) {
-            case 'password_reset':
-                return "🔒 Oops! Let's fix that password";
-            case 'password_reset_success':
-                return "🔓 Password reset successful!";
-            case 'welcome':
-                return "🎉 Welcome to Jeans Club! You're officially cool.";
-            case 'purchase':
-                return "💸 Money well spent! Your points are waiting.";
-            case 'discount':
-                return "🎫 Your discount voucher is here! Don't let it expire.";
-            case 'referral':
-                return "🎊 You're a style influencer! +100 points!";
-            case 'newsletter_welcome':
-                return "📬 You're in! (The cool newsletter club)";
-            case 'newsletter':
-                return extraData?.subject || "📰 Jeans Club Newsletter";
-            default:
-                return "💌 From Jeans Club";
-        }
-    }
-
-    // Wrapper methods
-    async sendWelcomeEmail(email, memberData) {
-        return this.sendEmailToGoogleScript(email, 'welcome', memberData);
-    }
-    
-    async sendPurchaseEmail(email, memberData, purchaseData) {
-        return this.sendEmailToGoogleScript(email, 'purchase', memberData, purchaseData);
-    }
-    
-    async sendDiscountEmail(email, memberData, discountData) {
-        return this.sendEmailToGoogleScript(email, 'discount', memberData, discountData);
-    }
-    
-    async sendReferralEmail(email, memberData, referralData) {
-        return this.sendEmailToGoogleScript(email, 'referral', memberData, referralData);
-    }
-    
-    async sendPasswordResetEmail(email, memberData, resetData) {
-        return this.sendEmailToGoogleScript(email, 'password_reset', memberData, resetData);
-    }
-    
-    async sendPasswordResetSuccessEmail(email, memberData) {
-        return this.sendEmailToGoogleScript(email, 'password_reset_success', memberData);
-    }
-    
-    async sendNewsletterWelcomeEmail(email, memberData, newsletterData) {
-        return this.sendEmailToGoogleScript(email, 'newsletter_welcome', memberData, newsletterData);
-    }
-    
-    async sendNewsletterEmail(email, memberData, newsletterData) {
-        return this.sendEmailToGoogleScript(email, 'newsletter', memberData, newsletterData);
     }
 }
 
@@ -7118,7 +6702,7 @@ class GoogleAppsEmailService {
         class ClubManager {
             constructor() {
                 this.db = new SupabaseDB();
-                this.emailService = new GoogleAppsEmailService();
+                 this.emailService = new EmailService();
                 this.currentMember = null;
                 this.isAdmin = false;
                 this.currentSalesperson = null;
