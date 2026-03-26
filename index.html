@@ -6451,6 +6451,125 @@ function showMemberTransactionScreen(transaction) {
                     return false;
                 }
             }
+            
+    // Add this method to set password reset token
+    async setPasswordResetToken(jcId, token, expiryDate) {
+        try {
+            console.log('🔑 Setting password reset token for:', jcId);
+            
+            const { data, error } = await this.supabase
+                .from('members')
+                .update({
+                    resettoken: token,
+                    resettokenexpiry: expiryDate.toISOString()
+                })
+                .eq('jc_id', jcId);
+
+            if (error) {
+                console.error('❌ Error setting reset token:', error);
+                return false;
+            }
+            
+            console.log('✅ Reset token saved successfully');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Failed to set reset token:', error);
+            return false;
+        }
+    }
+
+    // Add this method to get password reset token
+    async getPasswordResetToken(jcId) {
+        try {
+            console.log('🔍 Fetching password reset token for:', jcId);
+            
+            const { data, error } = await this.supabase
+                .from('members')
+                .select('resettoken, resettokenexpiry')
+                .eq('jc_id', jcId)
+                .single();
+
+            if (error) {
+                if (error.code === 'PGRST116') {
+                    console.log('No reset token found for:', jcId);
+                    return null;
+                }
+                console.error('❌ Error fetching reset token:', error);
+                throw error;
+            }
+
+            if (data && data.resettoken) {
+                return {
+                    token: data.resettoken,
+                    expiry: data.resettokenexpiry ? new Date(data.resettokenexpiry) : null
+                };
+            }
+            
+            return null;
+            
+        } catch (error) {
+            console.error('❌ Failed to get reset token:', error);
+            return null;
+        }
+    }
+
+    // Add this method to clear password reset token
+    async clearPasswordResetToken(jcId) {
+        try {
+            console.log('🗑️ Clearing password reset token for:', jcId);
+            
+            const { data, error } = await this.supabase
+                .from('members')
+                .update({
+                    resettoken: null,
+                    resettokenexpiry: null
+                })
+                .eq('jc_id', jcId);
+
+            if (error) {
+                console.error('❌ Error clearing reset token:', error);
+                return false;
+            }
+            
+            console.log('✅ Reset token cleared successfully');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Failed to clear reset token:', error);
+            return false;
+        }
+    }
+
+    // Optional: Add cleanup method for expired tokens
+    async cleanupExpiredResetTokens() {
+        try {
+            console.log('🧹 Cleaning up expired reset tokens...');
+            
+            const now = new Date().toISOString();
+            
+            const { data, error } = await this.supabase
+                .from('members')
+                .update({
+                    resettoken: null,
+                    resettokenexpiry: null
+                })
+                .lt('resettokenexpiry', now)
+                .not('resettoken', 'is', null);
+
+            if (error) {
+                console.error('❌ Error cleaning up expired tokens:', error);
+                return false;
+            }
+            
+            console.log('✅ Expired tokens cleaned up');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Failed to cleanup expired tokens:', error);
+            return false;
+        }
+    }
         }
 
         // ===========================================
@@ -7791,75 +7910,136 @@ function showMemberTransactionScreen(transaction) {
 
            
             
-            async requestPasswordReset(jcId) {
-                try {
-                    const member = await this.db.getMemberByJCId(jcId);
-                    if (!member) {
-                        return { success: false, message: 'Member not found' };
-                    }
-                    
-                    if (member.loginMethod === 'google') {
-                        return { success: false, message: 'Google accounts do not use passwords. Please use Google Sign-In.' };
-                    }
-                    
-                    const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
-                    const resetTokenExpiry = new Date(Date.now() + 3600000);
-                    
-                    member.resetToken = resetToken;
-                    member.resetTokenExpiry = resetTokenExpiry.toISOString();
-                    await this.db.saveMember(member);
-                    
-                    this.emailService.sendPasswordResetEmail(member.email, member, {
-                        token: resetToken
-                    });
-                    
-                    return { 
-                        success: true, 
-                        message: 'Password reset code sent to your email. Check your inbox.' 
-                    };
-                    
-                } catch (error) {
-                    console.error('Password reset request error:', error);
-                    return { success: false, message: 'Failed to send reset code' };
-                }
+          
+    
+    async requestPasswordReset(jcId) {
+        try {
+            const member = await this.db.getMemberByJCId(jcId);
+            if (!member) {
+                return { success: false, message: 'Member not found' };
             }
+            
+            if (member.loginMethod === 'google') {
+                return { success: false, message: 'Google accounts do not use passwords. Please use Google Sign-In.' };
+            }
+            
+            // Generate 6-digit reset code
+            const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+            const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+            
+            console.log('📝 Generated reset token:', resetToken, 'for member:', jcId);
+            
+            // Save token to Supabase using the new method
+            const saved = await this.db.setPasswordResetToken(jcId, resetToken, resetTokenExpiry);
+            
+            if (!saved) {
+                return { success: false, message: 'Failed to save reset token. Please try again.' };
+            }
+            
+            // Send email with the reset code
+            const emailSent = await this.emailService.sendPasswordResetEmail(member.email, member, {
+                token: resetToken,
+                expiryMinutes: 60
+            });
+            
+            if (!emailSent) {
+                // Even if email fails, we still have the token saved
+                console.warn('⚠️ Email sending failed but token was saved');
+                return { 
+                    success: true, 
+                    message: `Reset code generated but email failed. Your reset code is: ${resetToken}. Please contact support if you didn't receive it.`,
+                    token: resetToken // Only show in development
+                };
+            }
+            
+            return { 
+                success: true, 
+                message: 'Password reset code sent to your email. Check your inbox (and spam folder).' 
+            };
+            
+        } catch (error) {
+            console.error('Password reset request error:', error);
+            return { success: false, message: 'Failed to send reset code. Please try again.' };
+        }
+    }
 
-            async executePasswordReset(jcId, token, newPassword) {
-                try {
-                    const member = await this.db.getMemberByJCId(jcId);
-                    if (!member) {
-                        return { success: false, message: 'Member not found' };
-                    }
-                    
-                    if (!member.resetToken || member.resetToken !== token) {
-                        return { success: false, message: 'Invalid reset code' };
-                    }
-                    
-                    if (new Date() > new Date(member.resetTokenExpiry)) {
-                        return { success: false, message: 'Reset code has expired' };
-                    }
-                    
-                    member.password = newPassword;
-                    member.resetToken = null;
-                    member.resetTokenExpiry = null;
-                    
-                    member.activityLog.unshift({
-                        timestamp: new Date().toISOString(),
-                        action: 'password_reset',
-                        description: 'Password reset successfully'
-                    });
-                    
-                    await this.db.saveMember(member);
-                    
-                    this.emailService.sendPasswordResetSuccessEmail(member.email, member);
-                    
-                    return { success: true, message: 'Password reset successful! You can now login with your new password.' };
-                    
-                } catch (error) {
-                    console.error('Password reset execution error:', error);
-                    return { success: false, message: 'Failed to reset password' };
-                }
+    async executePasswordReset(jcId, token, newPassword) {
+        try {
+            const member = await this.db.getMemberByJCId(jcId);
+            if (!member) {
+                return { success: false, message: 'Member not found. Please check your JC ID.' };
             }
+            
+            // Get stored reset token from Supabase
+            const resetData = await this.db.getPasswordResetToken(jcId);
+            
+            console.log('🔐 Checking reset token for member:', jcId);
+            console.log('Stored token:', resetData?.token);
+            console.log('Provided token:', token);
+            
+            if (!resetData || !resetData.token) {
+                return { 
+                    success: false, 
+                    message: 'No password reset request found. Please request a new code.' 
+                };
+            }
+            
+            // Normalize and compare tokens
+            const storedToken = resetData.token.toString().trim();
+            const providedToken = token.toString().trim();
+            
+            if (storedToken !== providedToken) {
+                return { 
+                    success: false, 
+                    message: `Invalid reset code. Please check and try again.` 
+                };
+            }
+            
+            // Check expiration
+            const now = new Date();
+            if (!resetData.expiry || now > resetData.expiry) {
+                // Clear expired token
+                await this.db.clearPasswordResetToken(jcId);
+                return { 
+                    success: false, 
+                    message: 'Reset code has expired. Please request a new one.' 
+                };
+            }
+            
+            // Update password
+            member.password = newPassword;
+            
+            // Clear the reset token
+            await this.db.clearPasswordResetToken(jcId);
+            
+            // Save member with new password
+            const saved = await this.db.saveMember(member);
+            
+            if (!saved) {
+                return { success: false, message: 'Failed to update password. Please try again.' };
+            }
+            
+            // Log activity
+            member.activityLog = member.activityLog || [];
+            member.activityLog.unshift({
+                timestamp: new Date().toISOString(),
+                action: 'password_reset',
+                description: 'Password reset successfully'
+            });
+            
+            // Send confirmation email
+            await this.emailService.sendPasswordResetSuccessEmail(member.email, member);
+            
+            return { 
+                success: true, 
+                message: 'Password reset successful! You can now login with your new password.' 
+            };
+            
+        } catch (error) {
+            console.error('Password reset execution error:', error);
+            return { success: false, message: 'Failed to reset password. Please try again.' };
+        }
+    }
 
             async toggleNewsletterSubscription(email, subscribe) {
                 try {
