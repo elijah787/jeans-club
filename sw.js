@@ -1,27 +1,47 @@
 // Jeans Club Service Worker
-const CACHE_NAME = 'jeans-club-v1';
+const CACHE_NAME = 'jeans-club-v2';
 const urlsToCache = [
   '/',
   '/index.html',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://accounts.google.com/gsi/client',
-  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
+  '/manifest.json'
 ];
 
-// Install event - cache assets
+// Only cache essential files - external CDNs should not be cached
+// as they might cause CORS issues
+
+// Install event - cache assets with error handling
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Try to cache each URL individually to handle failures
+        return Promise.allSettled(
+          urlsToCache.map(url => 
+            cache.add(url).catch(error => {
+              console.warn(`Failed to cache ${url}:`, error);
+              return null;
+            })
+          )
+        );
+      })
+      .then(() => {
+        console.log('Cache installation complete');
+        self.skipWaiting();
+      })
+      .catch(error => {
+        console.error('Cache installation failed:', error);
       })
   );
-  self.skipWaiting();
 });
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', event => {
+  // Skip cross-origin requests to avoid CORS issues
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+  
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -30,16 +50,32 @@ self.addEventListener('fetch', event => {
         }
         return fetch(event.request)
           .then(response => {
-            if (!response || response.status !== 200 || response.type !== 'basic') {
+            // Don't cache non-successful responses
+            if (!response || response.status !== 200) {
               return response;
             }
+            
+            // Clone the response
             const responseToCache = response.clone();
+            
             caches.open(CACHE_NAME)
               .then(cache => {
                 cache.put(event.request, responseToCache);
+              })
+              .catch(error => {
+                console.warn('Failed to cache:', error);
               });
+              
             return response;
           });
+      })
+      .catch(error => {
+        console.warn('Fetch failed:', error);
+        // Return a fallback offline page if needed
+        return new Response('Offline - Jeans Club is not available. Please check your connection.', {
+          status: 503,
+          statusText: 'Service Unavailable'
+        });
       })
   );
 });
@@ -59,29 +95,4 @@ self.addEventListener('activate', event => {
     })
   );
   self.clients.claim();
-});
-
-// Push notification handler
-self.addEventListener('push', event => {
-  const data = event.data.json();
-  const options = {
-    body: data.body,
-    icon: 'https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg',
-    badge: 'https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg',
-    vibrate: [200, 100, 200],
-    data: {
-      url: data.url || '/'
-    }
-  };
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
-});
-
-// Notification click handler
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  event.waitUntil(
-    clients.openWindow(event.notification.data.url)
-  );
 });
