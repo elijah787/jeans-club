@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jeans Club - Raised on Denim</title>
+    <!-- PWA Meta Tags -->
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jeans Club">
+<link rel="apple-touch-icon" href="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg">
+<link rel="icon" type="image/jpeg" href="https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg">
+<meta name="theme-color" content="#000000">
     <style>
         /* All your existing CSS remains exactly the same */
         .mercedes-header {
@@ -2599,6 +2607,16 @@
             opacity: 1 !important;
             visibility: visible !important;
         }
+        @keyframes slideUp {
+  from {
+    transform: translateX(-50%) translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
     </style>
     <!-- Add Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -9494,6 +9512,109 @@ async function updateMemberVouchers(jcId) {
                 });
             }
         };
+        // Add this inside your <script> tag, after clubManager initialization
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('ServiceWorker registration successful');
+        
+        // Check for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // New version available
+              showToast('New version available! Refresh to update.', 'info');
+            }
+          });
+        });
+      })
+      .catch(err => {
+        console.log('ServiceWorker registration failed: ', err);
+      });
+  });
+}
+
+// PWA Installation Prompt
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Prevent Chrome 67 and earlier from automatically showing the prompt
+  e.preventDefault();
+  // Stash the event so it can be triggered later
+  deferredPrompt = e;
+  
+  // Show install button (optional)
+  showInstallButton();
+});
+
+function showInstallButton() {
+  // Create a button to install the app
+  const installBtn = document.createElement('button');
+  installBtn.id = 'installAppBtn';
+  installBtn.innerHTML = '📱 Install Jeans Club App';
+  installBtn.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 50px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 10000;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    animation: slideUp 0.5s ease;
+  `;
+  
+  installBtn.onclick = async () => {
+    if (!deferredPrompt) return;
+    
+    installBtn.style.display = 'none';
+    
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    deferredPrompt = null;
+    
+    if (outcome === 'accepted') {
+      showToast('Installing Jeans Club app...', 'success');
+    }
+  };
+  
+  document.body.appendChild(installBtn);
+  
+  // Auto-hide after 10 seconds if not clicked
+  setTimeout(() => {
+    if (installBtn.parentNode) {
+      installBtn.remove();
+    }
+  }, 10000);
+}
+ // Optional: Add install button to dashboard when available
+    function checkAndShowInstallButton() {
+        if (deferredPrompt) {
+            const existingBtn = document.getElementById('installAppBtn');
+            if (!existingBtn || existingBtn.style.display === 'none') {
+                showInstallButton();
+            }
+        }
+    }
+    
+    // Call this when dashboard loads
+    const originalShowDashboard = window.showDashboard;
+    if (originalShowDashboard) {
+        window.showDashboard = async function(member) {
+            if (originalShowDashboard) {
+                await originalShowDashboard(member);
+            }
+            setTimeout(checkAndShowInstallButton, 2000);
+        };
+    }
     </script>
 </body>
 </html>  
