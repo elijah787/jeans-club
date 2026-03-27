@@ -9789,6 +9789,167 @@ if (originalLogin) {
         setTimeout(ensureInstallButton, 1500);
         return result;
     };
+    // ===========================================
+// AUTO-INSTALL BUTTON - ALWAYS SHOWS ON DASHBOARD
+// ===========================================
+
+// Function to show the install button
+function showAutoInstallButton() {
+    // Don't show if already exists
+    if (document.getElementById('autoInstallBtn')) {
+        return;
+    }
+    
+    // Create button
+    const btn = document.createElement('button');
+    btn.id = 'autoInstallBtn';
+    btn.innerHTML = '📱 Install Jeans Club App';
+    btn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 50px;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 100000;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        font-size: 16px;
+        animation: slideUp 0.5s ease;
+    `;
+    
+    btn.onclick = function() {
+        // Try native install first
+        if (window.deferredPrompt || window.installPromptEvent) {
+            const prompt = window.deferredPrompt || window.installPromptEvent;
+            prompt.prompt();
+            prompt.userChoice.then(result => {
+                if (result.outcome === 'accepted') {
+                    showToast('App installed! Check your home screen.', 'success');
+                }
+                btn.remove();
+            });
+        } else {
+            // Show instructions
+            showInstallInstructions();
+        }
+    };
+    
+    document.body.appendChild(btn);
+    console.log('✅ Auto-install button added!');
+    
+    // Remove after 1 minute if not clicked
+    setTimeout(() => {
+        if (btn.parentNode) {
+            btn.remove();
+        }
+    }, 60000);
+}
+
+// Show install instructions modal
+function showInstallInstructions() {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100001;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 340px; margin: 20px;">
+            <div style="font-size: 60px; margin-bottom: 10px;">📱</div>
+            <h3 style="margin: 0 0 10px 0; color: #333;">Install Jeans Club</h3>
+            <p style="color: #666; margin-bottom: 20px;">Add to home screen for quick access!</p>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: left;">
+                <div style="margin-bottom: 15px;">
+                    <span style="background: #28a745; color: white; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 10px;">1</span>
+                    <span>Click the <strong style="background: #e9ecef; padding: 2px 8px; border-radius: 4px;">⋮</strong> menu (top-right)</span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <span style="background: #28a745; color: white; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 10px;">2</span>
+                    <span>Select <strong>"Install Jeans Club..."</strong></span>
+                </div>
+                <div>
+                    <span style="background: #28a745; color: white; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; margin-right: 10px;">3</span>
+                    <span>Click <strong>"Install"</strong></span>
+                </div>
+            </div>
+            
+            <button onclick="this.closest('div').parentElement.remove()" style="background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%;">
+                Got it!
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// Check if user is logged in and on dashboard
+function checkAndShowButton() {
+    const dashboard = document.getElementById('dashboardSection');
+    if (dashboard && !dashboard.classList.contains('hidden')) {
+        setTimeout(showAutoInstallButton, 1000);
+    }
+}
+
+// Watch for dashboard being shown
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+            const dashboard = document.getElementById('dashboardSection');
+            if (dashboard && !dashboard.classList.contains('hidden')) {
+                setTimeout(showAutoInstallButton, 1000);
+            }
+        }
+    });
+});
+
+// Start observing
+const dashboard = document.getElementById('dashboardSection');
+if (dashboard) {
+    observer.observe(dashboard, { attributes: true });
+}
+
+// Also check on page load
+setTimeout(checkAndShowButton, 2000);
+
+// Add CSS animations if missing
+if (!document.querySelector('#installAnimations')) {
+    const style = document.createElement('style');
+    style.id = 'installAnimations';
+    style.textContent = `
+        @keyframes slideUp {
+            from {
+                transform: translateX(-50%) translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+console.log('✅ Auto-install button system ready!');
 }
     </script>
 </body>
