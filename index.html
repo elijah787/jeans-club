@@ -9679,6 +9679,117 @@ if (!document.querySelector('#slideUpAnimation')) {
   `;
   document.head.appendChild(style);
 }
+// Force show install button after login
+function ensureInstallButton() {
+    // Check if button already exists
+    if (document.getElementById('installJeansClubBtn') || document.getElementById('installAppBtn')) {
+        return;
+    }
+    
+    // Create the button
+    const installBtn = document.createElement('button');
+    installBtn.id = 'installJeansClubBtn';
+    installBtn.innerHTML = '📱 Install Jeans Club App';
+    installBtn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 50px;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 10000;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        font-size: 16px;
+        animation: slideUp 0.5s ease;
+    `;
+    
+    installBtn.onclick = () => {
+        if (window.installPromptEvent) {
+            // Use the real install prompt
+            window.installPromptEvent.prompt();
+            window.installPromptEvent.userChoice.then((choice) => {
+                if (choice.outcome === 'accepted') {
+                    showToast('App installed! Check your home screen.', 'success');
+                }
+                window.installPromptEvent = null;
+                installBtn.remove();
+            });
+        } else {
+            // Show helpful instructions
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 100001;
+            `;
+            modal.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 320px; margin: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">📱</div>
+                    <h3 style="margin: 0 0 10px 0; color: #333;">Install Jeans Club</h3>
+                    <p style="color: #666; margin-bottom: 20px;">Add Jeans Club to your home screen for easy access!</p>
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 10px; margin: 15px 0;">
+                        <p style="margin: 5px 0; font-size: 14px;">1️⃣ Click the Chrome menu <strong style="font-size: 18px;">⋮</strong></p>
+                        <p style="margin: 5px 0; font-size: 14px;">2️⃣ Select <strong>"Install Jeans Club..."</strong></p>
+                        <p style="margin: 5px 0; font-size: 14px;">3️⃣ Click <strong>"Install"</strong></p>
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%;">
+                        Got it!
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+    };
+    
+    document.body.appendChild(installBtn);
+    console.log('✅ Install button added automatically!');
+    
+    // Auto-remove after 30 seconds if not clicked
+    setTimeout(() => {
+        if (installBtn.parentNode) {
+            installBtn.remove();
+        }
+    }, 30000);
+}
+
+// Show button when dashboard loads
+const originalShowDashboardFn = window.showDashboard;
+if (originalShowDashboardFn) {
+    window.showDashboard = async function(member) {
+        if (originalShowDashboardFn) {
+            await originalShowDashboardFn(member);
+        }
+        // Show button after dashboard loads
+        setTimeout(ensureInstallButton, 1000);
+    };
+}
+
+// Also show on page load if already logged in
+if (document.getElementById('dashboardSection') && !document.getElementById('dashboardSection').classList.contains('hidden')) {
+    setTimeout(ensureInstallButton, 1000);
+}
+
+// Also listen for login success
+const originalLogin = window.loginWithCredentials;
+if (originalLogin) {
+    window.loginWithCredentials = async function() {
+        const result = await originalLogin.apply(this, arguments);
+        setTimeout(ensureInstallButton, 1500);
+        return result;
+    };
+}
     </script>
 </body>
 </html>  
