@@ -1,13 +1,12 @@
 // Jeans Club Service Worker
-const CACHE_NAME = 'jeans-club-v2';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+const CACHE_NAME = 'jeans-club-v3';
 
-// Only cache essential files - external CDNs should not be cached
-// as they might cause CORS issues
+// Use relative paths without leading slash
+const urlsToCache = [
+  './',                    // Current directory (jeans-club/)
+  './index.html',
+  './manifest.json'
+];
 
 // Install event - cache assets with error handling
 self.addEventListener('install', event => {
@@ -37,7 +36,7 @@ self.addEventListener('install', event => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', event => {
-  // Skip cross-origin requests to avoid CORS issues
+  // Skip cross-origin requests
   if (!event.request.url.startsWith(self.location.origin)) {
     return;
   }
@@ -71,8 +70,7 @@ self.addEventListener('fetch', event => {
       })
       .catch(error => {
         console.warn('Fetch failed:', error);
-        // Return a fallback offline page if needed
-        return new Response('Offline - Jeans Club is not available. Please check your connection.', {
+        return new Response('Offline - Please check your connection.', {
           status: 503,
           statusText: 'Service Unavailable'
         });
