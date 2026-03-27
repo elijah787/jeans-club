@@ -9536,29 +9536,27 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// PWA Installation - Simplified Working Version
-let installPrompt = null;
+// PWA Installation - WORKING VERSION
+let installPromptEvent = null;
 
 // Listen for the install prompt
 window.addEventListener('beforeinstallprompt', (e) => {
-  // Prevent Chrome from auto-showing the prompt
+  console.log('🎯 beforeinstallprompt event fired!');
   e.preventDefault();
-  // Store the event
-  installPrompt = e;
-  console.log('✅ Install prompt ready!');
+  installPromptEvent = e;
   
-  // Show the install button
+  // Show install button
   showInstallButton();
 });
 
 function showInstallButton() {
-  // Remove existing button if any
-  const oldBtn = document.getElementById('installAppBtn');
-  if (oldBtn) oldBtn.remove();
+  // Remove existing button
+  const existingBtn = document.getElementById('installJeansClubBtn');
+  if (existingBtn) existingBtn.remove();
   
-  // Create new button
+  // Create button
   const installBtn = document.createElement('button');
-  installBtn.id = 'installAppBtn';
+  installBtn.id = 'installJeansClubBtn';
   installBtn.innerHTML = '📱 Install Jeans Club App';
   installBtn.style.cssText = `
     position: fixed;
@@ -9575,43 +9573,45 @@ function showInstallButton() {
     z-index: 10000;
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     font-size: 16px;
+    font-weight: bold;
     animation: slideUp 0.5s ease;
   `;
   
-  installBtn.onclick = async () => {
-    if (!installPrompt) {
-      alert('To install, click the Chrome menu (⋮) → Install Jeans Club');
+  installBtn.onclick = () => {
+    if (!installPromptEvent) {
+      // Fallback: Show instructions
+      alert('Click the Chrome menu (⋮) in top-right, then select "Install Jeans Club"');
       return;
     }
     
     // Hide button
     installBtn.style.display = 'none';
     
-    try {
-      // Show install prompt
-      installPrompt.prompt();
-      const { outcome } = await installPrompt.userChoice;
-      console.log(`Install result: ${outcome}`);
-      
-      if (outcome === 'accepted') {
+    // Show install prompt
+    installPromptEvent.prompt();
+    
+    // Wait for user response
+    installPromptEvent.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('✅ User accepted install');
         if (typeof showToast === 'function') {
           showToast('App installed! Check your home screen.', 'success');
         } else {
           alert('App installed! Check your home screen.');
         }
+      } else {
+        console.log('❌ User dismissed install');
       }
-    } catch (err) {
+      installPromptEvent = null;
+    }).catch(err => {
       console.error('Install error:', err);
       alert('Install failed. Use Chrome menu (⋮) → Install Jeans Club');
-    } finally {
-      installPrompt = null;
-      installBtn.remove();
-    }
+    });
   };
   
   document.body.appendChild(installBtn);
   
-  // Auto-remove after 30 seconds
+  // Auto-hide after 30 seconds
   setTimeout(() => {
     if (installBtn.parentNode) {
       installBtn.remove();
@@ -9619,46 +9619,54 @@ function showInstallButton() {
   }, 30000);
 }
 
-// Also add a manual install option in the dashboard
-function showManualInstallOption() {
+// Also add a manual install option in dashboard
+function addManualInstallOption() {
   const dashboard = document.getElementById('dashboardSection');
-  if (dashboard && !document.getElementById('manualInstallHint')) {
-    const hint = document.createElement('div');
-    hint.id = 'manualInstallHint';
-    hint.style.cssText = `
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 12px;
+  if (dashboard && !document.getElementById('installHelpText')) {
+    const helpDiv = document.createElement('div');
+    helpDiv.id = 'installHelpText';
+    helpDiv.style.cssText = `
+      background: #e7f3ff;
+      padding: 10px;
       border-radius: 8px;
       margin: 10px 0;
       text-align: center;
+      font-size: 14px;
       cursor: pointer;
+      border: 1px solid #2196F3;
     `;
-    hint.innerHTML = '📱 Click here to install Jeans Club App on your phone';
-    hint.onclick = () => {
-      if (installPrompt) {
-        installPrompt.prompt();
+    helpDiv.innerHTML = '📱 <strong>Install App</strong> - Click to add Jeans Club to your home screen';
+    helpDiv.onclick = () => {
+      if (installPromptEvent) {
+        installPromptEvent.prompt();
       } else {
-        alert('Click the Chrome menu (⋮) in the top-right, then select "Install Jeans Club"');
+        alert('Click the Chrome menu (⋮) in top-right, then select "Install Jeans Club"');
       }
     };
     
     const navButtons = document.querySelector('.nav-buttons');
     if (navButtons) {
-      navButtons.parentNode.insertBefore(hint, navButtons.nextSibling);
+      navButtons.parentNode.insertBefore(helpDiv, navButtons.nextSibling);
     }
   }
 }
 
-// Check for install button when dashboard loads
-const originalShowDashboard = window.showDashboard;
-if (originalShowDashboard) {
+// Show install option when dashboard loads
+const originalShowDashboardFunc = window.showDashboard;
+if (originalShowDashboardFunc) {
   window.showDashboard = async function(member) {
-    if (originalShowDashboard) {
-      await originalShowDashboard(member);
+    if (originalShowDashboardFunc) {
+      await originalShowDashboardFunc(member);
     }
-    setTimeout(showManualInstallOption, 1000);
+    setTimeout(addManualInstallOption, 1000);
   };
+}
+
+// Also check if already installed
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  console.log('App is already installed');
+  const btn = document.getElementById('installJeansClubBtn');
+  if (btn) btn.style.display = 'none';
 }
     </script>
 </body>
