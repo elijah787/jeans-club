@@ -6194,65 +6194,81 @@ function showMemberTransactionScreen(transaction) {
                     return cache?.members || [];
                 }
             }
-           
-            async saveMember(member) {
-                try {
-                    console.log('💾 Saving member to Supabase:', member.jcId);
-                    
-                    const lifetimePoints = member.lifetimePoints || Math.floor(member.totalSpent / 1000) + 10;
-                    
-                    const memberData = {
-                        id: member.id || 'member_' + Date.now(),
-                        jc_id: member.jcId,
-                        email: member.email,
-                        normalized_email: normalizeEmailForDatabase(member.email),
-                        name: member.name,
-                        password: member.password || null,
-                        points: member.points || 0,
-                        lifetime_points: lifetimePoints,
-                        tier: member.tier || 'PEARL',
-                        referral_code: member.referralCode,
-                        referred_by: member.referredBy || null,
-                        joined_date: member.joinedDate || new Date().toISOString(),
-                        total_spent: member.totalSpent || 0,
-                        newsletter_subscribed: member.newsletterSubscribed !== false,
-                        purchasehistory: JSON.stringify(member.purchaseHistory || []),
-                        activitylog: JSON.stringify(member.activityLog || []),
-                        challenges: JSON.stringify(member.challenges || []),
-                        referrals: JSON.stringify(member.referrals || []),
-                        resettoken: member.resetToken || null,
-                        resettokenexpiry: member.resetTokenExpiry || null,
-                        ip_address: member.ip_address || 'unknown',
-                        last_login: member.lastLogin || null,
-                        created_at: member.createdAt || new Date().toISOString()
-                    };
+           async saveMember(member) {
+    try {
+        console.log('💾 Saving member to Supabase:', member.jcId);
+        
+        // Calculate normalized email
+        const normalizedEmail = normalizeEmailForDatabase(member.email);
+        
+        // Check if email already exists (except current member)
+        const { data: existing, error: checkError } = await this.supabase
+            .from('members')
+            .select('id, jc_id')
+            .eq('normalized_email', normalizedEmail)
+            .neq('jc_id', member.jcId)
+            .maybeSingle();
+        
+        if (existing) {
+            console.error('❌ Duplicate email detected:', normalizedEmail);
+            throw new Error('Email already in use by another account');
+        }
+        
+        const lifetimePoints = member.lifetimePoints || Math.floor(member.totalSpent / 1000) + 10;
+        
+        const memberData = {
+            id: member.id || 'member_' + Date.now(),
+            jc_id: member.jcId,
+            email: member.email,
+            normalized_email: normalizedEmail,  // Store normalized version
+            name: member.name,
+            password: member.password || null,
+            points: member.points || 0,
+            lifetime_points: lifetimePoints,
+            tier: member.tier || 'PEARL',
+            referral_code: member.referralCode,
+            referred_by: member.referredBy || null,
+            joined_date: member.joinedDate || new Date().toISOString(),
+            total_spent: member.totalSpent || 0,
+            newsletter_subscribed: member.newsletterSubscribed !== false,
+            purchasehistory: JSON.stringify(member.purchaseHistory || []),
+            activitylog: JSON.stringify(member.activityLog || []),
+            challenges: JSON.stringify(member.challenges || []),
+            referrals: JSON.stringify(member.referrals || []),
+            resettoken: member.resetToken || null,
+            resettokenexpiry: member.resetTokenExpiry || null,
+            ip_address: member.ip_address || 'unknown',
+            last_login: member.lastLogin || null,
+            created_at: member.createdAt || new Date().toISOString()
+        };
 
-                    const { data, error } = await this.supabase
-                        .from('members')
-                        .upsert(memberData, { 
-                            onConflict: 'jc_id'
-                        });
+        const { data, error } = await this.supabase
+            .from('members')
+            .upsert(memberData, { 
+                onConflict: 'jc_id'  // Don't conflict on email, use JC ID
+            });
 
-                    if (error) {
-                        console.error('❌ Supabase save error:', error);
-                        throw error;
-                    }
+        if (error) {
+            console.error('❌ Supabase save error:', error);
+            throw error;
+        }
 
-                    console.log('✅ Member saved successfully to Supabase');
-                    
-                    const cache = this.getCache();
-                    if (cache) {
-                        cache.lastSync = 0;
-                        this.setCache(cache);
-                    }
+        console.log('✅ Member saved successfully to Supabase');
+        
+        // Clear cache to force refresh
+        const cache = this.getCache();
+        if (cache) {
+            cache.lastSync = 0;
+            this.setCache(cache);
+        }
 
-                    return true;
+        return true;
 
-                } catch (error) {
-                    console.error('❌ Failed to save member to Supabase:', error);
-                    return false;
-                }
-            }
+    } catch (error) {
+        console.error('❌ Failed to save member to Supabase:', error);
+        return false;
+    }
+}
                    
           
             
@@ -6305,52 +6321,94 @@ function showMemberTransactionScreen(transaction) {
             }
 
             async getMemberByEmail(email) {
-                try {
-                    console.log('🔍 Fetching member by email from Supabase:', email);
-                    
-                    const { data: member, error } = await this.supabase
-                        .from('members')
-                        .select('*')
-                        .eq('normalized_email', normalizeEmailForDatabase(email))
-                        .single();
+    try {
+        console.log('🔍 Fetching member by email from Supabase:', email);
+        
+        const normalizedEmail = normalizeEmailForDatabase(email);
+        console.log('Normalized email:', normalizedEmail);
+        
+        const { data: member, error } = await this.supabase
+            .from('members')
+            .select('*')
+            .eq('normalized_email', normalizedEmail)
+            .maybeSingle();  // Use maybeSingle instead of single to avoid errors
 
-                    if (error && error.code !== 'PGRST116') {
-                        console.error('❌ Supabase fetch error:', error);
-                        throw error;
-                    }
+        if (error) {
+            console.error('❌ Supabase fetch error:', error);
+            throw error;
+        }
 
-                    if (member) {
-                        return {
-                            ...member,
-                            jcId: member.jc_id,
-                            referralCode: member.referral_code,
-                            referredBy: member.referred_by,
-                            joinedDate: member.joined_date,
-                            totalSpent: member.total_spent,
-                            newsletterSubscribed: member.newsletter_subscribed,
-                            ip_address: member.ip_address,
-                            lastLogin: member.last_login,
-                            createdAt: member.created_at,
-                            lifetimePoints: member.lifetime_points || Math.floor((member.total_spent || 0) / 1000) + 10,
-                            purchaseHistory: member.purchasehistory ? JSON.parse(member.purchasehistory) : [],
-                            activityLog: member.activitylog ? JSON.parse(member.activitylog) : [],
-                            challenges: member.challenges ? JSON.parse(member.challenges) : [],
-                            referrals: member.referrals ? JSON.parse(member.referrals) : []
-                        };
-                    }
-                    
-                    return null;
-                } catch (error) {
-                    console.error('❌ Failed to fetch member by email from Supabase:', error);
-                    
-                    const cache = this.getCache();
-                    if (cache?.members) {
-                        return cache.members.find(m => normalizeEmailForDatabase(m.email) === normalizeEmailForDatabase(email)) || null;
-                    }
-                    
-                    return null;
-                }
-            }
+        if (member) {
+            console.log('✅ Found member:', member.jc_id);
+            return this.transformMemberData(member);
+        }
+        
+        console.log('No member found with email:', email);
+        return null;
+        
+    } catch (error) {
+        console.error('❌ Failed to fetch member by email:', error);
+        
+        // Fallback to cache
+        const cache = this.getCache();
+        if (cache?.members) {
+            return cache.members.find(m => 
+                normalizeEmailForDatabase(m.email) === normalizeEmailForDatabase(email)
+            ) || null;
+        }
+        
+        return null;
+    }
+}
+
+// Helper method to transform member data
+transformMemberData(member) {
+    let purchaseHistory = [];
+    let activityLog = [];
+    let referrals = [];
+    
+    try {
+        purchaseHistory = typeof member.purchasehistory === 'string' 
+            ? JSON.parse(member.purchasehistory) 
+            : (member.purchasehistory || []);
+    } catch (e) {
+        purchaseHistory = [];
+    }
+    
+    try {
+        activityLog = typeof member.activitylog === 'string' 
+            ? JSON.parse(member.activitylog) 
+            : (member.activitylog || []);
+    } catch (e) {
+        activityLog = [];
+    }
+    
+    try {
+        referrals = typeof member.referrals === 'string' 
+            ? JSON.parse(member.referrals) 
+            : (member.referrals || []);
+    } catch (e) {
+        referrals = [];
+    }
+
+    return {
+        ...member,
+        jcId: member.jc_id,
+        referralCode: member.referral_code,
+        referredBy: member.referred_by,
+        joinedDate: member.joined_date,
+        totalSpent: member.total_spent || 0,
+        newsletterSubscribed: member.newsletter_subscribed !== false,
+        ip_address: member.ip_address,
+        lastLogin: member.last_login,
+        createdAt: member.created_at,
+        purchaseHistory: purchaseHistory,
+        activityLog: activityLog,
+        challenges: [],
+        referrals: referrals,
+        lifetimePoints: member.lifetime_points || Math.floor((member.total_spent || 0) / 1000) + (member.activitylog ? 10 : 0)
+    };
+}
 
             async subscribeToNewsletter(email, name = null) {
                 try {
@@ -6587,36 +6645,43 @@ function showMemberTransactionScreen(transaction) {
             'spamgourmet.com', 'spamfree24.org', 'spambox.us', 'tempomail.fr',
             'mytemp.email', 'tempemail.net', 'disposable-email.ml', 'temp-mail.io'
         ];
-
-        function normalizeEmailForDatabase(email) {
-            if (!email || typeof email !== 'string') return '';
-            
-            let normalized = email.trim().toLowerCase();
-            
-            normalized = normalized.replace('@googlemail.com', '@gmail.com');
-            
-            const atIndex = normalized.indexOf('@');
-            if (atIndex === -1) return normalized;
-            
-            const localPart = normalized.substring(0, atIndex);
-            const domain = normalized.substring(atIndex + 1);
-            
-            if (domain === 'gmail.com') {
-                let cleanLocal = localPart.replace(/\./g, '');
-                const plusIndex = cleanLocal.indexOf('+');
-                if (plusIndex !== -1) {
-                    cleanLocal = cleanLocal.substring(0, plusIndex);
-                }
-                return cleanLocal + '@gmail.com';
-            }
-            
-            const plusIndex = localPart.indexOf('+');
-            if (plusIndex !== -1) {
-                return localPart.substring(0, plusIndex) + '@' + domain;
-            }
-            
-            return normalized;
+function normalizeEmailForDatabase(email) {
+    if (!email || typeof email !== 'string') return '';
+    
+    // Trim and lowercase
+    let normalized = email.trim().toLowerCase();
+    
+    // Remove any extra spaces
+    normalized = normalized.replace(/\s+/g, '');
+    
+    const atIndex = normalized.indexOf('@');
+    if (atIndex === -1) return normalized;
+    
+    let localPart = normalized.substring(0, atIndex);
+    const domain = normalized.substring(atIndex + 1);
+    
+    // Handle Gmail addresses
+    if (domain === 'gmail.com' || domain === 'googlemail.com') {
+        // Remove all dots from local part
+        localPart = localPart.replace(/\./g, '');
+        
+        // Remove everything after + (aliases)
+        const plusIndex = localPart.indexOf('+');
+        if (plusIndex !== -1) {
+            localPart = localPart.substring(0, plusIndex);
         }
+        
+        return localPart + '@gmail.com';
+    }
+    
+    // For other domains, just remove + aliases
+    const plusIndex = localPart.indexOf('+');
+    if (plusIndex !== -1) {
+        localPart = localPart.substring(0, plusIndex);
+    }
+    
+    return localPart + '@' + domain;
+}
 
         function isDisposableEmail(email) {
             if (!email || typeof email !== 'string') return true;
@@ -7611,128 +7676,153 @@ function showMemberTransactionScreen(transaction) {
                 if (points >= 7500) return 'BRONZE';
                 return 'PEARL';
             }
-
-            async signUpWithEmail(name, email, password, referralCode = null) {
-                try {
-                    if (!name || !email || !password) {
-                        showToast('Please fill in all required fields', 'error');
-                        return false;
-                    }
-                    
-                    const emailValidation = isValidEmailWithFraudPrevention(email);
-                    if (!emailValidation.valid) {
-                        showToast(emailValidation.message, 'error');
-                        return false;
-                    }
-                    
-                    const existingMember = await this.db.getMemberByEmail(email);
-                    if (existingMember) {
-                        showToast('An account with this email already exists', 'error');
-                        return false;
-                    }
-                    
-                    if (referralCode && isSelfReferral(referralCode, email)) {
-                        showToast('You cannot use your own referral code', 'error');
-                        return false;
-                    }
-                    
-                    const clientIP = await getClientIP();
-                    
-                    const ipCheck = await checkMultipleAccountsFromIP(email, clientIP);
-                    if (!ipCheck.allowed) {
-                        showToast(ipCheck.reason, 'error');
-                        return false;
-                    }
-                    
-                    const jcId = this.generateJCId();
-                    const memberReferralCode = this.generateReferralCode();
-                    
-                    let referredBy = null;
-                    let referralPoints = 10;
-                    
-                    if (referralCode) {
-                        const allMembers = await this.db.getAllMembers();
-                        const referrer = allMembers.find(m => m.referralCode === referralCode);
-                        
-                        if (referrer) {
-                            referredBy = referrer.jcId;
-                            referralPoints = 20;
-                            
-                            referrer.referrals.push({
-                                referredJCId: jcId,
-                                referredName: name,
-                                referralDate: new Date().toISOString(),
-                                status: 'pending'
-                            });
-                            await this.db.saveMember(referrer);
-                        } else {
-                            showToast('Invalid referral code', 'error');
-                            return false;
-                        }
-                    }
-                    
-                    const member = {
-                        jcId: jcId,
-                        email: email,
-                        name: name.trim(),
-                        password: password,
-                        loginMethod: 'email',
-                        points: referralPoints,
-                        lifetimePoints: referralPoints,
-                        tier: 'PEARL',
-                        referralCode: memberReferralCode,
-                        referredBy: referredBy,
-                        joinedDate: new Date().toISOString(),
-                        totalSpent: 0,
-                        newsletterSubscribed: document.getElementById('newsletterSignup')?.checked || true,
-                        purchaseHistory: [],
-                        activityLog: [],
-                        challenges: [],
-                        referrals: [],
-                        ip_address: clientIP,
-                        lastLogin: new Date().toISOString(),
-                        createdAt: new Date().toISOString()
-                    };
-                    
-                    member.activityLog.unshift({
-                        timestamp: new Date().toISOString(),
-                        action: 'account_created',
-                        description: 'Account created with email',
-                        points: referralPoints
-                    });
-                    
-                    const saved = await this.db.saveMember(member);
-                    if (!saved) {
-                        showToast('Failed to create account. Please try again.', 'error');
-                        return false;
-                    }
-                    
-                    this.currentMember = member;
-                    this.isAdmin = false;
-                    localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
-                    localStorage.setItem('jeansClubIsAdmin', 'false');
-                    
-                    this.emailService.sendWelcomeEmail(email, member);
-                    
-                    if (member.newsletterSubscribed) {
-                        this.db.subscribeToNewsletter(email, name);
-                        this.emailService.sendNewsletterWelcomeEmail(email, member, {
-                            subject: "Welcome to Jeans Club Newsletter!",
-                            message: "Thank you for subscribing to our newsletter. You'll receive exclusive offers and updates."
-                        });
-                    }
-                    
-                    await showDashboard(member);
-                    showToast(`Welcome to Jeans Club ${name}!`, 'success');
-                    
-                    return true;
-                    
-                } catch (error) {
-                    console.error('Sign up error:', error);
-                    showToast('An error occurred. Please try again.', 'error');
-                    return false;
-                }
+async signUpWithEmail(name, email, password, referralCode = null) {
+    try {
+        if (!name || !email || !password) {
+            showToast('Please fill in all required fields', 'error');
+            return false;
+        }
+        
+        // Validate email
+        const emailValidation = isValidEmailWithFraudPrevention(email);
+        if (!emailValidation.valid) {
+            showToast(emailValidation.message, 'error');
+            return false;
+        }
+        
+        // Normalize email for checking
+        const normalizedEmail = normalizeEmailForDatabase(email);
+        
+        // Check for existing member with same normalized email
+        const existingMember = await this.db.getMemberByEmail(email);
+        if (existingMember) {
+            showToast('An account with this email already exists', 'error');
+            return false;
+        }
+        
+        // Also check in cache for duplicates
+        const allMembers = await this.db.getAllMembers();
+        const duplicateByNormalized = allMembers.find(m => 
+            normalizeEmailForDatabase(m.email) === normalizedEmail
+        );
+        
+        if (duplicateByNormalized) {
+            showToast('An account with this email already exists', 'error');
+            return false;
+        }
+        
+        // Check referral code if provided
+        if (referralCode && isSelfReferral(referralCode, email)) {
+            showToast('You cannot use your own referral code', 'error');
+            return false;
+        }
+        
+        // Check IP for multiple accounts
+        const clientIP = await getClientIP();
+        const ipCheck = await checkMultipleAccountsFromIP(email, clientIP);
+        if (!ipCheck.allowed) {
+            showToast(ipCheck.reason, 'error');
+            return false;
+        }
+        
+        // Generate IDs
+        const jcId = this.generateJCId();
+        const memberReferralCode = this.generateReferralCode();
+        
+        // Process referral if provided
+        let referredBy = null;
+        let referralPoints = 10;
+        
+        if (referralCode) {
+            const referrer = allMembers.find(m => m.referralCode === referralCode);
+            
+            if (referrer) {
+                referredBy = referrer.jcId;
+                referralPoints = 20;
+                
+                // Update referrer's referrals list
+                referrer.referrals.push({
+                    referredJCId: jcId,
+                    referredName: name,
+                    referralDate: new Date().toISOString(),
+                    status: 'pending'
+                });
+                await this.db.saveMember(referrer);
+            } else {
+                showToast('Invalid referral code', 'error');
+                return false;
             }
+        }
+        
+        // Create member object
+        const member = {
+            jcId: jcId,
+            email: email,
+            name: name.trim(),
+            password: password,
+            loginMethod: 'email',
+            points: referralPoints,
+            lifetimePoints: referralPoints,
+            tier: 'PEARL',
+            referralCode: memberReferralCode,
+            referredBy: referredBy,
+            joinedDate: new Date().toISOString(),
+            totalSpent: 0,
+            newsletterSubscribed: document.getElementById('newsletterSignup')?.checked || true,
+            purchaseHistory: [],
+            activityLog: [],
+            challenges: [],
+            referrals: [],
+            ip_address: clientIP,
+            lastLogin: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+        };
+        
+        // Add welcome activity
+        member.activityLog.unshift({
+            timestamp: new Date().toISOString(),
+            action: 'account_created',
+            description: 'Account created with email',
+            points: referralPoints
+        });
+        
+        // Save to database
+        const saved = await this.db.saveMember(member);
+        if (!saved) {
+            showToast('Failed to create account. Please try again.', 'error');
+            return false;
+        }
+        
+        // Set current session
+        this.currentMember = member;
+        this.isAdmin = false;
+        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
+        localStorage.setItem('jeansClubIsAdmin', 'false');
+        
+        // Send welcome email
+        await this.emailService.sendWelcomeEmail(email, member);
+        
+        // Subscribe to newsletter if opted in
+        if (member.newsletterSubscribed) {
+            await this.db.subscribeToNewsletter(email, name);
+            await this.emailService.sendNewsletterWelcomeEmail(email, member, {
+                subject: "Welcome to Jeans Club Newsletter!",
+                message: "Thank you for subscribing to our newsletter. You'll receive exclusive offers and updates."
+            });
+        }
+        
+        // Show dashboard
+        await showDashboard(member);
+        showToast(`Welcome to Jeans Club ${name}!`, 'success');
+        
+        return true;
+        
+    } catch (error) {
+        console.error('Sign up error:', error);
+        showToast('An error occurred. Please try again.', 'error');
+        return false;
+    }
+}
 
             async loginWithJCId(jcId, password) {
                 try {
