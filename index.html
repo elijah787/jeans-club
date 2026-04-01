@@ -6779,7 +6779,7 @@ function normalizeEmailForDatabase(email) {
         // Google Apps Script Email Service
         class GoogleAppsEmailService {
             constructor() {
-                this.scriptURL = 'https://script.google.com/macros/s/AKfycbzFurrE5z57oILLWlx4Of7jqbNjqYlbxTTffWTe84mWliAFmiCLsM42k9LzyZKsCApu/exec';
+                this.scriptURL = 'https://script.google.com/macros/s/AKfycbzmJS_ThUUb_FsyeuBVbLyBRdGXAD0Pj1uhv_4CCD8NtV0WCL6THqgIBIawmWK4F7CN/exec';
                   this.isReady = false;
         this.pendingEmails = [];
         this.initIframe();
@@ -9611,6 +9611,208 @@ async function updateMemberVouchers(jcId) {
                 });
             }
         };
+        // ===========================================
+// IFRAME EMAIL SERVICE - NO CORS
+// Add this entire block to your script
+// ===========================================
+
+class IframeEmailService {
+    constructor(scriptURL) {
+        this.scriptURL = scriptURL;
+        this.isReady = false;
+        this.pendingEmails = [];
+        this.currentCallback = null;
+        this.initIframe();
+    }
+    
+    initIframe() {
+        console.log('📧 Creating iframe for email service...');
+        
+        this.iframe = document.createElement('iframe');
+        this.iframe.style.display = 'none';
+        this.iframe.src = this.scriptURL;
+        document.body.appendChild(this.iframe);
+        
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.ready === true) {
+                this.isReady = true;
+                console.log('✅ Email service iframe ready!');
+                this.processPending();
+            }
+            
+            if (event.data && event.data.success !== undefined) {
+                if (this.currentCallback) {
+                    this.currentCallback(event.data);
+                    this.currentCallback = null;
+                }
+            }
+        });
+        
+        setTimeout(() => {
+            if (!this.isReady) {
+                console.warn('⚠️ Email service iframe timeout - check script URL');
+            }
+        }, 10000);
+    }
+    
+    processPending() {
+        while (this.pendingEmails.length > 0 && this.currentCallback === null) {
+            const email = this.pendingEmails.shift();
+            if (this.iframe && this.iframe.contentWindow) {
+                this.iframe.contentWindow.postMessage(email, '*');
+            }
+        }
+    }
+    
+    async sendEmail(email, type, memberData, extraData = null) {
+        const emailContent = this.buildEmailContent(type, memberData, extraData);
+        const subject = this.getSubject(type, memberData, extraData);
+        
+        const payload = {
+            action: 'sendEmail',
+            emailData: {
+                email: email,
+                subject: subject,
+                message: emailContent,
+                html: true
+            }
+        };
+        
+        return new Promise((resolve) => {
+            this.currentCallback = resolve;
+            
+            if (this.isReady && this.iframe && this.iframe.contentWindow) {
+                this.iframe.contentWindow.postMessage(payload, '*');
+            } else {
+                this.pendingEmails.push(payload);
+            }
+            
+            setTimeout(() => {
+                if (this.currentCallback) {
+                    this.currentCallback({ success: false, error: 'Email timeout' });
+                    this.currentCallback = null;
+                }
+            }, 30000);
+        });
+    }
+    
+    buildEmailContent(type, memberData, extraData) {
+        switch(type) {
+            case 'welcome':
+                return this.buildWelcomeEmail(memberData);
+            case 'purchase':
+                return this.buildPurchaseEmail(memberData, extraData);
+            case 'discount':
+                return this.buildDiscountEmail(memberData, extraData);
+            default:
+                return `<h1>Jeans Club</h1><p>${extraData?.message || ''}</p>`;
+        }
+    }
+    
+    buildWelcomeEmail(member) {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%); color: white; padding: 30px; text-align: center;">
+                    <h1>👖 JEANS CLUB</h1>
+                    <p>Raised on Denim</p>
+                </div>
+                <div style="padding: 20px;">
+                    <h2>Welcome, ${member.name}!</h2>
+                    <p>Your account has been created successfully.</p>
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p><strong>JC ID:</strong> ${member.jcId}</p>
+                        <p><strong>Referral Code:</strong> ${member.referralCode}</p>
+                        <p><strong>Points:</strong> ${member.points}</p>
+                        <p><strong>Tier:</strong> ${member.tier}</p>
+                    </div>
+                    <p>Visit: <a href="https://elijah787.github.io/jeans-club">Jeans Club Dashboard</a></p>
+                </div>
+                <hr>
+                <p style="font-size: 12px; color: #666; text-align: center;">Jeans Club - Kampala, Uganda</p>
+            </body>
+            </html>
+        `;
+    }
+    
+    buildPurchaseEmail(member, purchaseData) {
+        return `
+            <h1>🛍️ Purchase Confirmed!</h1>
+            <p>Dear ${member.name},</p>
+            <p>Thank you for your purchase of ${purchaseData.amount.toLocaleString()} UGX.</p>
+            <p>You earned ${purchaseData.pointsEarned} points!</p>
+        `;
+    }
+    
+    buildDiscountEmail(member, discountData) {
+        return `
+            <h1>🎫 Your Discount Voucher</h1>
+            <p>Dear ${member.name},</p>
+            <p>You've created a ${discountData.discountPercentage}% discount voucher!</p>
+            <p><strong>Code:</strong> ${discountData.voucherCode}</p>
+        `;
+    }
+    
+    getSubject(type, memberData, extraData) {
+        switch(type) {
+            case 'welcome': return '👖 Welcome to Jeans Club!';
+            case 'purchase': return '🛍️ Purchase Confirmed - Points Added!';
+            case 'discount': return `🎫 ${extraData?.discountPercentage || 0}% Discount Voucher`;
+            default: return '💌 Message from Jeans Club';
+        }
+    }
+}
+
+// Function to upgrade to iframe email service
+function upgradeToIframeEmail(scriptURL) {
+    console.log('🔄 Upgrading to iframe email service...');
+    const newService = new IframeEmailService(scriptURL);
+    clubManager.emailService = newService;
+    console.log('✅ Email service upgraded!');
+    return newService;
+}
+
+// Test function
+async function testIframeEmail() {
+    console.log('🧪 Testing iframe email service...\n');
+    
+    const testEmail = prompt('Enter your email to test:', 'amanyakeith418@gmail.com');
+    if (!testEmail) return;
+    
+    const testMember = {
+        name: "Test User",
+        email: testEmail,
+        jcId: "TEST001",
+        referralCode: "TEST123",
+        points: 10,
+        tier: "PEARL"
+    };
+    
+    const result = await clubManager.emailService.sendEmail(testEmail, 'welcome', testMember);
+    
+    if (result && result.success) {
+        console.log('✅✅✅ EMAIL SENT! Check your inbox/spam ✅✅✅');
+        const sendReal = confirm('Test successful! Send to Kamukama and Mugisha?');
+        if (sendReal) {
+            const members = await clubManager.db.getAllMembers();
+            const kamukama = members.find(m => m.email === 'kamukamahorace10@gmail.com');
+            const mugisha = members.find(m => m.email === 'mugishamariam18@gmail.com');
+            
+            if (kamukama) {
+                console.log('📧 Sending to Kamukama...');
+                await clubManager.emailService.sendEmail(kamukama.email, 'welcome', kamukama);
+            }
+            if (mugisha) {
+                console.log('📧 Sending to Mugisha...');
+                await clubManager.emailService.sendEmail(mugisha.email, 'welcome', mugisha);
+            }
+            console.log('\n✅ Done! Ask them to check inbox/spam.');
+        }
+    } else {
+        console.log('❌ Failed:', result?.error || 'Unknown error');
+    }
+}
     </script>
 </body>
 </html>  
