@@ -9614,11 +9614,7 @@ async function updateMemberVouchers(jcId) {
                 });
             }
         };
-        // ===========================================
-// ADD IFRAME EMAIL SERVICE (Run this first)
-// ===========================================
-
-class IframeEmailService {
+         class IframeEmailService {
     constructor(scriptURL) {
         this.scriptURL = scriptURL;
         this.isReady = false;
@@ -9666,6 +9662,7 @@ class IframeEmailService {
         }
     }
     
+    // Core send method
     async sendEmail(email, type, memberData, extraData = null) {
         const emailContent = this.buildEmailContent(type, memberData, extraData);
         const subject = this.getSubject(type, memberData, extraData);
@@ -9699,15 +9696,43 @@ class IframeEmailService {
         });
     }
     
+    // Wrapper methods for different email types
+    async sendWelcomeEmail(email, memberData) {
+        return this.sendEmail(email, 'welcome', memberData);
+    }
+    
+    async sendPurchaseEmail(email, memberData, purchaseData) {
+        console.log(`📧 Sending purchase email to ${email}...`);
+        return this.sendEmail(email, 'purchase', memberData, purchaseData);
+    }
+    
+    async sendDiscountEmail(email, memberData, discountData) {
+        console.log(`📧 Sending discount email to ${email}...`);
+        return this.sendEmail(email, 'discount', memberData, discountData);
+    }
+    
+    async sendReferralEmail(email, memberData, referralData) {
+        console.log(`📧 Sending referral email to ${email}...`);
+        return this.sendEmail(email, 'referral', memberData, referralData);
+    }
+    
+    // Build email content based on type
     buildEmailContent(type, memberData, extraData) {
         switch(type) {
             case 'welcome':
                 return this.buildWelcomeEmail(memberData);
+            case 'purchase':
+                return this.buildPurchaseEmail(memberData, extraData);
+            case 'discount':
+                return this.buildDiscountEmail(memberData, extraData);
+            case 'referral':
+                return this.buildReferralEmail(memberData, extraData);
             default:
                 return `<h1>Jeans Club</h1><p>${extraData?.message || ''}</p>`;
         }
     }
     
+    // Email template builders
     buildWelcomeEmail(member) {
         return `
             <!DOCTYPE html>
@@ -9735,74 +9760,106 @@ class IframeEmailService {
         `;
     }
     
+    buildPurchaseEmail(member, purchaseData) {
+        const amount = purchaseData?.amount || 0;
+        const description = purchaseData?.description || 'Purchase';
+        const pointsEarned = purchaseData?.pointsEarned || 0;
+        const newBalance = member.points || 0;
+        
+        return `
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%); color: white; padding: 30px; text-align: center;">
+                    <h1>🛍️ JEANS CLUB</h1>
+                    <p>Purchase Confirmed</p>
+                </div>
+                <div style="padding: 20px;">
+                    <h2>Thank you, ${member.name}!</h2>
+                    <p>Your purchase has been confirmed.</p>
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p><strong>Amount:</strong> ${amount.toLocaleString()} UGX</p>
+                        <p><strong>Points Earned:</strong> +${pointsEarned}</p>
+                        <p><strong>Description:</strong> ${description}</p>
+                    </div>
+                    <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p><strong>Your New Balance:</strong> ${newBalance} points</p>
+                        <p><strong>Current Tier:</strong> ${member.tier}</p>
+                    </div>
+                    <p>Visit your dashboard: <a href="https://elijah787.github.io/jeans-club">Jeans Club</a></p>
+                </div>
+                <hr>
+                <p style="font-size: 12px; color: #666; text-align: center;">Jeans Club - Raised on Denim</p>
+            </body>
+            </html>
+        `;
+    }
+    
+    buildDiscountEmail(member, discountData) {
+        const voucherCode = discountData?.voucherCode || 'N/A';
+        const discountPercentage = discountData?.discountPercentage || 0;
+        const expiryDate = discountData?.expiryDate ? new Date(discountData.expiryDate).toLocaleDateString() : 'N/A';
+        const pointsUsed = discountData?.pointsUsed || 0;
+        
+        return `
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center;">
+                    <h1>🎫 Your Discount Voucher</h1>
+                </div>
+                <div style="padding: 20px;">
+                    <h2>Dear ${member.name},</h2>
+                    <p>Your discount voucher has been created!</p>
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                        <p><strong>${discountPercentage}% OFF</strong></p>
+                        <p><strong>Code:</strong> ${voucherCode}</p>
+                        <p><strong>Points Used:</strong> ${pointsUsed}</p>
+                        <p><strong>Valid until:</strong> ${expiryDate}</p>
+                    </div>
+                    <p>Visit your dashboard: <a href="https://elijah787.github.io/jeans-club">Jeans Club</a></p>
+                </div>
+                <hr>
+                <p style="font-size: 12px; color: #666; text-align: center;">Jeans Club - Raised on Denim</p>
+            </body>
+            </html>
+        `;
+    }
+    
+    buildReferralEmail(member, referralData) {
+        const referredName = referralData?.referredName || 'New Member';
+        const pointsEarned = referralData?.pointsEarned || 100;
+        
+        return `
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 30px; text-align: center;">
+                    <h1>🎊 Referral Success!</h1>
+                </div>
+                <div style="padding: 20px;">
+                    <h2>Congratulations ${member.name}!</h2>
+                    <p>You earned <strong>${pointsEarned} bonus points</strong> for referring <strong>${referredName}</strong>!</p>
+                    <p>Share your referral code to earn more points!</p>
+                    <p><strong>Your Referral Code:</strong> ${member.referralCode}</p>
+                </div>
+                <hr>
+                <p style="font-size: 12px; color: #666; text-align: center;">Jeans Club - Raised on Denim</p>
+            </body>
+            </html>
+        `;
+    }
+    
     getSubject(type, memberData, extraData) {
         switch(type) {
             case 'welcome': return '👖 Welcome to Jeans Club!';
+            case 'purchase': return '🛍️ Purchase Confirmed - Points Added!';
+            case 'discount': return `🎫 ${extraData?.discountPercentage || 0}% Discount Voucher`;
+            case 'referral': return '🎊 Referral Success! +100 Points';
             default: return '💌 Message from Jeans Club';
         }
     }
 }
-
-// Function to upgrade email service
-function upgradeToIframeEmail(scriptURL) {
-    console.log('🔄 Upgrading to iframe email service...');
-    const newService = new IframeEmailService(scriptURL);
-    if (clubManager) {
-        clubManager.emailService = newService;
-        console.log('✅ Email service upgraded!');
-    } else {
-        console.log('❌ clubManager not found');
-    }
-    return newService;
-}
-
-// Test function
-async function testIframeEmail() {
-    console.log('🧪 Testing iframe email service...\n');
-    
-    const testEmail = prompt('Enter your email to test:', 'amanyakeith418@gmail.com');
-    if (!testEmail) return;
-    
-    const testMember = {
-        name: "Test User",
-        email: testEmail,
-        jcId: "TEST001",
-        referralCode: "TEST123",
-        points: 10,
-        tier: "PEARL"
-    };
-    
-    if (!clubManager.emailService) {
-        console.log('❌ Email service not initialized. Run upgradeToIframeEmail first.');
-        return;
-    }
-    
-    const result = await clubManager.emailService.sendEmail(testEmail, 'welcome', testMember);
-    
-    if (result && result.success) {
-        console.log('✅✅✅ EMAIL SENT! Check your inbox/spam ✅✅✅');
-        const sendReal = confirm('Test successful! Send to Kamukama and Mugisha?');
-        if (sendReal) {
-            const members = await clubManager.db.getAllMembers();
-            const kamukama = members.find(m => m.email === 'kamukamahorace10@gmail.com');
-            const mugisha = members.find(m => m.email === 'mugishamariam18@gmail.com');
-            
-            if (kamukama) {
-                console.log('📧 Sending to Kamukama...');
-                await clubManager.emailService.sendEmail(kamukama.email, 'welcome', kamukama);
-            }
-            if (mugisha) {
-                console.log('📧 Sending to Mugisha...');
-                await clubManager.emailService.sendEmail(mugisha.email, 'welcome', mugisha);
-            }
-            console.log('\n✅ Done! Ask them to check inbox/spam.');
-        }
-    } else {
-        console.log('❌ Failed:', result?.error || 'Unknown error');
-    }
-}
-
-console.log('✅ Iframe email service code loaded!');
     </script>
 </body>
 </html>  
