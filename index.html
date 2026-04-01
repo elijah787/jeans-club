@@ -6779,10 +6779,37 @@ function normalizeEmailForDatabase(email) {
         // Google Apps Script Email Service
         class GoogleAppsEmailService {
             constructor() {
-                this.scriptURL = 'https://script.google.com/macros/s/AKfycbysHxK6TcT7tGPXAJDLadpE5HvZndimjplKZL_R-GAyfLDaWdPcMrrgydzv-Ovkv-gK/exec';
-                this.isActive = true;
-                console.log('📧 Email service initialized with URL:', this.scriptURL);
+                this.scriptURL = 'https://script.google.com/macros/s/AKfycbzFurrE5z57oILLWlx4Of7jqbNjqYlbxTTffWTe84mWliAFmiCLsM42k9LzyZKsCApu/exec';
+                  this.isReady = false;
+        this.pendingEmails = [];
+        this.initIframe();
+    }
+    
+    initIframe() {
+        // Create hidden iframe
+        this.iframe = document.createElement('iframe');
+        this.iframe.style.display = 'none';
+        this.iframe.src = this.scriptURL;
+        document.body.appendChild(this.iframe);
+        
+        // Listen for messages from iframe
+        window.addEventListener('message', (event) => {
+            if (event.data.ready) {
+                this.isReady = true;
+                console.log('✅ Email service ready');
+                // Send any pending emails
+                this.processPending();
             }
+            
+            if (event.data.success !== undefined) {
+                // Handle email response
+                if (this.currentCallback) {
+                    this.currentCallback(event.data);
+                    this.currentCallback = null;
+                }
+            }
+        });
+    }
 
             async sendEmailToGoogleScript(email, type, memberData, extraData = null) {
                 try {
