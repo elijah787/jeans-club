@@ -9612,8 +9612,7 @@ async function updateMemberVouchers(jcId) {
             }
         };
         // ===========================================
-// IFRAME EMAIL SERVICE - NO CORS
-// Add this entire block to your script
+// ADD IFRAME EMAIL SERVICE (Run this first)
 // ===========================================
 
 class IframeEmailService {
@@ -9685,6 +9684,7 @@ class IframeEmailService {
                 this.iframe.contentWindow.postMessage(payload, '*');
             } else {
                 this.pendingEmails.push(payload);
+                console.log(`📧 Email queued (${this.pendingEmails.length} pending)`);
             }
             
             setTimeout(() => {
@@ -9700,10 +9700,6 @@ class IframeEmailService {
         switch(type) {
             case 'welcome':
                 return this.buildWelcomeEmail(memberData);
-            case 'purchase':
-                return this.buildPurchaseEmail(memberData, extraData);
-            case 'discount':
-                return this.buildDiscountEmail(memberData, extraData);
             default:
                 return `<h1>Jeans Club</h1><p>${extraData?.message || ''}</p>`;
         }
@@ -9736,40 +9732,24 @@ class IframeEmailService {
         `;
     }
     
-    buildPurchaseEmail(member, purchaseData) {
-        return `
-            <h1>🛍️ Purchase Confirmed!</h1>
-            <p>Dear ${member.name},</p>
-            <p>Thank you for your purchase of ${purchaseData.amount.toLocaleString()} UGX.</p>
-            <p>You earned ${purchaseData.pointsEarned} points!</p>
-        `;
-    }
-    
-    buildDiscountEmail(member, discountData) {
-        return `
-            <h1>🎫 Your Discount Voucher</h1>
-            <p>Dear ${member.name},</p>
-            <p>You've created a ${discountData.discountPercentage}% discount voucher!</p>
-            <p><strong>Code:</strong> ${discountData.voucherCode}</p>
-        `;
-    }
-    
     getSubject(type, memberData, extraData) {
         switch(type) {
             case 'welcome': return '👖 Welcome to Jeans Club!';
-            case 'purchase': return '🛍️ Purchase Confirmed - Points Added!';
-            case 'discount': return `🎫 ${extraData?.discountPercentage || 0}% Discount Voucher`;
             default: return '💌 Message from Jeans Club';
         }
     }
 }
 
-// Function to upgrade to iframe email service
+// Function to upgrade email service
 function upgradeToIframeEmail(scriptURL) {
     console.log('🔄 Upgrading to iframe email service...');
     const newService = new IframeEmailService(scriptURL);
-    clubManager.emailService = newService;
-    console.log('✅ Email service upgraded!');
+    if (clubManager) {
+        clubManager.emailService = newService;
+        console.log('✅ Email service upgraded!');
+    } else {
+        console.log('❌ clubManager not found');
+    }
     return newService;
 }
 
@@ -9788,6 +9768,11 @@ async function testIframeEmail() {
         points: 10,
         tier: "PEARL"
     };
+    
+    if (!clubManager.emailService) {
+        console.log('❌ Email service not initialized. Run upgradeToIframeEmail first.');
+        return;
+    }
     
     const result = await clubManager.emailService.sendEmail(testEmail, 'welcome', testMember);
     
@@ -9813,6 +9798,8 @@ async function testIframeEmail() {
         console.log('❌ Failed:', result?.error || 'Unknown error');
     }
 }
+
+console.log('✅ Iframe email service code loaded!');
     </script>
 </body>
 </html>  
