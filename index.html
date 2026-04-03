@@ -9080,30 +9080,51 @@ async function updateMemberVouchers(jcId) {
         }
 
         async function toggleNewsletter() {
-            if (!clubManager.currentMember) return;
-            
-            const currentStatus = clubManager.currentMember.newsletterSubscribed;
-            const newStatus = !currentStatus;
-            
-            const success = await clubManager.toggleNewsletterSubscription(
-                clubManager.currentMember.email,
-                newStatus
-            );
-            
-            if (success) {
-                clubManager.currentMember.newsletterSubscribed = newStatus;
-                await clubManager.db.saveMember(clubManager.currentMember);
-                updateMemberDashboard(clubManager.currentMember);
-                
-                showToast(
-                    newStatus ? 'Subscribed to newsletter!' : 'Unsubscribed from newsletter',
-                    'success'
-                );
-            } else {
-                showToast('Failed to update newsletter subscription', 'error');
-            }
+    if (!clubManager.currentMember) return;
+    
+    const currentStatus = clubManager.currentMember.newsletterSubscribed;
+    const newStatus = !currentStatus;
+    
+    // Show loading state
+    const toggleBtn = document.getElementById('newsletterToggle');
+    const originalText = toggleBtn.textContent;
+    toggleBtn.textContent = '⏳ Updating...';
+    toggleBtn.disabled = true;
+    
+    const success = await clubManager.toggleNewsletterSubscription(
+        clubManager.currentMember.email,
+        newStatus
+    );
+    
+    if (success) {
+        clubManager.currentMember.newsletterSubscribed = newStatus;
+        await clubManager.db.saveMember(clubManager.currentMember);
+        localStorage.setItem('jeansClubCurrentMember', JSON.stringify(clubManager.currentMember));
+        
+        // DIRECT UI UPDATE - THIS IS THE KEY FIX
+        if (newStatus) {
+            toggleBtn.textContent = '📧 Unsubscribe from Newsletter';
+            toggleBtn.style.background = '#6c757d';
+        } else {
+            toggleBtn.textContent = '✉️ Subscribe to Newsletter';
+            toggleBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
         }
-
+        
+        // Also update the dashboard for consistency
+        updateMemberDashboard(clubManager.currentMember);
+        
+        showToast(
+            newStatus ? '✅ Subscribed to newsletter!' : '📧 Unsubscribed from newsletter',
+            'success'
+        );
+    } else {
+        showToast('Failed to update newsletter subscription', 'error');
+        // Revert button text
+        toggleBtn.textContent = originalText;
+    }
+    
+    toggleBtn.disabled = false;
+}
         function shareReferral() {
             if (!clubManager.currentMember) return;
             
