@@ -3640,7 +3640,14 @@
                     Subscribe to Newsletter
                 </button>
             </div>
-
+<div class="info-card">
+    <h3>🔔 Push Notifications</h3>
+    <p>Get notifications even when your browser is closed!</p>
+    <button class="btn" onclick="togglePushNotifications()" id="notifyToggleBtn">
+        🔔 Enable Notifications
+    </button>
+    <div id="notificationStatus" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
+</div>
             <div class="info-card">
                 <h3>Referral Stats</h3>
                 <p id="referralStats">Loading stats...</p>
@@ -7703,6 +7710,7 @@ function normalizeEmailForDatabase(email) {
                 if (points >= 7500) return 'BRONZE';
                 return 'PEARL';
             }
+
 async signUpWithEmail(name, email, password, referralCode = null) {
     try {
         if (!name || !email || !password) {
@@ -7710,41 +7718,27 @@ async signUpWithEmail(name, email, password, referralCode = null) {
             return false;
         }
         
-        // Validate email
         const emailValidation = isValidEmailWithFraudPrevention(email);
         if (!emailValidation.valid) {
             showToast(emailValidation.message, 'error');
             return false;
         }
         
-        // Normalize email for checking
         const normalizedEmail = normalizeEmailForDatabase(email);
         
-        // Check for existing member with same normalized email
         const existingMember = await this.db.getMemberByEmail(email);
         if (existingMember) {
             showToast('An account with this email already exists', 'error');
             return false;
         }
         
-        // Also check in cache for duplicates
         const allMembers = await this.db.getAllMembers();
-        const duplicateByNormalized = allMembers.find(m => 
-            normalizeEmailForDatabase(m.email) === normalizedEmail
-        );
         
-        if (duplicateByNormalized) {
-            showToast('An account with this email already exists', 'error');
-            return false;
-        }
-        
-        // Check referral code if provided
         if (referralCode && isSelfReferral(referralCode, email)) {
             showToast('You cannot use your own referral code', 'error');
             return false;
         }
         
-        // Check IP for multiple accounts
         const clientIP = await getClientIP();
         const ipCheck = await checkMultipleAccountsFromIP(email, clientIP);
         if (!ipCheck.allowed) {
@@ -7752,11 +7746,9 @@ async signUpWithEmail(name, email, password, referralCode = null) {
             return false;
         }
         
-        // Generate IDs
         const jcId = this.generateJCId();
         const memberReferralCode = this.generateReferralCode();
         
-        // Process referral if provided
         let referredBy = null;
         let referralPoints = 10;
         
@@ -7767,7 +7759,6 @@ async signUpWithEmail(name, email, password, referralCode = null) {
                 referredBy = referrer.jcId;
                 referralPoints = 20;
                 
-                // Update referrer's referrals list
                 referrer.referrals.push({
                     referredJCId: jcId,
                     referredName: name,
@@ -7781,7 +7772,6 @@ async signUpWithEmail(name, email, password, referralCode = null) {
             }
         }
         
-        // Create member object
         const member = {
             jcId: jcId,
             email: email,
@@ -7805,7 +7795,6 @@ async signUpWithEmail(name, email, password, referralCode = null) {
             createdAt: new Date().toISOString()
         };
         
-        // Add welcome activity
         member.activityLog.unshift({
             timestamp: new Date().toISOString(),
             action: 'account_created',
@@ -7813,34 +7802,44 @@ async signUpWithEmail(name, email, password, referralCode = null) {
             points: referralPoints
         });
         
-        // Save to database
         const saved = await this.db.saveMember(member);
         if (!saved) {
             showToast('Failed to create account. Please try again.', 'error');
             return false;
         }
         
-        // Set current session
         this.currentMember = member;
         this.isAdmin = false;
         localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
         localStorage.setItem('jeansClubIsAdmin', 'false');
         
-        // Send welcome email
+        // ✅ SEND PUSH NOTIFICATION ON SIGNUP
+        const welcomeMessages = [
+            `🎉 Welcome to Jeans Club, ${name}! You've been raised on denim. +${referralPoints} points!`,
+            `👖 ${name}, you're officially part of the denim elite! ${referralPoints} points added.`,
+            `✨ A new denim star is born! Welcome ${name} - your style just got an upgrade. +${referralPoints} points!`,
+            `🚀 ${name}, you've joined the club! Warning: excessive coolness may occur. +${referralPoints} points!`
+        ];
+        const randomMsg = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+        sendPushNotification('👖 Welcome to Jeans Club!', randomMsg);
+        
         await this.emailService.sendWelcomeEmail(email, member);
         
-        // Subscribe to newsletter if opted in
         if (member.newsletterSubscribed) {
             await this.db.subscribeToNewsletter(email, name);
             await this.emailService.sendNewsletterWelcomeEmail(email, member, {
                 subject: "Welcome to Jeans Club Newsletter!",
-                message: "Thank you for subscribing to our newsletter. You'll receive exclusive offers and updates."
+                message: "Thank you for subscribing!"
             });
         }
         
-        // Show dashboard
         await showDashboard(member);
         showToast(`Welcome to Jeans Club ${name}!`, 'success');
+        
+        // Initialize push notifications after signup
+        setTimeout(() => {
+            initPushNotifications();
+        }, 1000);
         
         return true;
         
@@ -7850,7 +7849,6 @@ async signUpWithEmail(name, email, password, referralCode = null) {
         return false;
     }
 }
-
             async loginWithJCId(jcId, password) {
                 try {
                     if (!jcId || !password) {
@@ -7917,101 +7915,133 @@ async signUpWithEmail(name, email, password, referralCode = null) {
                 }
             }
 
+
             async addPurchase(jcId, amount, description) {
-                try {
-                    if (!jcId || !amount || amount <= 0) {
-                        return { success: false, message: 'Invalid purchase data' };
-                    }
+    try {
+        if (!jcId || !amount || amount <= 0) {
+            return { success: false, message: 'Invalid purchase data' };
+        }
+        
+        const member = await this.db.getMemberByJCId(jcId.toUpperCase());
+        if (!member) {
+            return { success: false, message: 'Member not found' };
+        }
+        
+        const pointsEarned = Math.floor(amount / 1000);
+        const oldTier = member.tier;
+        
+        member.points += pointsEarned;
+        member.lifetimePoints = (member.lifetimePoints || 0) + pointsEarned;
+        member.totalSpent += amount;
+        
+        const tiers = [
+            { name: 'PEARL', min: 0, max: 7499 },
+            { name: 'BRONZE', min: 7500, max: 24999 },
+            { name: 'SILVER', min: 25000, max: 99999 },
+            { name: 'RUBY', min: 100000, max: 249999 },
+            { name: 'GOLD', min: 250000, max: 499999 },
+            { name: 'SAPPHIRE', min: 500000, max: 999999 },
+            { name: 'PLATINUM', min: 1000000, max: Infinity }
+        ];
+        
+        for (const tier of tiers) {
+            if (member.lifetimePoints >= tier.min && member.lifetimePoints <= tier.max) {
+                member.tier = tier.name;
+                break;
+            }
+        }
+        
+        const tierUpgraded = oldTier !== member.tier;
+        
+        member.purchaseHistory.unshift({
+            timestamp: new Date().toISOString(),
+            amount: amount,
+            description: description || 'Purchase',
+            pointsEarned: pointsEarned
+        });
+        
+        member.activityLog.unshift({
+            timestamp: new Date().toISOString(),
+            action: 'purchase',
+            description: `Purchase: ${description || 'Item'} - ${amount.toLocaleString()} UGX`,
+            points: pointsEarned
+        });
+        
+        // ✅ SEND PUSH NOTIFICATION FOR PURCHASE
+        const darkMessages = [
+            `💰 ${member.name}, you just spent ${amount.toLocaleString()} UGX! Your wallet is crying but your wardrobe is THRIVING. +${pointsEarned} points.`,
+            `🛍️ ${member.name}, that's ${amount.toLocaleString()} UGX less in your bank account. But those jeans look AMAZING! +${pointsEarned} points.`,
+            `💸 ${member.name}, your bank account just filed for divorce. But hey, style costs! +${pointsEarned} points.`,
+            `👖 ${member.name}, you now own more jeans than you have days in the week. Priorities. +${pointsEarned} points.`
+        ];
+        const randomMsg = darkMessages[Math.floor(Math.random() * darkMessages.length)];
+        sendPushNotification('🛍️ Purchase Confirmed!', randomMsg);
+        
+        // ✅ SEND TIER UPGRADE NOTIFICATION IF APPLICABLE
+        if (tierUpgraded) {
+            const tierMessages = {
+                'BRONZE': "You're officially not a beginner anymore. The denim gods approve!",
+                'SILVER': "You're now in the top tier of denim enthusiasts. Your jeans are jealous of you!",
+                'RUBY': "At this rate, your closet might need a separate zip code. Keep going!",
+                'GOLD': "You've achieved what many only dream of. The denim throne awaits...",
+                'SAPPHIRE': "You're basically a denim celebrity now. Autographs?",
+                'PLATINUM': "You've reached the peak. Denim royalty, we bow to you."
+            };
+            const tierMsg = tierMessages[member.tier] || `Welcome to ${member.tier} tier!`;
+            sendPushNotification(`🏆 TIER UPGRADE: ${member.tier}!`, tierMsg);
+        }
+        
+        if (member.referredBy) {
+            const referrer = await this.db.getMemberByJCId(member.referredBy);
+            if (referrer) {
+                const referral = referrer.referrals.find(r => r.referredJCId === member.jcId);
+                if (referral && referral.status === 'pending') {
+                    referral.status = 'completed';
+                    referral.completionDate = new Date().toISOString();
                     
-                    const member = await this.db.getMemberByJCId(jcId.toUpperCase());
-                    if (!member) {
-                        return { success: false, message: 'Member not found' };
-                    }
-                    
-                    const pointsEarned = Math.floor(amount / 1000);
-                    
-                    member.points += pointsEarned;
-                    member.lifetimePoints = (member.lifetimePoints || 0) + pointsEarned;
-                    member.totalSpent += amount;
-                    
-                    const tiers = [
-                        { name: 'PEARL', min: 0, max: 7499 },
-                        { name: 'BRONZE', min: 7500, max: 24999 },
-                        { name: 'SILVER', min: 25000, max: 99999 },
-                        { name: 'RUBY', min: 100000, max: 249999 },
-                        { name: 'GOLD', min: 250000, max: 499999 },
-                        { name: 'SAPPHIRE', min: 500000, max: 999999 },
-                        { name: 'PLATINUM', min: 1000000, max: Infinity }
-                    ];
-                    
-                    for (const tier of tiers) {
-                        if (member.lifetimePoints >= tier.min && member.lifetimePoints <= tier.max) {
-                            member.tier = tier.name;
-                            break;
-                        }
-                    }
-                    
-                    member.purchaseHistory.unshift({
+                    referrer.points += 100;
+                    referrer.lifetimePoints = (referrer.lifetimePoints || 0) + 100;
+                    referrer.activityLog.unshift({
                         timestamp: new Date().toISOString(),
-                        amount: amount,
-                        description: description || 'Purchase',
-                        pointsEarned: pointsEarned
+                        action: 'referral_completed',
+                        description: `Referral completed: ${member.name}`,
+                        points: 100
                     });
                     
-                    member.activityLog.unshift({
-                        timestamp: new Date().toISOString(),
-                        action: 'purchase',
-                        description: `Purchase: ${description || 'Item'} - ${amount.toLocaleString()} UGX`,
-                        points: pointsEarned
+                    await this.db.saveMember(referrer);
+                    
+                    // ✅ SEND REFERRAL NOTIFICATION
+                    sendPushNotification('🎊 Referral Success!', 
+                        `${referrer.name}, ${member.name} made their first purchase! +100 points for you!`);
+                    
+                    await this.emailService.sendReferralEmail(referrer.email, referrer, {
+                        referredName: member.name,
+                        pointsEarned: 100
                     });
-                    
-                    if (member.referredBy) {
-                        const referrer = await this.db.getMemberByJCId(member.referredBy);
-                        if (referrer) {
-                            const referral = referrer.referrals.find(r => r.referredJCId === member.jcId);
-                            if (referral && referral.status === 'pending') {
-                                referral.status = 'completed';
-                                referral.completionDate = new Date().toISOString();
-                                
-                                referrer.points += 100;
-                                referrer.lifetimePoints = (referrer.lifetimePoints || 0) + 100;
-                                referrer.activityLog.unshift({
-                                    timestamp: new Date().toISOString(),
-                                    action: 'referral_completed',
-                                    description: `Referral completed: ${member.name}`,
-                                    points: 100
-                                });
-                                
-                                await this.db.saveMember(referrer);
-                                
-                                this.emailService.sendReferralEmail(referrer.email, referrer, {
-                                    referredName: member.name,
-                                    pointsEarned: 100
-                                });
-                            }
-                        }
-                    }
-                    
-                    await this.db.saveMember(member);
-                    
-                    this.emailService.sendPurchaseEmail(member.email, member, {
-                        amount: amount,
-                        description: description,
-                        pointsEarned: pointsEarned,
-                        newBalance: member.points
-                    });
-                    
-                    return {
-                        success: true,
-                        message: `Purchase recorded! ${pointsEarned} points added.`,
-                        member: member
-                    };
-                    
-                } catch (error) {
-                    console.error('Add purchase error:', error);
-                    return { success: false, message: 'Failed to record purchase' };
                 }
             }
+        }
+        
+        await this.db.saveMember(member);
+        
+        await this.emailService.sendPurchaseEmail(member.email, member, {
+            amount: amount,
+            description: description,
+            pointsEarned: pointsEarned,
+            newBalance: member.points
+        });
+        
+        return {
+            success: true,
+            message: `Purchase recorded! ${pointsEarned} points added.`,
+            member: member
+        };
+        
+    } catch (error) {
+        console.error('Add purchase error:', error);
+        return { success: false, message: 'Failed to record purchase' };
+    }
+}
 
             logout() {
                 this.currentMember = null;
@@ -8201,8 +8231,249 @@ async signUpWithEmail(name, email, password, referralCode = null) {
                     return { success: false, message: 'Failed to send newsletter' };
                 }
             }
+    
+  }
+  // Handle scheduled notifications from cron-job.org
+async function triggerScheduledNotifications() {
+    console.log('⏰ Cron-job triggered notifications');
+    
+    // Get all members
+    const members = await clubManager.db.getAllMembers();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    for (const member of members) {
+        // Check last purchase date
+        const lastPurchase = member.purchaseHistory[0]?.timestamp;
+        if (lastPurchase && new Date(lastPurchase) < thirtyDaysAgo) {
+            const daysInactive = Math.floor((Date.now() - new Date(lastPurchase)) / (1000 * 60 * 60 * 24));
+            
+            const inactiveMessages = [
+                `⏰ ${member.name}, it's been ${daysInactive} days... Your jeans miss you! You have ${member.points} points ready.`,
+                `👀 ${member.name}, your ${member.points} points are getting lonely. Come back!`,
+                `😢 The denim is crying! ${daysInactive} days without shopping. Your ${member.points} points await!`
+            ];
+            const randomMsg = inactiveMessages[Math.floor(Math.random() * inactiveMessages.length)];
+            
+            // Store notification for delivery when user comes online
+            sendPushNotification('👖 Missing You!', randomMsg);
         }
+    }
+    
+    console.log('✅ Scheduled notifications triggered');
+}
 
+// Check URL params on page load
+function checkForScheduledTrigger() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get('action');
+    
+    if (action === 'trigger_notifications') {
+        triggerScheduledNotifications();
+        // Return plain text response for cron-job
+        document.body.innerHTML = 'OK - Notifications triggered';
+        return true;
+    }
+    return false;
+}
+
+// Call this at the beginning of your onload
+  // ===========================================
+// PUSH NOTIFICATION MANAGER
+// ===========================================
+
+class PushNotificationManager {
+  constructor() {
+    this.swRegistration = null;
+    this.isSubscribed = false;
+    this.isSupported = false;
+  }
+
+  async init() {
+    // Check if browser supports notifications
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.log('Push notifications not supported');
+      this.isSupported = false;
+      return false;
+    }
+
+    this.isSupported = true;
+
+    try {
+      // Register service worker
+      this.swRegistration = await navigator.serviceWorker.register('/sw.js');
+      console.log('✅ Service Worker registered');
+
+      // Check if already subscribed
+      const subscription = await this.swRegistration.pushManager.getSubscription();
+      this.isSubscribed = subscription !== null;
+
+      // Check saved preference
+      const savedPref = localStorage.getItem('pushEnabled');
+      if (savedPref === 'true' && !this.isSubscribed) {
+        await this.subscribe();
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Push init error:', error);
+      return false;
+    }
+  }
+
+  async subscribe() {
+    if (!this.isSupported) {
+      showToast('Push notifications not supported on this browser', 'error');
+      return false;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        showToast('Please allow notifications', 'info');
+        return false;
+      }
+
+      // For demo without VAPID (simpler setup)
+      // Note: For production, you'd need VAPID keys
+      const subscription = await this.swRegistration.pushManager.subscribe({
+        userVisibleOnly: true
+      });
+
+      localStorage.setItem('pushEnabled', 'true');
+      this.isSubscribed = true;
+      
+      showToast('🔔 Notifications enabled! You will receive updates.', 'success');
+      return true;
+
+    } catch (error) {
+      console.error('Subscribe error:', error);
+      showToast('Failed to enable notifications', 'error');
+      return false;
+    }
+  }
+
+  async unsubscribe() {
+    try {
+      const subscription = await this.swRegistration.pushManager.getSubscription();
+      if (subscription) {
+        await subscription.unsubscribe();
+      }
+      localStorage.setItem('pushEnabled', 'false');
+      this.isSubscribed = false;
+      showToast('Notifications disabled', 'info');
+      return true;
+    } catch (error) {
+      console.error('Unsubscribe error:', error);
+      return false;
+    }
+  }
+
+  // Send immediate notification (for when user is on site)
+  sendNotification(title, body, data = {}) {
+    if (!this.swRegistration || !this.swRegistration.active) {
+      console.log('No active service worker');
+      return false;
+    }
+
+    this.swRegistration.active.postMessage({
+      type: 'SHOW_NOTIFICATION',
+      notification: {
+        title: title,
+        body: body,
+        data: data,
+        icon: 'https://i.ibb.co.com/Rp9F4xBC/jeans-club.jpg'
+      }
+    });
+    return true;
+  }
+
+  // Store notification for later (when user comes back)
+  storeNotification(title, body, data = {}) {
+    const pending = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+    pending.push({
+      id: Date.now(),
+      title: title,
+      body: body,
+      data: data,
+      timestamp: Date.now()
+    });
+    localStorage.setItem('pendingNotifications', JSON.stringify(pending));
+    console.log('📦 Notification stored for later');
+  }
+
+  // Process stored notifications
+  processStoredNotifications() {
+    const pending = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+    if (pending.length > 0 && this.isSubscribed) {
+      console.log(`📬 Processing ${pending.length} stored notifications`);
+      pending.forEach(notif => {
+        this.sendNotification(notif.title, notif.body, notif.data);
+      });
+      localStorage.removeItem('pendingNotifications');
+    }
+  }
+}
+
+// Global push manager
+let pushManager = null;
+
+// Initialize push notifications
+async function initPushNotifications() {
+  if (!pushManager) {
+    pushManager = new PushNotificationManager();
+    await pushManager.init();
+    
+    // Process any stored notifications
+    if (pushManager.isSubscribed) {
+      pushManager.processStoredNotifications();
+    }
+    
+    // Update button if exists
+    const btn = document.getElementById('notifyToggleBtn');
+    if (btn && pushManager.isSubscribed) {
+      btn.textContent = '🔕 Notifications On';
+      btn.style.background = '#28a745';
+    }
+  }
+}
+
+// Toggle push notifications
+async function togglePushNotifications() {
+  if (!pushManager) {
+    await initPushNotifications();
+  }
+  
+  if (pushManager.isSubscribed) {
+    await pushManager.unsubscribe();
+    const btn = document.getElementById('notifyToggleBtn');
+    if (btn) {
+      btn.textContent = '🔔 Enable Notifications';
+      btn.style.background = '';
+    }
+  } else {
+    await pushManager.subscribe();
+    const btn = document.getElementById('notifyToggleBtn');
+    if (btn && pushManager.isSubscribed) {
+      btn.textContent = '🔕 Notifications On';
+      btn.style.background = '#28a745';
+    }
+  }
+}
+
+// Send push notification (main function to call from your code)
+function sendPushNotification(title, body, data = {}) {
+  if (pushManager && pushManager.isSubscribed) {
+    pushManager.sendNotification(title, body, data);
+  } else if (pushManager) {
+    pushManager.storeNotification(title, body, data);
+  } else {
+    // Store for later initialization
+    const pending = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+    pending.push({ title, body, data, timestamp: Date.now() });
+    localStorage.setItem('pendingNotifications', JSON.stringify(pending));
+  }
+}
         // ===========================
         // UTILITY FUNCTIONS
         // ===========================
@@ -8232,7 +8503,7 @@ async signUpWithEmail(name, email, password, referralCode = null) {
             
             if (type === 'success') toast.style.backgroundColor = '#28a745';
             else if (type === 'error') toast.style.backgroundColor = '#dc3545';
-            else if (type === 'warning') toast.style.backgroundColor = '#ffc107';
+             else if (type === 'warning') toast.style.backgroundColor = '#ffc107';
             else toast.style.backgroundColor = '#17a2b8';
             
             document.body.appendChild(toast);
@@ -8989,7 +9260,9 @@ async function updateMemberVouchers(jcId) {
                     points,
                     discountPercentage
                 );
-                
+                 // 👇 ADD THIS LINE RIGHT HERE 👇
+    sendPushNotification('🎫 New Discount Voucher!', 
+        `${clubManager.currentMember.name}, you created a ${discountPercentage}% OFF voucher! Valid for 30 days.`);
                 clubManager.currentMember.points -= points;
                 
                 clubManager.currentMember.activityLog.unshift({
@@ -9588,9 +9861,17 @@ async function updateMemberVouchers(jcId) {
         })();
 
         window.onload = function() {
+             // Check if this is a cron-job trigger
+    if (checkForScheduledTrigger()) {
+        return; // Stop normal page load
+    }
             console.log('=== PAGE LOAD START ===');
             
             clubManager = new ClubManager();
+            // ✅ ADD THIS LINE - Initialize push notifications
+    setTimeout(() => {
+        initPushNotifications();
+    }, 2000);
              // Replace the old email service with the iframe version
     const iframeEmailService = new IframeEmailService('https://script.google.com/macros/s/AKfycbzmJS_ThUUb_FsyeuBVbLyBRdGXAD0Pj1uhv_4CCD8NtV0WCL6THqgIBIawmWK4F7CN/exec');
     clubManager.emailService = iframeEmailService;
