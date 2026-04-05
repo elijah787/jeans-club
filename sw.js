@@ -1,6 +1,4 @@
-// sw.js - Service Worker for Push Notifications
-// Save this in the same folder as your index.html
-
+// sw.js - Service Worker for Jeans Club Push Notifications
 const CACHE_NAME = 'jeans-club-v1';
 
 self.addEventListener('install', (event) => {
@@ -8,13 +6,11 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// FIXED: Added missing curly brace here
 self.addEventListener('activate', (event) => {
   console.log('✅ Service Worker activated');
   event.waitUntil(clients.claim());
 });
 
-// Listen for push events
 self.addEventListener('push', (event) => {
   console.log('📨 Push received');
   
@@ -52,7 +48,6 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   
@@ -73,7 +68,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Handle messages from main page
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     const notif = event.data.notification;
