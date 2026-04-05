@@ -8423,37 +8423,39 @@ class PushNotificationManager {
     }
   }
 
-  async subscribe() {
+async subscribe() {
     if (!this.isSupported) {
-      showToast('Push notifications not supported on this browser', 'error');
-      return false;
+        showToast('Push notifications not supported on this browser', 'error');
+        return false;
     }
 
     try {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        showToast('Please allow notifications', 'info');
-        return false;
-      }
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            showToast('Please allow notifications', 'info');
+            return false;
+        }
 
-      // For demo without VAPID (simpler setup)
-      // Note: For production, you'd need VAPID keys
-      const subscription = await this.swRegistration.pushManager.subscribe({
-        userVisibleOnly: true
-      });
+        // ✅ ADD YOUR VAPID PUBLIC KEY HERE
+        const VAPID_PUBLIC_KEY = 'BCMfJoj4xAtWeOJS4PPdu1K5YtH1qs_Q-QbZT_DMPSmxyqtagJvBW77cOGXKE7_OaTneeor7fOUt6z_lWljy68U';
+        
+        const subscription = await this.swRegistration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: this.urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
 
-      localStorage.setItem('pushEnabled', 'true');
-      this.isSubscribed = true;
-      
-      showToast('🔔 Notifications enabled! You will receive updates.', 'success');
-      return true;
+        localStorage.setItem('pushEnabled', 'true');
+        this.isSubscribed = true;
+        
+        showToast('🔔 Notifications enabled!', 'success');
+        return true;
 
     } catch (error) {
-      console.error('Subscribe error:', error);
-      showToast('Failed to enable notifications', 'error');
-      return false;
+        console.error('Subscribe error:', error);
+        showToast('Failed to enable notifications: ' + error.message, 'error');
+        return false;
     }
-  }
+}
 
   async unsubscribe() {
     try {
@@ -8515,6 +8517,16 @@ class PushNotificationManager {
       localStorage.removeItem('pendingNotifications');
     }
   }
+  urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
 }
 
 // Global push manager
