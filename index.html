@@ -10685,54 +10685,6 @@ sendPushNotification('🎫 Your wallet is crying', randomVoucherMsg);
 // Place it after your other global functions
 // ===========================================
 
-async function syncPendingNotifications() {
-    if (!clubManager || !clubManager.currentMember) return;
-    
-    console.log('🔄 Syncing pending notifications for:', clubManager.currentMember.jcId);
-    
-    const { data: notifications, error } = await clubManager.db.supabase
-        .from('push_notifications')
-        .select('*')
-        .eq('member_jc_id', clubManager.currentMember.jcId)
-        .eq('delivered', false)
-        .order('created_at', { ascending: true });
-    
-    if (error) {
-        console.error('Sync error:', error);
-        return;
-    }
-    
-    // Add deduplication
-    if (typeof processedNotificationIds === 'undefined') {
-        window.processedNotificationIds = new Set();
-    }
-    
-    const newNotifications = notifications.filter(n => !window.processedNotificationIds.has(n.id));
-    
-    console.log(`📬 Found ${notifications?.length || 0} total, ${newNotifications.length} new`);
-    
-    for (const notification of newNotifications) {
-        window.processedNotificationIds.add(notification.id);
-        
-        if (pushManager && pushManager.isSubscribed) {
-            pushManager.sendNotification(notification.title, notification.body, notification.data || {});
-            console.log('✅ Delivered:', notification.title);
-        } else if (pushManager) {
-            pushManager.storeNotification(notification.title, notification.body, notification.data || {});
-        }
-        
-        await clubManager.db.supabase
-            .from('push_notifications')
-            .update({ 
-                delivered: true, 
-                read_at: new Date().toISOString(),
-                delivered_on_device: navigator.userAgent
-            })
-            .eq('id', notification.id);
-        
-        await new Promise(r => setTimeout(r, 500));
-    }
-}
    window.onload = function() {
     // Check if this is a cron-job trigger
     if (checkForScheduledTrigger()) {
@@ -10815,10 +10767,7 @@ async function syncPendingNotifications() {
     // setInterval(() => { syncPendingNotifications(); }, 30000);  // DELETE THIS LINE
     // document.addEventListener('visibilitychange', ...)  // DELETE THIS EVENT LISTENER
     
-    // ✅ INSTEAD, add a simple sync on page load only
-    setTimeout(() => {
-        syncPendingNotifications();
-    }, 5000);
+    
 }
  
         
