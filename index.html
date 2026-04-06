@@ -10685,6 +10685,62 @@ sendPushNotification('🎫 Your wallet is crying', randomVoucherMsg);
             await fetchUndeliveredNotifications();
         }
     }, 3000);
+    // Add this function to your main HTML - it will auto-run on page load
+async function syncPendingNotifications() {
+    if (!clubManager || !clubManager.currentMember) return;
+    
+    console.log('🔄 Syncing pending notifications for:', clubManager.currentMember.jcId);
+    
+    const { data: notifications, error } = await clubManager.db.supabase
+        .from('push_notifications')
+        .select('*')
+        .eq('member_jc_id', clubManager.currentMember.jcId)
+        .eq('delivered', false)
+        .order('created_at', { ascending: true });
+    
+    if (error) {
+        console.error('Sync error:', error);
+        return;
+    }
+    
+    console.log(`📬 Found ${notifications?.length || 0} pending notifications`);
+    
+    for (const notification of notifications || []) {
+        // Show notification on current device
+        if (pushManager && pushManager.isSubscribed) {
+            pushManager.sendNotification(notification.title, notification.body, notification.data || {});
+            console.log('✅ Delivered:', notification.title);
+        } else {
+            // Fallback to alert
+            alert(`${notification.title}\n${notification.body}`);
+        }
+        
+        // Mark as delivered
+        await clubManager.db.supabase
+            .from('push_notifications')
+            .update({ 
+                delivered: true, 
+                read_at: new Date().toISOString(),
+                delivered_on_device: navigator.userAgent
+            })
+            .eq('id', notification.id);
+        
+        await new Promise(r => setTimeout(r, 1000));
+    }
+}
+
+// Auto-sync on page load and every 30 seconds
+setInterval(() => {
+    syncPendingNotifications();
+}, 30000);
+
+// Also sync when page becomes visible again
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        console.log('📱 Page visible - syncing notifications');
+        syncPendingNotifications();
+    }
+});
 }   
  
         
