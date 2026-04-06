@@ -8447,7 +8447,6 @@ async subscribe() {
     }
 
     try {
-        // Check if we already have permission
         let permission = Notification.permission;
         
         if (permission !== 'granted') {
@@ -8462,70 +8461,62 @@ async subscribe() {
         
         console.log('✅ Permission granted');
 
-        // Make sure service worker is ready
         if (!this.swRegistration) {
-            console.log('Waiting for service worker...');
             this.swRegistration = await navigator.serviceWorker.ready;
         }
         
         const VAPID_PUBLIC_KEY = 'BCMfJoj4xAtWeOJS4PPdu1K5YtH1qs_Q-QbZT_DMPSmxyqtagJvBW77cOGXKE7_OaTneeor7fOUt6z_lWljy68U';
         
-        // Unsubscribe first if already subscribed (clean slate)
         let existingSubscription = await this.swRegistration.pushManager.getSubscription();
         if (existingSubscription) {
             console.log('Unsubscribing existing subscription...');
             await existingSubscription.unsubscribe();
         }
         
-        // Create new subscription
         console.log('Creating push subscription...');
         const subscription = await this.swRegistration.pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: this.urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
         
-        console.log('✅ Push subscription created:', subscription);
+        console.log('✅ Push subscription created');
         
-        // Save to localStorage
         localStorage.setItem('pushEnabled', 'true');
-        localStorage.setItem('pushSubscription', JSON.stringify(subscription));
         this.isSubscribed = true;
         
-        // ✅ SAVE TO DATABASE
+        // ✅ CRITICAL: SAVE TO DATABASE
         if (clubManager && clubManager.currentMember) {
-            try {
-                const { error } = await clubManager.db.supabase
-                    .from('members')
-                    .update({ 
-                        push_enabled: true,
-                        push_subscription: subscription,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('jc_id', clubManager.currentMember.jcId);
-                
-                if (error) {
-                    console.error('Database save error:', error);
-                } else {
-                    console.log('✅ Saved to database for:', clubManager.currentMember.name);
-                }
-            } catch (dbError) {
-                console.error('Database error:', dbError);
+            console.log('💾 Saving to database for member:', clubManager.currentMember.jcId);
+            
+            const { data, error } = await clubManager.db.supabase
+                .from('members')
+                .update({ 
+                    push_enabled: true,
+                    push_subscription: subscription,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('jc_id', clubManager.currentMember.jcId);
+            
+            if (error) {
+                console.error('❌ Database save error:', error);
+                showToast('Notifications enabled but failed to save preference', 'warning');
+            } else {
+                console.log('✅ Database updated successfully! push_enabled = true');
+                showToast('🔔 Notifications enabled and saved!', 'success');
             }
+        } else {
+            console.log('⚠️ No current member - cannot save to database');
         }
         
-        // Update button UI
         const btn = document.getElementById('notifyToggleBtn');
         if (btn) {
             btn.textContent = '🔕 Notifications On';
             btn.style.background = '#28a745';
-            btn.disabled = false;
         }
         
-        showToast('🔔 Notifications enabled! You will receive updates.', 'success');
-        
-        // Send a test notification
+        // Send test notification
         setTimeout(() => {
-            this.sendNotification('✅ Success!', 'Your notifications are now active!');
+            this.sendNotification('✅ Success!', 'Your notifications are now active and saved to your account!');
         }, 1000);
         
         return true;
@@ -8533,14 +8524,6 @@ async subscribe() {
     } catch (error) {
         console.error('Subscribe error:', error);
         showToast('Failed to enable notifications: ' + error.message, 'error');
-        
-        // Update button to show error state
-        const btn = document.getElementById('notifyToggleBtn');
-        if (btn) {
-            btn.textContent = '⚠️ Retry Enable Notifications';
-            btn.style.background = '#dc3545';
-        }
-        
         return false;
     }
 }
