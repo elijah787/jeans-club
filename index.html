@@ -8801,7 +8801,7 @@ class PushNotificationManager {
       return false;
     }
   }
-async subscribe() {
+  async subscribe() {
     console.log('🔔 Starting notification subscription...');
     
     if (!this.isSupported) {
@@ -8847,11 +8847,82 @@ async subscribe() {
         localStorage.setItem('pushEnabled', 'true');
         this.isSubscribed = true;
         
-        // ✅ CRITICAL: SAVE TO DATABASE
+        // ✅ SAVE TO MULTI-DEVICE TABLE (NEW)
         if (clubManager && clubManager.currentMember) {
-            console.log('💾 Saving to database for member:', clubManager.currentMember.jcId);
+            console.log('💾 Saving to push_subscriptions table for member:', clubManager.currentMember.jcId);
             
-            const { data, error } = await clubManager.db.supabase
+            // Get device info
+            const ua = navigator.userAgent;
+            let deviceName = 'Unknown Device';
+            let deviceType = 'unknown';
+            
+            // Detect device type and name
+            if (/iPhone|iPad|iPod/i.test(ua)) {
+                deviceType = 'ios';
+                deviceName = /iPhone/i.test(ua) ? 'iPhone' : (/iPad/i.test(ua) ? 'iPad' : 'iPod');
+            } else if (/Android/i.test(ua)) {
+                deviceType = 'android';
+                // Try to get Android device name
+                const match = ua.match(/Android; ([^;]+);/);
+                deviceName = match ? match[1] : 'Android Device';
+            } else if (/Firefox/i.test(ua)) {
+                deviceType = 'firefox';
+                deviceName = 'Firefox Browser';
+            } else if (/Edg/i.test(ua)) {
+                deviceType = 'edge';
+                deviceName = 'Microsoft Edge';
+            } else if (/Chrome/i.test(ua)) {
+                deviceType = 'chrome';
+                deviceName = 'Chrome Browser';
+            } else if (/Safari/i.test(ua)) {
+                deviceType = 'safari';
+                deviceName = 'Safari Browser';
+            }
+            
+            // Add OS info to device name
+            if (/Windows/i.test(ua)) {
+                deviceName += ' (Windows)';
+            } else if (/Mac/i.test(ua)) {
+                deviceName += ' (Mac)';
+            } else if (/Linux/i.test(ua)) {
+                deviceName += ' (Linux)';
+            }
+            
+            console.log(`📱 Device: ${deviceName} (${deviceType})`);
+            
+            // Insert or update subscription for this device
+            const { error } = await clubManager.db.supabase
+                .from('push_subscriptions')
+                .upsert({
+                    member_jc_id: clubManager.currentMember.jcId,
+                    device_name: deviceName,
+                    device_type: deviceType,
+                    subscription: subscription,
+                    last_used: new Date().toISOString()
+                }, {
+                    onConflict: 'member_jc_id, device_name'
+                });
+            
+            if (error) {
+                console.error('❌ Failed to save to push_subscriptions:', error);
+                showToast('Notifications enabled but device not saved', 'warning');
+            } else {
+                console.log('✅ Device saved to push_subscriptions table');
+                
+                // Count how many devices this member has
+                const { count } = await clubManager.db.supabase
+                    .from('push_subscriptions')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('member_jc_id', clubManager.currentMember.jcId);
+                
+                console.log(`📱 Total devices for ${clubManager.currentMember.name}: ${count || 1}`);
+                if (count > 1) {
+                    console.log('🎉 You will receive notifications on ALL your devices!');
+                }
+            }
+            
+            // Also update members table for backward compatibility
+            await clubManager.db.supabase
                 .from('members')
                 .update({ 
                     push_enabled: true,
@@ -8859,14 +8930,6 @@ async subscribe() {
                     updated_at: new Date().toISOString()
                 })
                 .eq('jc_id', clubManager.currentMember.jcId);
-            
-            if (error) {
-                console.error('❌ Database save error:', error);
-                showToast('Notifications enabled but failed to save preference', 'warning');
-            } else {
-                console.log('✅ Database updated successfully! push_enabled = true');
-                showToast('🔔 Notifications enabled and saved!', 'success');
-            }
         } else {
             console.log('⚠️ No current member - cannot save to database');
         }
@@ -8879,7 +8942,7 @@ async subscribe() {
         
         // Send test notification
         setTimeout(() => {
-            this.sendNotification('✅ Success!', 'Your notifications are now active and saved to your account!');
+            this.sendNotification('✅ Success!', 'Your notifications are now active on this device! You will receive updates on ALL your devices.');
         }, 1000);
         
         return true;
@@ -8890,7 +8953,7 @@ async subscribe() {
         return false;
     }
 }
- async unsubscribe() {
+async unsubscribe() {
     try {
         const subscription = await this.swRegistration.pushManager.getSubscription();
         if (subscription) {
@@ -8898,28 +8961,67 @@ async subscribe() {
         }
         
         localStorage.setItem('pushEnabled', 'false');
-        localStorage.setItem(`pushEnabled_${clubManager.currentMember?.jcId}`, 'false');
         this.isSubscribed = false;
         
-        // ✅ UPDATE DATABASE
+        // ✅ Remove this device from push_subscriptions table
         if (clubManager && clubManager.currentMember) {
+            // Get device name to remove
+            const ua = navigator.userAgent;
+            let deviceName = 'Unknown Device';
+            
+            if (/iPhone|iPad|iPod/i.test(ua)) {
+                deviceName = /iPhone/i.test(ua) ? 'iPhone' : (/iPad/i.test(ua) ? 'iPad' : 'iPod');
+            } else if (/Android/i.test(ua)) {
+                const match = ua.match(/Android; ([^;]+);/);
+                deviceName = match ? match[1] : 'Android Device';
+            } else if (/Firefox/i.test(ua)) {
+                deviceName = 'Firefox Browser';
+            } else if (/Edg/i.test(ua)) {
+                deviceName = 'Microsoft Edge';
+            } else if (/Chrome/i.test(ua)) {
+                deviceName = 'Chrome Browser';
+            } else if (/Safari/i.test(ua)) {
+                deviceName = 'Safari Browser';
+            }
+            
+            if (/Windows/i.test(ua)) deviceName += ' (Windows)';
+            else if (/Mac/i.test(ua)) deviceName += ' (Mac)';
+            else if (/Linux/i.test(ua)) deviceName += ' (Linux)';
+            
+            // Remove this device
             await clubManager.db.supabase
-                .from('members')
-                .update({ 
-                    push_enabled: false,
-                    push_subscription: null
-                })
-                .eq('jc_id', clubManager.currentMember.jcId);
+                .from('push_subscriptions')
+                .delete()
+                .eq('member_jc_id', clubManager.currentMember.jcId)
+                .eq('device_name', deviceName);
+            
+            console.log(`🗑️ Removed device: ${deviceName}`);
+            
+            // Check if any devices remain
+            const { count } = await clubManager.db.supabase
+                .from('push_subscriptions')
+                .select('*', { count: 'exact', head: true })
+                .eq('member_jc_id', clubManager.currentMember.jcId);
+            
+            // If no devices left, update members table push_enabled to false
+            if (count === 0) {
+                await clubManager.db.supabase
+                    .from('members')
+                    .update({ 
+                        push_enabled: false,
+                        push_subscription: null
+                    })
+                    .eq('jc_id', clubManager.currentMember.jcId);
+            }
         }
         
-        showToast('Notifications disabled', 'info');
+        showToast('Notifications disabled on this device', 'info');
         return true;
     } catch (error) {
         console.error('Unsubscribe error:', error);
         return false;
     }
 }
-
   // Send immediate notification (for when user is on site)
   sendNotification(title, body, data = {}) {
     if (!this.swRegistration || !this.swRegistration.active) {
