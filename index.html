@@ -8423,6 +8423,7 @@ class PushNotificationManager {
     }
   }
 
+
 async subscribe() {
     if (!this.isSupported) {
         showToast('Push notifications not supported on this browser', 'error');
@@ -8430,11 +8431,10 @@ async subscribe() {
     }
 
     try {
-        // Request permission directly
         const permission = await Notification.requestPermission();
         
         if (permission !== 'granted') {
-            showToast('You denied notifications. Please check browser settings to enable.', 'error');
+            showToast('Please allow notifications', 'error');
             return false;
         }
 
@@ -8445,40 +8445,66 @@ async subscribe() {
             applicationServerKey: this.urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
 
+        // Save to localStorage
         localStorage.setItem('pushEnabled', 'true');
+        localStorage.setItem(`pushEnabled_${clubManager.currentMember?.jcId}`, 'true');
         this.isSubscribed = true;
+        
+        // ✅ SAVE TO DATABASE
+        if (clubManager && clubManager.currentMember) {
+            const { data, error } = await clubManager.db.supabase
+                .from('members')
+                .update({ 
+                    push_enabled: true,
+                    push_subscription: subscription
+                })
+                .eq('jc_id', clubManager.currentMember.jcId);
+            
+            if (error) {
+                console.error('Failed to save to database:', error);
+            } else {
+                console.log('✅ Push preference saved to database');
+            }
+        }
         
         showToast('🔔 Notifications enabled!', 'success');
         return true;
 
     } catch (error) {
         console.error('Subscribe error:', error);
-        
-        // One simple error message
-        if (error.name === 'NotAllowedError') {
-            showToast('Please check your browser notification settings and try again', 'error');
-        } else {
-            showToast('Failed to enable notifications', 'error');
-        }
+        showToast('Failed to enable notifications: ' + error.message, 'error');
         return false;
     }
 }
-
-  async unsubscribe() {
+ async unsubscribe() {
     try {
-      const subscription = await this.swRegistration.pushManager.getSubscription();
-      if (subscription) {
-        await subscription.unsubscribe();
-      }
-      localStorage.setItem('pushEnabled', 'false');
-      this.isSubscribed = false;
-      showToast('Notifications disabled', 'info');
-      return true;
+        const subscription = await this.swRegistration.pushManager.getSubscription();
+        if (subscription) {
+            await subscription.unsubscribe();
+        }
+        
+        localStorage.setItem('pushEnabled', 'false');
+        localStorage.setItem(`pushEnabled_${clubManager.currentMember?.jcId}`, 'false');
+        this.isSubscribed = false;
+        
+        // ✅ UPDATE DATABASE
+        if (clubManager && clubManager.currentMember) {
+            await clubManager.db.supabase
+                .from('members')
+                .update({ 
+                    push_enabled: false,
+                    push_subscription: null
+                })
+                .eq('jc_id', clubManager.currentMember.jcId);
+        }
+        
+        showToast('Notifications disabled', 'info');
+        return true;
     } catch (error) {
-      console.error('Unsubscribe error:', error);
-      return false;
+        console.error('Unsubscribe error:', error);
+        return false;
     }
-  }
+}
 
   // Send immediate notification (for when user is on site)
   sendNotification(title, body, data = {}) {
@@ -8535,6 +8561,30 @@ async subscribe() {
     return outputArray;
 }
 }
+async function checkEnabledMembers() {
+    const members = await clubManager.db.getAllMembers();
+    
+    console.log('📊 MEMBER NOTIFICATION STATUS:');
+    console.log('═'.repeat(50));
+    
+    let enabledCount = 0;
+    
+    for (const member of members) {
+        const hasEnabled = member.push_enabled === true;
+        if (hasEnabled) enabledCount++;
+        
+        const status = hasEnabled ? '✅ ENABLED' : '❌ NOT ENABLED';
+        console.log(`${status} | ${member.name} (${member.jcId})`);
+    }
+    
+    console.log('═'.repeat(50));
+    console.log(`📊 Total: ${enabledCount}/${members.length} members have notifications enabled`);
+    
+    return { enabledCount, total: members.length };
+}
+
+// Run it
+checkEnabledMembers();
 function enableNotificationsSimple() {
     console.log('🔔 Enabling notifications...');
     
