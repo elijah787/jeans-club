@@ -3643,7 +3643,7 @@
 <div class="info-card">
     <h3>🔔 Push Notifications</h3>
     <p>Get notifications even when your browser is closed!</p>
-   <button class="btn" onclick="enablePushNotifications()" id="notifyToggleBtn">
+   <button class="btn" onclick="togglePushNotifications()" id="notifyToggleBtn">
     🔔 Enable Notifications
 </button>
     <div id="notificationStatus" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
@@ -7812,7 +7812,11 @@ async signUpWithEmail(name, email, password, referralCode = null) {
         this.isAdmin = false;
         localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
         localStorage.setItem('jeansClubIsAdmin', 'false');
-        
+        // ✅ ADD THESE 3 LINES RIGHT HERE
+if (typeof startListeningForNotifications === 'function') {
+    await startListeningForNotifications();
+    await fetchUndeliveredNotifications();
+}
         // ✅ SEND PUSH NOTIFICATION ON SIGNUP
         const darkWelcomeMessages = [
     `💀 Welcome ${name}! You've just joined the exclusive club of people who spend too much on denim. We're your people.`,
@@ -7903,7 +7907,11 @@ async signUpWithEmail(name, email, password, referralCode = null) {
                         this.currentMember = updatedMember;
                         localStorage.setItem('jeansClubCurrentMember', JSON.stringify(updatedMember));
                     }
-                    
+                    // ✅ ADD THESE 3 LINES RIGHT HERE
+if (typeof startListeningForNotifications === 'function') {
+    await startListeningForNotifications();
+    await fetchUndeliveredNotifications();
+}
                     showDashboard(this.currentMember);
                     showToast(`Welcome back ${member.name}!`, 'success');
                     
@@ -8243,6 +8251,149 @@ const darkMessages = [
             }
     
   }
+  // ===========================================
+// CROSS-DEVICE NOTIFICATION FUNCTIONS
+// ===========================================
+
+// Send notification to ALL devices of a member
+async function sendToAllDevices(memberJcId, title, body, data = {}) {
+    try {
+        console.log(`📤 Sending notification to all devices of ${memberJcId}`);
+        
+        const { error } = await clubManager.db.supabase
+            .from('push_notifications')
+            .insert({
+                member_jc_id: memberJcId,
+                title: title,
+                body: body,
+                data: data,
+                created_at: new Date().toISOString(),
+                delivered: false
+            });
+        
+        if (error) {
+            console.error('❌ Failed to store notification:', error);
+            return false;
+        }
+        
+        console.log('✅ Notification stored in database');
+        
+        // Also show on current device immediately
+        sendPushNotification(title, body);
+        
+        return true;
+    } catch (error) {
+        console.error('Error sending to all devices:', error);
+        return false;
+    }
+}
+
+// Broadcast to ALL members (all devices)
+async function broadcastToAllMembersAllDevices(title, body, data = {}) {
+    console.log('📢 Broadcasting to ALL members on ALL devices...');
+    
+    const members = await clubManager.db.getAllMembers();
+    const enabledMembers = members.filter(m => m.push_enabled === true);
+    
+    console.log(`Found ${enabledMembers.length} members with notifications enabled`);
+    
+    let successCount = 0;
+    
+    for (const member of enabledMembers) {
+        const result = await sendToAllDevices(member.jcId, title, body, data);
+        if (result) successCount++;
+        await new Promise(r => setTimeout(r, 100)); // Rate limiting
+    }
+    
+    console.log(`✅ Broadcast complete! Sent to ${successCount} members`);
+    return { success: true, count: successCount };
+}
+
+// Listen for incoming notifications from other devices
+let notificationChannel = null;
+
+async function startListeningForNotifications() {
+    if (!clubManager.currentMember) {
+        console.log('No member logged in, cannot listen for notifications');
+        return;
+    }
+    
+    console.log('👂 Starting to listen for notifications from other devices...');
+    
+    // Unsubscribe from previous channel if exists
+    if (notificationChannel) {
+        await notificationChannel.unsubscribe();
+    }
+    
+    // Subscribe to realtime changes
+    notificationChannel = clubManager.db.supabase
+        .channel('push_notifications_' + clubManager.currentMember.jcId)
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'push_notifications',
+                filter: `member_jc_id=eq.${clubManager.currentMember.jcId}`
+            },
+            (payload) => {
+                console.log('📨 New notification received from database!', payload);
+                const notification = payload.new;
+                
+                // Show the notification
+                sendPushNotification(notification.title, notification.body, notification.data || {});
+                
+                // Mark as delivered
+                markNotificationAsDelivered(notification.id);
+            }
+        )
+        .subscribe((status) => {
+            console.log('📡 Notification listener status:', status);
+        });
+}
+
+// Mark notification as delivered
+async function markNotificationAsDelivered(notificationId) {
+    try {
+        await clubManager.db.supabase
+            .from('push_notifications')
+            .update({ 
+                delivered: true,
+                read_at: new Date().toISOString()
+            })
+            .eq('id', notificationId);
+        console.log('✅ Notification marked as delivered');
+    } catch (error) {
+        console.error('Failed to mark as delivered:', error);
+    }
+}
+
+// Fetch undelivered notifications (for when page loads)
+async function fetchUndeliveredNotifications() {
+    if (!clubManager.currentMember) return;
+    
+    console.log('📥 Fetching undelivered notifications...');
+    
+    const { data: notifications, error } = await clubManager.db.supabase
+        .from('push_notifications')
+        .select('*')
+        .eq('member_jc_id', clubManager.currentMember.jcId)
+        .eq('delivered', false)
+        .order('created_at', { ascending: true });
+    
+    if (error) {
+        console.error('Failed to fetch notifications:', error);
+        return;
+    }
+    
+    console.log(`Found ${notifications?.length || 0} undelivered notifications`);
+    
+    for (const notification of notifications || []) {
+        sendPushNotification(notification.title, notification.body, notification.data || {});
+        await markNotificationAsDelivered(notification.id);
+        await new Promise(r => setTimeout(r, 500));
+    }
+}
   // ===========================================
 // DAILY DARK HUMOR NOTIFICATIONS
 // ===========================================
@@ -8945,25 +9096,36 @@ function requestNotificationPermission() {
 }
 // Toggle push notifications
 async function togglePushNotifications() {
-  if (!pushManager) {
-    await initPushNotifications();
-  }
-  
-  if (pushManager.isSubscribed) {
-    await pushManager.unsubscribe();
-    const btn = document.getElementById('notifyToggleBtn');
-    if (btn) {
-      btn.textContent = '🔔 Enable Notifications';
-      btn.style.background = '';
+    console.log('🔄 Toggle notifications called');
+    
+    if (!pushManager) {
+        await initPushNotifications();
     }
-  } else {
-    await pushManager.subscribe();
-    const btn = document.getElementById('notifyToggleBtn');
-    if (btn && pushManager.isSubscribed) {
-      btn.textContent = '🔕 Notifications On';
-      btn.style.background = '#28a745';
+    
+    if (pushManager.isSubscribed) {
+        // Unsubscribe
+        console.log('Turning OFF notifications...');
+        const result = await pushManager.unsubscribe();
+        if (result) {
+            const btn = document.getElementById('notifyToggleBtn');
+            if (btn) {
+                btn.textContent = '🔔 Enable Notifications';
+                btn.style.background = '';
+            }
+            showToast('Notifications disabled', 'info');
+        }
+    } else {
+        // Subscribe
+        console.log('Turning ON notifications...');
+        const result = await pushManager.subscribe();
+        if (result) {
+            const btn = document.getElementById('notifyToggleBtn');
+            if (btn) {
+                btn.textContent = '🔕 Notifications On';
+                btn.style.background = '#28a745';
+            }
+        }
     }
-  }
 }
 
 // Send push notification (main function to call from your code)
@@ -10447,7 +10609,17 @@ sendPushNotification('🎫 Your wallet is crying', randomVoucherMsg);
                     }
                 });
             }
-        };
+          // Start listening for cross-device notifications after login
+    setTimeout(async () => {
+        if (clubManager.currentMember) {
+            await startListeningForNotifications();
+            await fetchUndeliveredNotifications();
+        }
+    }, 3000);
+}   
+ 
+        
+     
          class IframeEmailService {
     constructor(scriptURL) {
         this.scriptURL = scriptURL;
