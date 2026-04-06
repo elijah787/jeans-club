@@ -3437,6 +3437,13 @@
                 <small style="color: #666; display: block; margin-top: 5px;">Cannot use your own referral code</small>
             </div>
             
+
+    <!-- ✅ BIRTHDAY FIELD - PUT HERE -->
+    <div class="form-group">
+        <label for="userBirthday">🎂 Your Birthday</label>
+        <input type="date" id="userBirthday">
+        <small>We'll send you a special surprise on your birthday!</small>
+    </div>
             <div class="newsletter-checkbox">
                 <input type="checkbox" id="newsletterSignup" checked>
                 <label for="newsletterSignup">Subscribe to our newsletter for exclusive deals and updates</label>
@@ -7710,7 +7717,6 @@ function normalizeEmailForDatabase(email) {
                 if (points >= 7500) return 'BRONZE';
                 return 'PEARL';
             }
-
 async signUpWithEmail(name, email, password, referralCode = null) {
     try {
         if (!name || !email || !password) {
@@ -7748,6 +7754,9 @@ async signUpWithEmail(name, email, password, referralCode = null) {
         
         const jcId = this.generateJCId();
         const memberReferralCode = this.generateReferralCode();
+        
+        // ✅ Get birthday from form
+        const birthday = document.getElementById('userBirthday')?.value || null;
         
         let referredBy = null;
         let referralPoints = 10;
@@ -7792,7 +7801,8 @@ async signUpWithEmail(name, email, password, referralCode = null) {
             referrals: [],
             ip_address: clientIP,
             lastLogin: new Date().toISOString(),
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            birthday: birthday  // ✅ Added birthday field
         };
         
         member.activityLog.unshift({
@@ -7812,20 +7822,21 @@ async signUpWithEmail(name, email, password, referralCode = null) {
         this.isAdmin = false;
         localStorage.setItem('jeansClubCurrentMember', JSON.stringify(member));
         localStorage.setItem('jeansClubIsAdmin', 'false');
-        // ✅ ADD THESE 3 LINES RIGHT HERE
-if (typeof startListeningForNotifications === 'function') {
-    await startListeningForNotifications();
-    await fetchUndeliveredNotifications();
-}
-        // ✅ SEND PUSH NOTIFICATION ON SIGNUP
+        
+        if (typeof startListeningForNotifications === 'function') {
+            await startListeningForNotifications();
+            await fetchUndeliveredNotifications();
+        }
+        
+        // SEND PUSH NOTIFICATION ON SIGNUP
         const darkWelcomeMessages = [
-    `💀 Welcome ${name}! You've just joined the exclusive club of people who spend too much on denim. We're your people.`,
-    `🔮 ${name}, your future includes: 1) Jeans 2) Happiness 3) Questioning your life choices. Welcome!`,
-    `🤡 ${name}, another clown joins the circus! Just kidding. But seriously, welcome to the broke-but-stylish club.`,
-    `⚰️ ${name}, your savings just filed a restraining order. Welcome to Jeans Club!`,
-    `🎪 ${name}, you've joined the greatest show on earth! Starring: Your wallet. Co-starring: Your impulse control (RIP).`
-];
-        const randomMsg = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
+            `💀 Welcome ${name}! You've just joined the exclusive club of people who spend too much on denim. We're your people.`,
+            `🔮 ${name}, your future includes: 1) Jeans 2) Happiness 3) Questioning your life choices. Welcome!`,
+            `🤡 ${name}, another clown joins the circus! Just kidding. But seriously, welcome to the broke-but-stylish club.`,
+            `⚰️ ${name}, your savings just filed a restraining order. Welcome to Jeans Club!`,
+            `🎪 ${name}, you've joined the greatest show on earth! Starring: Your wallet. Co-starring: Your impulse control (RIP).`
+        ];
+        const randomMsg = darkWelcomeMessages[Math.floor(Math.random() * darkWelcomeMessages.length)];
         sendPushNotification('👖 Welcome to Jeans Club!', randomMsg);
         
         await this.emailService.sendWelcomeEmail(email, member);
@@ -8482,22 +8493,31 @@ async function sendDarkHumorToAllMembers() {
     
     console.log(`💀 Sent dark humor to ${sent} members`);
     return { success: true, sent: sent };
-}
- // Handle scheduled notifications from cron-job.org
+// ===========================================
+// COMPLETE SCHEDULED NOTIFICATIONS WITH DARK HUMOR
+// ===========================================
+
 async function triggerScheduledNotifications() {
-    console.log('⏰ Cron-job triggered notifications at:', new Date().toISOString());
+    console.log('⏰ Running scheduled notifications at:', new Date().toISOString());
     
     try {
-        // Get all members
         const members = await clubManager.db.getAllMembers();
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         
+        let stats = {
+            inactive: 0,
+            birthdays: 0,
+            milestones: 0,
+            lowPoints: 0,
+            abandonedCarts: 0,
+            darkHumor: 0
+        };
+        
         // =============================================
-        // PART 1: Send inactivity reminders to inactive members
+        // 1. INACTIVITY REMINDERS (30+ days no purchase)
         // =============================================
         for (const member of members) {
-            // Check last purchase date
             const lastPurchase = member.purchaseHistory && member.purchaseHistory.length > 0 
                 ? member.purchaseHistory[0]?.timestamp 
                 : null;
@@ -8506,53 +8526,207 @@ async function triggerScheduledNotifications() {
                 const daysInactive = Math.floor((Date.now() - new Date(lastPurchase)) / (1000 * 60 * 60 * 24));
                 
                 const darkInactiveMessages = [
-                    `⏰ ${member.name}, ${daysInactive} days... Your jeans are planning a funeral. For your style. Come back!`,
+                    `⏰ ${member.name}, it's been ${daysInactive} days... Your jeans are planning a funeral. For your style. Come back! You have ${member.points} points.`,
                     `👻 ${member.name}, your style is so dead, even ghosts are judging you. ${daysInactive} days. ${member.points} points waiting.`,
                     `🪦 ${member.name}, RIP your fashion sense (${daysInactive} days ago). Revive it with ${member.points} points!`,
                     `🤡 ${member.name}, the circus misses its main clown! ${daysInactive} days without shopping? Unacceptable.`,
                     `💀 ${member.name}, we were about to send a search party. ${daysInactive} days is too long. Your ${member.points} points are lonely!`,
-                    `🔮 ${member.name}, I see jeans in your future... but only if you come back NOW. ${daysInactive} days wasted!`,
                     `📉 ${member.name}, your style index is at an all-time low. ${daysInactive} days. ${member.points} points can fix this.`,
                     `🎪 ${member.name}, the circus is leaving without you! ${daysInactive} days. Come back before we sell your seat.`,
                     `⚰️ ${member.name}, we thought you died. ${daysInactive} days? Your ${member.points} points are still alive though.`,
                     `🍷 ${member.name}, we've been drinking wine and crying about your absence. ${daysInactive} days. Come back!`
                 ];
                 const randomMsg = darkInactiveMessages[Math.floor(Math.random() * darkInactiveMessages.length)];
+                await sendToAllDevices(member.jcId, '👖 Missing You!', randomMsg);
+                stats.inactive++;
+                await new Promise(r => setTimeout(r, 100));
+            }
+        }
+        
+        // =============================================
+        // 2. BIRTHDAY NOTIFICATIONS
+        // =============================================
+        const today = new Date();
+        const todayStr = `${today.getMonth()+1}/${today.getDate()}`;
+        
+        for (const member of members) {
+            if (member.birthday) {
+                const birthday = new Date(member.birthday);
+                const birthdayStr = `${birthday.getMonth()+1}/${birthday.getDate()}`;
                 
-                // Store notification for delivery when user comes online
-                sendPushNotification('👖 Missing You!', randomMsg);
+                if (birthdayStr === todayStr) {
+                    const bonusPoints = member.tier === 'PLATINUM' ? 500 :
+                                       member.tier === 'GOLD' ? 300 :
+                                       member.tier === 'SILVER' ? 200 : 100;
+                    
+                    const birthdayMessages = [
+                        `🎂 HAPPY BIRTHDAY ${member.name.toUpperCase()}! 🎂\n\nYou're officially older (and wiser?). We added ${bonusPoints} bonus points to your account. Go treat yourself - you deserve it! 🎁`,
+                        `🥳 ${member.name}, it's your birthday! The jeans are throwing a party. ${bonusPoints} bonus points added! Don't spend it all on... actually, spend it all on jeans.`,
+                        `🎈 ${member.name}, you're another year closer to death. But hey, at least you'll die looking FABULOUS! ${bonusPoints} points added. 🎉`,
+                        `🎁 SURPRISE ${member.name}! Birthday bonus: ${bonusPoints} points. Your gift to yourself? More jeans, obviously.`,
+                        `🕯️ ${member.name}, blow out the candles and make a wish. We wish you... MORE JEANS! ${bonusPoints} points added. Happy birthday! 🎂`,
+                        `💀 ${member.name}, another year survived! Here's ${bonusPoints} points as a reward for not dying yet. Happy birthday! 🎉`
+                    ];
+                    const randomMsg = birthdayMessages[Math.floor(Math.random() * birthdayMessages.length)];
+                    await sendToAllDevices(member.jcId, '🎂 HAPPY BIRTHDAY! 🎂', randomMsg);
+                    
+                    // Add bonus points
+                    member.points += bonusPoints;
+                    await clubManager.db.saveMember(member);
+                    stats.birthdays++;
+                    await new Promise(r => setTimeout(r, 100));
+                }
             }
         }
         
         // =============================================
-        // PART 2: Send random dark humor to ALL members daily
-        // 👇 THIS IS WHERE YOU PUT THE NEW CODE 👇
+        // 3. MILESTONE NOTIFICATIONS (Spending achievements)
         // =============================================
-        
-        // Send random dark humor to ALL members daily
-        async function sendDailyDarkHumorToAll() {
-            const members = await clubManager.db.getAllMembers();
-            const activeMembers = members.filter(m => m.points > 0 || m.totalSpent > 0);
+        for (const member of members) {
+            const totalSpent = member.totalSpent || 0;
+            let milestoneMsg = null;
+            let bonusPoints = 0;
+            let milestoneKey = null;
             
-            for (const member of activeMembers) {
-                const randomMsg = darkHumorMessages[Math.floor(Math.random() * darkHumorMessages.length)];
-                sendPushNotification(randomMsg.title, randomMsg.body);
-                await new Promise(resolve => setTimeout(resolve, 200));
+            // Check for 1 Million UGX spent
+            if (totalSpent >= 1000000 && !member.milestone_1m) {
+                milestoneKey = 'milestone_1m';
+                bonusPoints = 500;
+                milestoneMsg = [
+                    `👑 HOLY DENIM! ${member.name}, you've spent 1,000,000 UGX! That's not shopping, that's an INVESTMENT. You're officially a denim LEGEND. +500 points! 👑`,
+                    `💰 ${member.name}, ONE MILLION spent! Your closet is worth more than some cars. We bow to you, denim royalty. +500 points!`,
+                    `🏆 ${member.name}, you've reached the million club! Your jeans are jealous of your dedication. +500 points!`,
+                    `💎 ${member.name}, MILLIONAIRE STATUS! Not in your bank account, but definitely in your wardrobe. Priorities, right? +500 points!`
+                ];
+            }
+            // Check for 500,000 UGX spent
+            else if (totalSpent >= 500000 && !member.milestone_500k) {
+                milestoneKey = 'milestone_500k';
+                bonusPoints = 250;
+                milestoneMsg = [
+                    `🎯 ${member.name}, 500,000 UGX spent! Your wallet is crying, but your drip is IMMACULATE. +250 points!`,
+                    `💪 ${member.name}, half a million! You're basically a denim celebrity now. Autographs? +250 points!`,
+                    `🔥 ${member.name}, 500k club! Your financial advisor is concerned, but your mirror is HAPPY. +250 points!`
+                ];
+            }
+            // Check for 100,000 UGX spent
+            else if (totalSpent >= 100000 && !member.milestone_100k) {
+                milestoneKey = 'milestone_100k';
+                bonusPoints = 100;
+                milestoneMsg = [
+                    `⭐ ${member.name}, 100,000 UGX spent! You're officially not a beginner anymore. The denim gods approve. +100 points!`,
+                    `🎉 ${member.name}, you've joined the 100k club! Your jeans are proud of you (your bank account, not so much). +100 points!`,
+                    `🌟 ${member.name}, six figures spent! At this rate, your closet might need its own zip code. +100 points!`
+                ];
             }
             
-            console.log(`💀 Sent daily dark humor to ${activeMembers.length} members`);
+            if (milestoneMsg && milestoneKey) {
+                const randomMsg = milestoneMsg[Math.floor(Math.random() * milestoneMsg.length)];
+                await sendToAllDevices(member.jcId, '🏆 MILESTONE UNLOCKED! 🏆', randomMsg);
+                
+                // Update milestone and add points
+                member[milestoneKey] = true;
+                member.points += bonusPoints;
+                await clubManager.db.saveMember(member);
+                stats.milestones++;
+                await new Promise(r => setTimeout(r, 100));
+            }
         }
         
-        // 👇 CALL THE FUNCTION HERE 👇
-        await sendDailyDarkHumorToAll();
+        // =============================================
+        // 4. LOW POINTS ALERT (Less than 100 points)
+        // =============================================
+        for (const member of members) {
+            if (member.points > 0 && member.points < 100 && member.points < 500) {
+                const lowPointsMessages = [
+                    `⚠️ ${member.name}, you only have ${member.points} points left! That's like... not enough jeans. Shop more to earn more! 🛍️`,
+                    `📉 ${member.name}, your points balance is looking lonely (${member.points} points). Time for a shopping spree? 👖`,
+                    `🆘 ${member.name}, POINTS EMERGENCY! Only ${member.points} points remaining. Your next purchase could earn you DOUBLE!`,
+                    `💀 ${member.name}, your points are almost extinct. Save them from extinction by... actually, just spend more money.`
+                ];
+                const randomMsg = lowPointsMessages[Math.floor(Math.random() * lowPointsMessages.length)];
+                await sendToAllDevices(member.jcId, '⚠️ Low Points Alert!', randomMsg);
+                stats.lowPoints++;
+                await new Promise(r => setTimeout(r, 100));
+            }
+        }
         
-        console.log('✅ Scheduled notifications triggered successfully');
+        // =============================================
+        // 5. ABANDONED CART REMINDERS
+        // =============================================
+        try {
+            const { data: carts, error } = await clubManager.db.supabase
+                .from('transactions')
+                .select('*')
+                .eq('status', 'pending_items')
+                .lt('created_at', new Date(Date.now() - 3600000).toISOString());
+            
+            if (carts && carts.length > 0) {
+                for (const cart of carts) {
+                    const items = JSON.parse(cart.items || '[]');
+                    const itemNames = items.map(i => i.name).join(', ');
+                    
+                    const abandonMessages = [
+                        `🛒 ${cart.member_name}, your cart is crying! You left ${itemNames} behind. Come back and complete your purchase!`,
+                        `👀 ${cart.member_name}, we noticed you left some items in your cart. Your jeans are waiting for you! 👖`,
+                        `🎪 ${cart.member_name}, the circus called. Your abandoned cart is the main attraction! Come get your items!`,
+                        `💀 ${cart.member_name}, your cart items are getting lonely. They miss you. Come back before they unionize.`
+                    ];
+                    const randomMsg = abandonMessages[Math.floor(Math.random() * abandonMessages.length)];
+                    await sendToAllDevices(cart.member_jc_id, '🛒 Your Cart Misses You!', randomMsg);
+                    stats.abandonedCarts++;
+                    await new Promise(r => setTimeout(r, 100));
+                }
+            }
+        } catch (err) {
+            console.log('Abandoned cart check:', err.message);
+        }
+        
+        // =============================================
+        // 6. DAILY DARK HUMOR FOR EVERYONE
+        // =============================================
+        const darkHumorMessages = [
+            { title: "💀 Existential Crisis Alert", body: "Your jeans will outlive you. Make sure they're stylish ones." },
+            { title: "🔮 Your Future", body: "I see jeans in your future. And debt. Mostly debt. But worth it!" },
+            { title: "⚰️ Breaking News", body: "Local person spends money they don't have on jeans they don't need. More at 11." },
+            { title: "👻 Spooky Fact", body: "Your money isn't gone... it's just... fashionably late. Forever." },
+            { title: "🤡 Clown Update", body: "You're one step closer to looking like a million bucks. Too bad you spent it all on jeans." },
+            { title: "📉 Financial Advice", body: "They say money can't buy happiness. But it can buy jeans, which is basically the same thing." },
+            { title: "🍷 Poor Decisions", body: "Remember: Every great love story starts with a bad decision. And these jeans are BEAUTIFUL." },
+            { title: "🎪 Circus Alert", body: "Your financial literacy left the chat. But your drip? IMMACULATE." },
+            { title: "🪦 Epitaph", body: "Here lies your savings. Cause of death: 'But they were on sale!'" },
+            { title: "📢 PSA", body: "Warning: Excessive denim consumption may lead to happiness, confidence, and bankruptcy." },
+            { title: "🎭 Therapy Session", body: "Therapist: 'Why do you need more jeans?' You: 'You wouldn't understand.'" },
+            { title: "📊 Stock Market", body: "The only thing going up faster than your style is your credit card balance." },
+            { title: "🎰 Gambling", body: "Buying jeans is just gambling with extra steps. Will they fit? Will I regret it? WHO CARES!" },
+            { title: "💀 Death & Taxes", body: "Two things are certain: Death, taxes, and you buying more jeans." },
+            { title: "🔄 Vicious Cycle", body: "Buy jeans → Feel broke → Buy more jeans to feel better → Repeat." }
+        ];
+        
+        for (const member of members) {
+            const randomMsg = darkHumorMessages[Math.floor(Math.random() * darkHumorMessages.length)];
+            await sendToAllDevices(member.jcId, randomMsg.title, randomMsg.body);
+            stats.darkHumor++;
+            await new Promise(r => setTimeout(r, 50));
+        }
+        
+        // =============================================
+        // SUMMARY
+        // =============================================
+        console.log('📊 Scheduled Notifications Summary:');
+        console.log(`   👻 Inactive reminders: ${stats.inactive}`);
+        console.log(`   🎂 Birthday wishes: ${stats.birthdays}`);
+        console.log(`   🏆 Milestones: ${stats.milestones}`);
+        console.log(`   ⚠️ Low points alerts: ${stats.lowPoints}`);
+        console.log(`   🛒 Abandoned carts: ${stats.abandonedCarts}`);
+        console.log(`   💀 Dark humor: ${stats.darkHumor}`);
+        console.log('✅ Scheduled notifications complete!');
         
     } catch (error) {
         console.error('❌ Error in scheduled notifications:', error);
     }
 }
-
+} 
 // Check URL params on page load
 function checkForScheduledTrigger() {
     const urlParams = new URLSearchParams(window.location.search);
