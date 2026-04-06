@@ -8493,6 +8493,7 @@ async function sendDarkHumorToAllMembers() {
     
     console.log(`💀 Sent dark humor to ${sent} members`);
     return { success: true, sent: sent };
+} 
 // ===========================================
 // COMPLETE SCHEDULED NOTIFICATIONS WITH DARK HUMOR
 // ===========================================
@@ -8637,7 +8638,7 @@ async function triggerScheduledNotifications() {
         // 4. LOW POINTS ALERT (Less than 100 points)
         // =============================================
         for (const member of members) {
-            if (member.points > 0 && member.points < 100 && member.points < 500) {
+            if (member.points > 0 && member.points < 100) {
                 const lowPointsMessages = [
                     `⚠️ ${member.name}, you only have ${member.points} points left! That's like... not enough jeans. Shop more to earn more! 🛍️`,
                     `📉 ${member.name}, your points balance is looking lonely (${member.points} points). Time for a shopping spree? 👖`,
@@ -8685,7 +8686,7 @@ async function triggerScheduledNotifications() {
         // =============================================
         // 6. DAILY DARK HUMOR FOR EVERYONE
         // =============================================
-        const darkHumorMessages = [
+        const darkHumorMessagesList = [
             { title: "💀 Existential Crisis Alert", body: "Your jeans will outlive you. Make sure they're stylish ones." },
             { title: "🔮 Your Future", body: "I see jeans in your future. And debt. Mostly debt. But worth it!" },
             { title: "⚰️ Breaking News", body: "Local person spends money they don't have on jeans they don't need. More at 11." },
@@ -8704,10 +8705,12 @@ async function triggerScheduledNotifications() {
         ];
         
         for (const member of members) {
-            const randomMsg = darkHumorMessages[Math.floor(Math.random() * darkHumorMessages.length)];
-            await sendToAllDevices(member.jcId, randomMsg.title, randomMsg.body);
-            stats.darkHumor++;
-            await new Promise(r => setTimeout(r, 50));
+            if (member.push_enabled === true) {
+                const randomMsg = darkHumorMessagesList[Math.floor(Math.random() * darkHumorMessagesList.length)];
+                await sendToAllDevices(member.jcId, randomMsg.title, randomMsg.body);
+                stats.darkHumor++;
+                await new Promise(r => setTimeout(r, 50));
+            }
         }
         
         // =============================================
@@ -8726,8 +8729,6 @@ async function triggerScheduledNotifications() {
         console.error('❌ Error in scheduled notifications:', error);
     }
 }
-} 
-// Check URL params on page load
 function checkForScheduledTrigger() {
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get('action');
