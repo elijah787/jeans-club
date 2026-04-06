@@ -8255,7 +8255,8 @@ const darkMessages = [
 // CROSS-DEVICE NOTIFICATION FUNCTIONS
 // ===========================================
 
-// Send notification to ALL devices of a member
+
+// ✅ Send notification to ALL devices of a specific member
 async function sendToAllDevices(memberJcId, title, body, data = {}) {
     try {
         console.log(`📤 Sending notification to all devices of ${memberJcId}`);
@@ -8276,10 +8277,12 @@ async function sendToAllDevices(memberJcId, title, body, data = {}) {
             return false;
         }
         
-        console.log('✅ Notification stored in database');
+        console.log('✅ Notification stored in Supabase - will sync to all devices');
         
         // Also show on current device immediately
-        sendPushNotification(title, body);
+        if (pushManager && pushManager.isSubscribed) {
+            pushManager.sendNotification(title, body, data);
+        }
         
         return true;
     } catch (error) {
@@ -8312,20 +8315,25 @@ async function broadcastToAllMembersAllDevices(title, body, data = {}) {
 // Listen for incoming notifications from other devices
 let notificationChannel = null;
 
+// ✅ REPLACE startListeningForNotifications with this working version
 async function startListeningForNotifications() {
-    if (!clubManager.currentMember) {
+    if (!clubManager || !clubManager.currentMember) {
         console.log('No member logged in, cannot listen for notifications');
         return;
     }
     
-    console.log('👂 Starting to listen for notifications from other devices...');
+    console.log('👂 Starting to listen for notifications from Supabase...');
     
     // Unsubscribe from previous channel if exists
     if (notificationChannel) {
-        await notificationChannel.unsubscribe();
+        try {
+            await notificationChannel.unsubscribe();
+        } catch(e) {
+            console.log('Error unsubscribing:', e);
+        }
     }
     
-    // Subscribe to realtime changes
+    // Subscribe to realtime changes in Supabase
     notificationChannel = clubManager.db.supabase
         .channel('push_notifications_' + clubManager.currentMember.jcId)
         .on(
@@ -8337,20 +8345,33 @@ async function startListeningForNotifications() {
                 filter: `member_jc_id=eq.${clubManager.currentMember.jcId}`
             },
             (payload) => {
-                console.log('📨 New notification received from database!', payload);
+                console.log('📨 New notification from Supabase!', payload);
                 const notification = payload.new;
                 
-                // Show the notification
-                sendPushNotification(notification.title, notification.body, notification.data || {});
+                // Show the notification on THIS device
+                if (pushManager && pushManager.isSubscribed) {
+                    pushManager.sendNotification(notification.title, notification.body, notification.data || {});
+                } else {
+                    // Store locally if not subscribed
+                    const pending = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+                    pending.push({
+                        title: notification.title,
+                        body: notification.body,
+                        data: notification.data || {},
+                        timestamp: Date.now()
+                    });
+                    localStorage.setItem('pendingNotifications', JSON.stringify(pending));
+                }
                 
                 // Mark as delivered
                 markNotificationAsDelivered(notification.id);
             }
         )
         .subscribe((status) => {
-            console.log('📡 Notification listener status:', status);
+            console.log('📡 Supabase listener status:', status);
         });
 }
+
 
 // Mark notification as delivered
 async function markNotificationAsDelivered(notificationId) {
@@ -8367,31 +8388,47 @@ async function markNotificationAsDelivered(notificationId) {
         console.error('Failed to mark as delivered:', error);
     }
 }
-
-// Fetch undelivered notifications (for when page loads)
 async function fetchUndeliveredNotifications() {
-    if (!clubManager.currentMember) return;
+    if (!clubManager || !clubManager.currentMember) return;
     
-    console.log('📥 Fetching undelivered notifications...');
+    console.log('📥 Fetching undelivered notifications from Supabase...');
     
-    const { data: notifications, error } = await clubManager.db.supabase
-        .from('push_notifications')
-        .select('*')
-        .eq('member_jc_id', clubManager.currentMember.jcId)
-        .eq('delivered', false)
-        .order('created_at', { ascending: true });
-    
-    if (error) {
-        console.error('Failed to fetch notifications:', error);
-        return;
-    }
-    
-    console.log(`Found ${notifications?.length || 0} undelivered notifications`);
-    
-    for (const notification of notifications || []) {
-        sendPushNotification(notification.title, notification.body, notification.data || {});
-        await markNotificationAsDelivered(notification.id);
-        await new Promise(r => setTimeout(r, 500));
+    try {
+        const { data: notifications, error } = await clubManager.db.supabase
+            .from('push_notifications')
+            .select('*')
+            .eq('member_jc_id', clubManager.currentMember.jcId)
+            .eq('delivered', false)
+            .order('created_at', { ascending: true });
+        
+        if (error) {
+            console.error('Failed to fetch notifications:', error);
+            return;
+        }
+        
+        console.log(`Found ${notifications?.length || 0} undelivered notifications from Supabase`);
+        
+        for (const notification of notifications || []) {
+            // Show notification
+            if (pushManager && pushManager.isSubscribed) {
+                pushManager.sendNotification(notification.title, notification.body, notification.data || {});
+            } else {
+                const pending = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+                pending.push({
+                    title: notification.title,
+                    body: notification.body,
+                    data: notification.data || {},
+                    timestamp: Date.now()
+                });
+                localStorage.setItem('pendingNotifications', JSON.stringify(pending));
+            }
+            
+            // Mark as delivered
+            await markNotificationAsDelivered(notification.id);
+            await new Promise(r => setTimeout(r, 500));
+        }
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
     }
 }
   // ===========================================
@@ -9128,18 +9165,50 @@ async function togglePushNotifications() {
     }
 }
 
-// Send push notification (main function to call from your code)
+// ===========================================
+// REPLACE sendPushNotification with this Supabase version
+// ===========================================
+
 function sendPushNotification(title, body, data = {}) {
-  if (pushManager && pushManager.isSubscribed) {
-    pushManager.sendNotification(title, body, data);
-  } else if (pushManager) {
-    pushManager.storeNotification(title, body, data);
-  } else {
-    // Store for later initialization
-    const pending = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
-    pending.push({ title, body, data, timestamp: Date.now() });
-    localStorage.setItem('pendingNotifications', JSON.stringify(pending));
-  }
+    // Store in Supabase for cross-device sync
+    if (clubManager && clubManager.currentMember) {
+        saveNotificationToSupabase(clubManager.currentMember.jcId, title, body, data);
+    }
+    
+    // Also show on current device immediately
+    if (pushManager && pushManager.isSubscribed) {
+        pushManager.sendNotification(title, body, data);
+    } else if (pushManager) {
+        pushManager.storeNotification(title, body, data);
+    } else {
+        const pending = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+        pending.push({ title, body, data, timestamp: Date.now() });
+        localStorage.setItem('pendingNotifications', JSON.stringify(pending));
+    }
+}
+
+// ✅ NEW FUNCTION: Save notification to Supabase for all devices
+async function saveNotificationToSupabase(memberJcId, title, body, data = {}) {
+    try {
+        const { error } = await clubManager.db.supabase
+            .from('push_notifications')
+            .insert({
+                member_jc_id: memberJcId,
+                title: title,
+                body: body,
+                data: data,
+                created_at: new Date().toISOString(),
+                delivered: false
+            });
+        
+        if (error) {
+            console.error('❌ Failed to save notification to Supabase:', error);
+        } else {
+            console.log('✅ Notification saved to Supabase for cross-device sync');
+        }
+    } catch (error) {
+        console.error('Error saving to Supabase:', error);
+    }
 }
         // ===========================
         // UTILITY FUNCTIONS
