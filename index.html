@@ -3643,9 +3643,9 @@
 <div class="info-card">
     <h3>🔔 Push Notifications</h3>
     <p>Get notifications even when your browser is closed!</p>
-    <button class="btn" onclick="togglePushNotifications()" id="notifyToggleBtn">
-        🔔 Enable Notifications
-    </button>
+    <button class="btn" onclick="enableNotificationsSimple()" id="notifyToggleBtn">
+    🔔 Tap to Enable Notifications
+</button>
     <div id="notificationStatus" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
 </div>
             <div class="info-card">
@@ -8422,30 +8422,19 @@ class PushNotificationManager {
       return false;
     }
   }
+
 async subscribe() {
     if (!this.isSupported) {
-        if (typeof showToast === 'function') {
-            showToast('Push notifications not supported on this browser', 'error');
-        }
+        showToast('Push notifications not supported on this browser', 'error');
         return false;
     }
 
     try {
-        // Check if we already have permission
-        let permission = Notification.permission;
-        
-        // If permission is default (not granted, not denied), request it
-        if (permission === 'default') {
-            permission = await Notification.requestPermission();
-        }
+        // Request permission directly
+        const permission = await Notification.requestPermission();
         
         if (permission !== 'granted') {
-            // Show custom instructions for mobile
-            if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                alert("📱 To enable notifications on your phone:\n\n1. Tap the lock/info icon in the address bar\n2. Find 'Notifications' settings\n3. Select 'Allow'\n4. Refresh the page\n\nThen click 'Enable Notifications' again");
-            } else {
-                showToast('Please allow notifications in browser settings', 'info');
-            }
+            showToast('You denied notifications. Please check browser settings to enable.', 'error');
             return false;
         }
 
@@ -8459,28 +8448,21 @@ async subscribe() {
         localStorage.setItem('pushEnabled', 'true');
         this.isSubscribed = true;
         
-        if (typeof showToast === 'function') {
-            showToast('🔔 Notifications enabled!', 'success');
-        }
+        showToast('🔔 Notifications enabled!', 'success');
         return true;
 
     } catch (error) {
         console.error('Subscribe error:', error);
         
-        // Handle specific mobile errors
+        // One simple error message
         if (error.name === 'NotAllowedError') {
-            if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                alert("⚠️ To enable notifications on iPhone/iPad:\n\n1. Go to Settings → Safari → Advanced → Website Data\n2. Remove data for this site\n3. OR: Go to Settings → Notifications → Find your browser\n4. Make sure notifications are ON\n\nThen refresh and try again");
-            } else {
-                showToast('Please check browser notification settings', 'error');
-            }
+            showToast('Please check your browser notification settings and try again', 'error');
         } else {
-            showToast('Failed to enable notifications: ' + error.message, 'error');
+            showToast('Failed to enable notifications', 'error');
         }
         return false;
     }
 }
-
 
   async unsubscribe() {
     try {
@@ -8576,7 +8558,16 @@ async function initPushNotifications() {
     }
   }
 }
-
+// ✅ ADD THIS FUNCTION RIGHT HERE - AFTER initPushNotifications
+function requestNotificationPermission() {
+    if (!pushManager) {
+        initPushNotifications().then(() => {
+            pushManager.subscribe();
+        });
+    } else {
+        pushManager.subscribe();
+    }
+}
 // Toggle push notifications
 async function togglePushNotifications() {
   if (!pushManager) {
