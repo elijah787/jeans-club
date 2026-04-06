@@ -3643,8 +3643,8 @@
 <div class="info-card">
     <h3>🔔 Push Notifications</h3>
     <p>Get notifications even when your browser is closed!</p>
-    <button class="btn" onclick="enableNotificationsSimple()" id="notifyToggleBtn">
-    🔔 Tap to Enable Notifications
+   <button class="btn" onclick="requestNotificationDirect()" id="notifyToggleBtn">
+    🔔 Enable Notifications
 </button>
     <div id="notificationStatus" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
 </div>
@@ -8651,7 +8651,52 @@ function showMobileSettingsGuide() {
     
     document.body.appendChild(modal);
 }
-
+function requestNotificationDirect() {
+    console.log('Requesting notification permission...');
+    
+    // Direct browser permission request
+    Notification.requestPermission().then(permission => {
+        console.log('Permission:', permission);
+        
+        if (permission === 'granted') {
+            // Permission granted - now subscribe
+            navigator.serviceWorker.ready.then(registration => {
+                const VAPID_PUBLIC_KEY = 'BCMfJoj4xAtWeOJS4PPdu1K5YtH1qs_Q-QbZT_DMPSmxyqtagJvBW77cOGXKE7_OaTneeor7fOUt6z_lWljy68U';
+                
+                function urlBase64ToUint8Array(base64String) {
+                    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                    const rawData = window.atob(base64);
+                    const outputArray = new Uint8Array(rawData.length);
+                    for (let i = 0; i < rawData.length; ++i) {
+                        outputArray[i] = rawData.charCodeAt(i);
+                    }
+                    return outputArray;
+                }
+                
+                registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                }).then(() => {
+                    localStorage.setItem('pushEnabled', 'true');
+                    const btn = document.getElementById('notifyToggleBtn');
+                    if (btn) {
+                        btn.textContent = '🔕 Notifications On';
+                        btn.style.background = '#28a745';
+                    }
+                    alert('✅ Notifications enabled! You will now receive updates.');
+                }).catch(err => {
+                    console.error('Subscribe error:', err);
+                    alert('Error enabling notifications. Please try again.');
+                });
+            });
+        } else if (permission === 'denied') {
+            alert('⚠️ You blocked notifications. Please go to browser settings and allow notifications for this site, then refresh and try again.');
+        } else {
+            alert('Please click "Allow" in the popup to enable notifications.');
+        }
+    });
+}
 function requestNotificationPermissionDirect() {
     Notification.requestPermission().then(permission => {
         if (permission === 'granted') {
