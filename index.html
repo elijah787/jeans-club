@@ -8422,21 +8422,33 @@ class PushNotificationManager {
       return false;
     }
   }
-
 async subscribe() {
     if (!this.isSupported) {
-        showToast('Push notifications not supported on this browser', 'error');
+        if (typeof showToast === 'function') {
+            showToast('Push notifications not supported on this browser', 'error');
+        }
         return false;
     }
 
     try {
-        const permission = await Notification.requestPermission();
+        // Check if we already have permission
+        let permission = Notification.permission;
+        
+        // If permission is default (not granted, not denied), request it
+        if (permission === 'default') {
+            permission = await Notification.requestPermission();
+        }
+        
         if (permission !== 'granted') {
-            showToast('Please allow notifications', 'info');
+            // Show custom instructions for mobile
+            if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                alert("📱 To enable notifications on your phone:\n\n1. Tap the lock/info icon in the address bar\n2. Find 'Notifications' settings\n3. Select 'Allow'\n4. Refresh the page\n\nThen click 'Enable Notifications' again");
+            } else {
+                showToast('Please allow notifications in browser settings', 'info');
+            }
             return false;
         }
 
-        // ✅ ADD YOUR VAPID PUBLIC KEY HERE
         const VAPID_PUBLIC_KEY = 'BCMfJoj4xAtWeOJS4PPdu1K5YtH1qs_Q-QbZT_DMPSmxyqtagJvBW77cOGXKE7_OaTneeor7fOUt6z_lWljy68U';
         
         const subscription = await this.swRegistration.pushManager.subscribe({
@@ -8447,15 +8459,28 @@ async subscribe() {
         localStorage.setItem('pushEnabled', 'true');
         this.isSubscribed = true;
         
-        showToast('🔔 Notifications enabled!', 'success');
+        if (typeof showToast === 'function') {
+            showToast('🔔 Notifications enabled!', 'success');
+        }
         return true;
 
     } catch (error) {
         console.error('Subscribe error:', error);
-        showToast('Failed to enable notifications: ' + error.message, 'error');
+        
+        // Handle specific mobile errors
+        if (error.name === 'NotAllowedError') {
+            if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                alert("⚠️ To enable notifications on iPhone/iPad:\n\n1. Go to Settings → Safari → Advanced → Website Data\n2. Remove data for this site\n3. OR: Go to Settings → Notifications → Find your browser\n4. Make sure notifications are ON\n\nThen refresh and try again");
+            } else {
+                showToast('Please check browser notification settings', 'error');
+            }
+        } else {
+            showToast('Failed to enable notifications: ' + error.message, 'error');
+        }
         return false;
     }
 }
+
 
   async unsubscribe() {
     try {
