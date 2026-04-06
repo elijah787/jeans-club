@@ -8256,25 +8256,12 @@ const darkMessages = [
 // ===========================================
 
 
+// ✅ Send notification to ALL devices of a specific member
 async function sendToAllDevices(memberJcId, title, body, data = {}) {
     try {
-        console.log(`📤 Sending to ${memberJcId}...`);
+        console.log(`📤 Sending notification to all devices of ${memberJcId}`);
         
-        // Check for duplicate in last 10 seconds
-        const { data: recent } = await clubManager.db.supabase
-            .from('push_notifications')
-            .select('id')
-            .eq('member_jc_id', memberJcId)
-            .eq('title', title)
-            .gte('created_at', new Date(Date.now() - 10000).toISOString())
-            .limit(1);
-        
-        if (recent && recent.length > 0) {
-            console.log('⏭️ Skipping duplicate - same notification sent recently');
-            return false;
-        }
-        
-        const { data: notification, error } = await clubManager.db.supabase
+        const { error } = await clubManager.db.supabase
             .from('push_notifications')
             .insert({
                 member_jc_id: memberJcId,
@@ -8283,18 +8270,23 @@ async function sendToAllDevices(memberJcId, title, body, data = {}) {
                 data: data,
                 created_at: new Date().toISOString(),
                 delivered: false
-            })
-            .select();
+            });
         
         if (error) {
-            console.error('❌ Error:', error);
+            console.error('❌ Failed to store notification:', error);
             return false;
         }
         
-        console.log('✅ Notification stored:', notification?.[0]?.id);
+        console.log('✅ Notification stored in Supabase - will sync to all devices');
+        
+        // Also show on current device immediately
+        if (pushManager && pushManager.isSubscribed) {
+            pushManager.sendNotification(title, body, data);
+        }
+        
         return true;
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error sending to all devices:', error);
         return false;
     }
 }
@@ -8324,68 +8316,6 @@ async function broadcastToAllMembersAllDevices(title, body, data = {}) {
 let notificationChannel = null;
 
 // ✅ REPLACE startListeningForNotifications with this working version
-let processedNotificationIds = new Set();
-// Then modify your startListeningForNotifications function:
-async function startListeningForNotifications() {
-    if (!clubManager || !clubManager.currentMember) {
-        console.log('No member logged in');
-        return;
-    }
-    
-    console.log('👂 Setting up realtime listener for:', clubManager.currentMember.jcId);
-    
-    // Clear old processed IDs every hour to prevent memory issues
-    setInterval(() => {
-        processedNotificationIds.clear();
-        console.log('🧹 Cleared notification deduplication cache');
-    }, 3600000);
-    
-    if (notificationChannel) {
-        await notificationChannel.unsubscribe();
-    }
-    
-    notificationChannel = clubManager.db.supabase
-        .channel('notifications_' + clubManager.currentMember.jcId)
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'push_notifications'
-            },
-            (payload) => {
-                const notif = payload.new;
-                
-                // ✅ PREVENT DUPLICATES
-                if (processedNotificationIds.has(notif.id)) {
-                    console.log('⏭️ Skipping duplicate notification:', notif.id);
-                    return;
-                }
-                
-                // Filter in code
-                if (notif.member_jc_id === clubManager.currentMember.jcId && !notif.delivered) {
-                    console.log('📨 New notification:', notif);
-                    
-                    // Mark as processed
-                    processedNotificationIds.add(notif.id);
-                    
-                    if (pushManager && pushManager.isSubscribed) {
-                        pushManager.sendNotification(notif.title, notif.body, notif.data || {});
-                    }
-                    
-                    // Mark as delivered
-                    clubManager.db.supabase
-                        .from('push_notifications')
-                        .update({ delivered: true, read_at: new Date().toISOString() })
-                        .eq('id', notif.id)
-                        .then(() => console.log('✅ Marked delivered'));
-                }
-            }
-        )
-        .subscribe((status) => {
-            console.log('📡 Realtime status:', status);
-        });
-}
 async function startListeningForNotifications() {
     if (!clubManager || !clubManager.currentMember) {
         console.log('No member logged in, cannot listen for notifications');
@@ -10680,95 +10610,138 @@ sendPushNotification('🎫 Your wallet is crying', randomVoucherMsg);
             
             console.log('✅ Permanent dashboard safety fixes installed');
         })();
-// ===========================================
-// ADD THIS FUNCTION BEFORE window.onload
-// Place it after your other global functions
-// ===========================================
 
-   window.onload = function() {
-    // Check if this is a cron-job trigger
+        window.onload = function() {
+             // Check if this is a cron-job trigger
     if (checkForScheduledTrigger()) {
-        return;
+        return; // Stop normal page load
     }
-    
-    console.log('=== PAGE LOAD START ===');
-    
-    clubManager = new ClubManager();
-    
+            console.log('=== PAGE LOAD START ===');
+            
+            clubManager = new ClubManager();
+            // ✅ ADD THIS LINE - Initialize push notifications
     setTimeout(() => {
         initPushNotifications();
     }, 2000);
-    
+             // Replace the old email service with the iframe version
     const iframeEmailService = new IframeEmailService('https://script.google.com/macros/s/AKfycbzmJS_ThUUb_FsyeuBVbLyBRdGXAD0Pj1uhv_4CCD8NtV0WCL6THqgIBIawmWK4F7CN/exec');
     clubManager.emailService = iframeEmailService;
     console.log('✅ Email service upgraded to iframe (no CORS)');
-    
+            setTimeout(() => {
+                if (clubManager) {
+                    voucherSystem = clubManager.voucherSystem;
+                    console.log('Systems initialized');
+                }
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const action = urlParams.get('action');
+                
+                if (action === 'login') {
+                    showLoginScreen();
+                } else if (action === 'signup') {
+                    showSignupScreen();
+                } else if (action === 'admin') {
+                    showAdminLogin();
+                } else if (action === 'tutorial') {
+                    showTutorial();
+                }
+                
+                console.log('=== PAGE LOAD COMPLETE ===');
+            }, 1000);
+        // ✅ PUT THE MOBILE NOTIFICATION CHECK HERE (inside window.onload, at the bottom)
     setTimeout(() => {
-        if (clubManager) {
-            voucherSystem = clubManager.voucherSystem;
-            console.log('Systems initialized');
-        }
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const action = urlParams.get('action');
-        
-        if (action === 'login') {
-            showLoginScreen();
-        } else if (action === 'signup') {
-            showSignupScreen();
-        } else if (action === 'admin') {
-            showAdminLogin();
-        } else if (action === 'tutorial') {
-            showTutorial();
-        }
-        
-        console.log('=== PAGE LOAD COMPLETE ===');
-    }, 1000);
-    
-    // Mobile notification check
-    setTimeout(() => {
+        // Check if mobile and notification permission is already granted
         if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            // Check if already granted
             if (Notification.permission === 'granted') {
                 subscribeToPushNotifications();
             } else if (Notification.permission === 'default') {
+                // Don't auto-request on mobile - wait for button click
                 console.log('Mobile detected - waiting for user to tap enable button');
             }
         }
-    }, 2000);
-    
-    // Modal handlers
-    const searchModal = document.getElementById('searchModal');
-    if (searchModal) {
-        searchModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                hideSearch();
+    }, 2000); // Wait 2 seconds for everything to load
+            const searchModal = document.getElementById('searchModal');
+            if (searchModal) {
+                searchModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        hideSearch();
+                    }
+                });
             }
-        });
-    }
-    
-    const cameraModal = document.getElementById('cameraScannerModal');
-    if (cameraModal) {
-        cameraModal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeCameraScanner();
+            
+            const cameraModal = document.getElementById('cameraScannerModal');
+            if (cameraModal) {
+                cameraModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeCameraScanner();
+                    }
+                });
             }
-        });
-    }
-    
-    // ✅ KEEP ONLY THIS ONE - Start listening (handles realtime)
+          // Start listening for cross-device notifications after login
     setTimeout(async () => {
         if (clubManager.currentMember) {
             await startListeningForNotifications();
             await fetchUndeliveredNotifications();
         }
     }, 3000);
+    // Add this function to your main HTML - it will auto-run on page load
+async function syncPendingNotifications() {
+    if (!clubManager || !clubManager.currentMember) return;
     
-    // ✅ REMOVE these - They cause duplicates:
-    // setInterval(() => { syncPendingNotifications(); }, 30000);  // DELETE THIS LINE
-    // document.addEventListener('visibilitychange', ...)  // DELETE THIS EVENT LISTENER
+    console.log('🔄 Syncing pending notifications for:', clubManager.currentMember.jcId);
     
+    const { data: notifications, error } = await clubManager.db.supabase
+        .from('push_notifications')
+        .select('*')
+        .eq('member_jc_id', clubManager.currentMember.jcId)
+        .eq('delivered', false)
+        .order('created_at', { ascending: true });
     
+    if (error) {
+        console.error('Sync error:', error);
+        return;
+    }
+    
+    console.log(`📬 Found ${notifications?.length || 0} pending notifications`);
+    
+    for (const notification of notifications || []) {
+        // Show notification on current device
+        if (pushManager && pushManager.isSubscribed) {
+            pushManager.sendNotification(notification.title, notification.body, notification.data || {});
+            console.log('✅ Delivered:', notification.title);
+        } else {
+            // Fallback to alert
+            alert(`${notification.title}\n${notification.body}`);
+        }
+        
+        // Mark as delivered
+        await clubManager.db.supabase
+            .from('push_notifications')
+            .update({ 
+                delivered: true, 
+                read_at: new Date().toISOString(),
+                delivered_on_device: navigator.userAgent
+            })
+            .eq('id', notification.id);
+        
+        await new Promise(r => setTimeout(r, 1000));
+    }
 }
+
+// Auto-sync on page load and every 30 seconds
+setInterval(() => {
+    syncPendingNotifications();
+}, 30000);
+
+// Also sync when page becomes visible again
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        console.log('📱 Page visible - syncing notifications');
+        syncPendingNotifications();
+    }
+});
+}   
  
         
      
@@ -11020,4 +10993,4 @@ sendPushNotification('🎫 Your wallet is crying', randomVoucherMsg);
 }
     </script>
 </body>
-</html>   
+</html>
