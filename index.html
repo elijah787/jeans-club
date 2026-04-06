@@ -8535,72 +8535,115 @@ async subscribe() {
     return outputArray;
 }
 }
-// Add this function - it will work with one click
 function enableNotificationsSimple() {
     console.log('🔔 Enabling notifications...');
     
-    // Request permission immediately
+    // Check if we're on mobile
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+        // Show a modal/popup that explains what will happen
+        showMobileNotificationGuide();
+        return;
+    }
+    
+    // Desktop: request directly
+    requestNotificationPermissionDirect();
+}
+
+function requestNotificationPermissionDirect() {
     Notification.requestPermission().then(permission => {
-        console.log('Permission result:', permission);
-        
         if (permission === 'granted') {
-            // Get the service worker
-            navigator.serviceWorker.ready.then(registration => {
-                console.log('Service worker ready:', registration);
-                
-                // VAPID public key
-                const VAPID_PUBLIC_KEY = 'BCMfJoj4xAtWeOJS4PPdu1K5YtH1qs_Q-QbZT_DMPSmxyqtagJvBW77cOGXKE7_OaTneeor7fOUt6z_lWljy68U';
-                
-                // Convert VAPID key
-                function urlBase64ToUint8Array(base64String) {
-                    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-                    const rawData = window.atob(base64);
-                    const outputArray = new Uint8Array(rawData.length);
-                    for (let i = 0; i < rawData.length; ++i) {
-                        outputArray[i] = rawData.charCodeAt(i);
-                    }
-                    return outputArray;
-                }
-                
-                // Subscribe to push notifications
-                registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-                }).then(subscription => {
-                    console.log('✅ Subscribed successfully!', subscription);
-                    localStorage.setItem('pushEnabled', 'true');
-                    
-                    // Update button
-                    const btn = document.getElementById('notifyToggleBtn');
-                    if (btn) {
-                        btn.textContent = '🔕 Notifications On';
-                        btn.style.background = '#28a745';
-                    }
-                    
-                    showToast('✅ Notifications enabled!', 'success');
-                    
-                    // Send a test notification
-                    setTimeout(() => {
-                        if (typeof sendPushNotification === 'function') {
-                            sendPushNotification('🎉 Success!', 'You will now receive notifications even when browser is closed!');
-                        }
-                    }, 1000);
-                    
-                }).catch(error => {
-                    console.error('Subscription error:', error);
-                    showToast('Failed to subscribe: ' + error.message, 'error');
-                });
-            });
+            subscribeToPushNotifications();
         } else if (permission === 'denied') {
             showToast('Notifications blocked. Please check your browser settings.', 'error');
         } else {
             showToast('Please click "Allow" to receive notifications', 'info');
         }
-    }).catch(error => {
-        console.error('Permission error:', error);
-        showToast('Error requesting notification permission', 'error');
     });
+}
+
+function subscribeToPushNotifications() {
+    navigator.serviceWorker.ready.then(registration => {
+        const VAPID_PUBLIC_KEY = 'BCMfJoj4xAtWeOJS4PPdu1K5YtH1qs_Q-QbZT_DMPSmxyqtagJvBW77cOGXKE7_OaTneeor7fOUt6z_lWljy68U';
+        
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+        
+        registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        }).then(subscription => {
+            localStorage.setItem('pushEnabled', 'true');
+            const btn = document.getElementById('notifyToggleBtn');
+            if (btn) {
+                btn.textContent = '🔕 Notifications On';
+                btn.style.background = '#28a745';
+            }
+            showToast('✅ Notifications enabled!', 'success');
+        }).catch(error => {
+            console.error('Subscription error:', error);
+            showToast('Failed to enable notifications', 'error');
+        });
+    });
+}
+
+function showMobileNotificationGuide() {
+    // Create a modal dialog for mobile users
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 20000;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 25px; border-radius: 15px; max-width: 90%; text-align: center;">
+            <h3 style="margin-top: 0; color: #333;">🔔 Enable Notifications</h3>
+            <p style="color: #666; line-height: 1.5;">To receive notifications on your phone:</p>
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 10px; margin: 15px 0; text-align: left;">
+                <p><strong>📱 For iPhone/iPad:</strong></p>
+                <ol style="margin: 5px 0 15px 20px; color: #555;">
+                    <li>Tap the <strong>"AA"</strong> icon in address bar</li>
+                    <li>Tap <strong>"Website Settings"</strong></li>
+                    <li>Set <strong>"Notifications"</strong> to <strong>Allow</strong></li>
+                    <li>Refresh this page</li>
+                </ol>
+                <p><strong>🤖 For Android:</strong></p>
+                <ol style="margin: 5px 0 0 20px; color: #555;">
+                    <li>Tap the <strong>lock icon</strong> in address bar</li>
+                    <li>Tap <strong>"Permissions"</strong></li>
+                    <li>Set <strong>"Notifications"</strong> to <strong>Allow</strong></li>
+                    <li>Refresh this page</li>
+                </ol>
+            </div>
+            <button onclick="this.parentElement.parentElement.remove(); requestNotificationPermissionDirect();" 
+                    style="background: #667eea; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-size: 16px; margin: 10px;">
+                I've Allowed Notifications
+            </button>
+            <button onclick="this.parentElement.parentElement.remove()" 
+                    style="background: #ccc; color: #333; border: none; padding: 12px 25px; border-radius: 8px; font-size: 16px; margin: 10px;">
+                Cancel
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
 }
 // Global push manager
 let pushManager = null;
@@ -10108,7 +10151,19 @@ sendPushNotification('🎫 Your wallet is crying', randomVoucherMsg);
                 
                 console.log('=== PAGE LOAD COMPLETE ===');
             }, 1000);
-            
+        // ✅ PUT THE MOBILE NOTIFICATION CHECK HERE (inside window.onload, at the bottom)
+    setTimeout(() => {
+        // Check if mobile and notification permission is already granted
+        if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+            // Check if already granted
+            if (Notification.permission === 'granted') {
+                subscribeToPushNotifications();
+            } else if (Notification.permission === 'default') {
+                // Don't auto-request on mobile - wait for button click
+                console.log('Mobile detected - waiting for user to tap enable button');
+            }
+        }
+    }, 2000); // Wait 2 seconds for everything to load
             const searchModal = document.getElementById('searchModal');
             if (searchModal) {
                 searchModal.addEventListener('click', function(e) {
