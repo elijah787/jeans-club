@@ -2614,7 +2614,59 @@
     await OneSignal.init({
       appId: "40cfbe3f-800c-4105-b3aa-ca32676332b0",
       allowLocalhostAsSecureOrigin: true,
+      promptOptions: {
+        autoPrompt: true,
+        customlink: {
+          enabled: true,
+          text: 'Enable Notifications'
+        }
+      },
+      welcomeNotification: {
+        title: "👖 JEANS CLUB",
+        message: "Thanks for subscribing! You'll get denim deals and dark humor!",
+        url: "https://elijah787.github.io/"
+      }
     });
+    
+    // ✅ AUTO-SYNC LISTENER - This saves push_enabled = true to Supabase
+    OneSignal.User.PushSubscription.addEventListener("change", async (subscription) => {
+      if (subscription && subscription.optedIn && clubManager?.currentMember) {
+        console.log('✅ User subscribed via popup - auto-saving to Supabase');
+        
+        // Auto-save push_enabled = true to Supabase
+        try {
+          await clubManager.db.supabase
+            .from('members')
+            .update({ push_enabled: true })
+            .eq('jc_id', clubManager.currentMember.jcId);
+          
+          // Set external ID and tags
+          await OneSignal.login(clubManager.currentMember.jcId);
+          await OneSignal.User.addTags({
+            tier: clubManager.currentMember.tier,
+            points: clubManager.currentMember.points.toString(),
+            name: clubManager.currentMember.name
+          });
+          
+          console.log('✅ Auto-save complete for', clubManager.currentMember.jcId);
+        } catch (err) {
+          console.error('❌ Auto-save error:', err);
+        }
+      } else if (subscription && !subscription.optedIn) {
+        if (clubManager?.currentMember) {
+          try {
+            await clubManager.db.supabase
+              .from('members')
+              .update({ push_enabled: false })
+              .eq('jc_id', clubManager.currentMember.jcId);
+            console.log('❌ User unsubscribed - updated Supabase');
+          } catch (err) {
+            console.error('❌ Unsubscribe update error:', err);
+          }
+        }
+      }
+    });
+    
   });
 </script>
 </head>
